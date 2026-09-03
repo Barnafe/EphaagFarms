@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-soil-50 text-ink-900 font-body;
+}
+
+h1, h2, h3 {
+  @apply font-display;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-card px-4 py-2 text-sm font-medium transition;
+}
+
+.btn-primary {
+  @apply btn bg-clay-600 text-white hover:bg-clay-800;
+}
+
+.btn-outline {
+  @apply btn border border-soil-200 text-ink-800 hover:border-clay-600 hover:text-clay-600;
+}
+
+.card {
+  @apply rounded-card border border-soil-200 bg-white p-5;
+}
+
+.field label {
+  @apply mb-1 block text-sm font-medium text-ink-800;
+}
+
+.field input,
+.field select,
+.field textarea {
+  @apply w-full rounded-card border border-soil-200 px-3 py-2 text-sm focus:border-canopy-400 focus:outline-none;
+}
+
+/* -------------------------------------------------------------------
+   Dashboard theme (logged-in area only, applied via .dash-scope in
+   ProtectedRoute.jsx). Company brand: only green + deep red backgrounds
+   in the dashboard — no white/cream. Public marketing pages (Home,
+   About, etc.) are NOT wrapped in .dash-scope and keep their own look.
+
+   Form inputs are a deliberate exception: they stay light so typed text
+   stays legible (a red-on-red input is unusable) — flagged, not an
+   oversight.
+   ------------------------------------------------------------------- */
+.dash-scope {
+  @apply block min-h-[70vh] bg-canopy-900 px-0 py-8;
+}
+
+.dash-scope .card,
+.dash-scope .dash-card {
+  @apply border-clay-900 bg-clay-800;
+}
+
+.dash-scope [class*="text-ink-900"]:not([class*="bg-soil-"]):not([class*="bg-harvest-"]):not([class*="bg-canopy-"]):not([class*="bg-red-"]) {
+  color: #f6f4ef;
+}
+
+.dash-scope [class*="text-ink-800"]:not([class*="bg-soil-"]):not([class*="bg-harvest-"]):not([class*="bg-canopy-"]):not([class*="bg-red-"]) {
+  color: #f6f4ef;
+}
+
+.dash-scope [class*="text-ink-600"]:not([class*="bg-soil-"]):not([class*="bg-harvest-"]):not([class*="bg-canopy-"]):not([class*="bg-red-"]) {
+  color: #e6dccd;
+}
+
+.dash-scope [class*="text-canopy-800"]:not([class*="bg-canopy-"]),
+.dash-scope [class*="text-canopy-600"]:not([class*="bg-canopy-"]) {
+  color: #f0b93f;
+}
+
+.dash-scope .card [class*="border-soil-200"],
+.dash-scope .dash-card [class*="border-soil-200"] {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.dash-scope .btn-outline {
+  @apply border-white/40 text-white hover:border-white hover:text-white;
+}
+
+.dash-scope .btn-primary {
+  @apply bg-canopy-600 hover:bg-canopy-800;
+}
+
+.dash-scope .field input,
+.dash-scope .field select,
+.dash-scope .field textarea {
+  @apply border-soil-200 bg-soil-50 text-ink-900;
+}
+
+.dash-scope .field label {
+  color: #f6f4ef;
+}

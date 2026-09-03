@@ -1,0 +1,53 @@
+services:
+  - type: web
+    name: ephaag-farms
+    runtime: node
+    plan: free
+    # One service serves both the API (/api/*) and the built frontend
+    # (everything else) — see backend/src/server.js. No second static
+    # site needed, which keeps this on Render's free tier as one dyno.
+    buildCommand: npm install && npm run build
+    # start also runs the (idempotent, safe-to-repeat) migration first,
+    # so schema changes apply automatically on every deploy with nothing
+    # extra to remember to run by hand.
+    startCommand: npm run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_SSL
+        value: "true"
+      # Paste the Neon connection string here (Neon dashboard → your
+      # project → Connection Details → "Pooled connection" is fine).
+      # Keep the ?sslmode=require Neon includes by default.
+      - key: DATABASE_URL
+        sync: false
+      # Render can generate this for you the first time you deploy —
+      # leave it, don't reuse the same secret across environments.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      # After your first deploy, Render gives you a URL like
+      # https://ephaag-farms.onrender.com — paste that back in here
+      # and redeploy. Used only for the password-reset email link;
+      # the app itself is same-origin so this isn't needed for CORS.
+      - key: FRONTEND_ORIGIN
+        sync: false
+      # Required to register a new Admin account from the public
+      # Register page. Set this to something private before sharing
+      # the live URL with anyone.
+      - key: ADMIN_SETUP_CODE
+        sync: false
+      # Optional — without these, emails are logged, not sent (fine
+      # for now while you're just previewing internally).
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: FROM_EMAIL
+        sync: false

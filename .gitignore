@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/dist/
+
+# Env files — never commit real secrets, only .env.example
+.env
+.env.local
+*.env
+
+# Uploaded user content — never commit; on Render's free tier this is
+# ephemeral anyway (wiped on every redeploy/restart), see DEPLOYMENT.md
+backend/uploads/agreements/*
+backend/uploads/photos/*
+backend/uploads/request-attachments/*
+backend/uploads/sheets/*
+!backend/uploads/**/.gitkeep
+
+# Editor/OS cruft
+.DS_Store
+*.log

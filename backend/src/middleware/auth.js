@@ -1,0 +1,26 @@
+import jwt from "jsonwebtoken";
+
+export function requireAuth(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Missing or invalid authorization header" });
+  }
+
+  const token = header.slice(7);
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ error: "Invalid or expired token" });
+  }
+}
+
+// Usage: requireRole("admin") or requireRole("farmer", "buyer")
+export function requireRole(...allowed) {
+  return (req, res, next) => {
+    if (!allowed.includes(req.user.role_type)) {
+      return res.status(403).json({ error: "Not allowed for this role" });
+    }
+    next();
+  };
+}
