@@ -6,7 +6,7 @@ services:
     # One service serves both the API (/api/*) and the built frontend
     # (everything else) — see backend/src/server.js. No second static
     # site needed, which keeps this on Render's free tier as one dyno.
-    buildCommand: npm install --include=dev && npm run build
+    buildCommand: npm install && npm run build
     # start also runs the (idempotent, safe-to-repeat) migration first,
     # so schema changes apply automatically on every deploy with nothing
     # extra to remember to run by hand.

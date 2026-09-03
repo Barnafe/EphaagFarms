@@ -48,6 +48,14 @@ h1, h2, h3 {
    ------------------------------------------------------------------- */
 .dash-scope {
   @apply block min-h-[70vh] bg-canopy-900 px-0 py-8;
+  /* Safety net: any element in here with no explicit text-color utility
+     (bare <p>/<span>/<td>/<label> etc.) would otherwise inherit body's
+     dark text-ink-900 and become unreadable on these dark green/red
+     backgrounds. This sets a light default that inheritance picks up;
+     it never overrides an element that already carries its own explicit
+     text-color class (those win via normal CSS specificity), including
+     the light-scoped form inputs below. */
+  color: #f6f4ef;
 }
 
 .dash-scope .card,
@@ -64,6 +72,22 @@ h1, h2, h3 {
 }
 
 .dash-scope [class*="text-ink-600"]:not([class*="bg-soil-"]):not([class*="bg-harvest-"]):not([class*="bg-canopy-"]):not([class*="bg-red-"]) {
+  color: #e6dccd;
+}
+
+/* Same idea as the text-ink-9/8/600 rules above, but for the generic
+   Tailwind gray scale — a handful of modules (e.g. the buyer room) use
+   text-gray-600/700/800/900 for body copy, which is just as unreadable
+   as black on these dark backgrounds. Mirrored here rather than fixed
+   at each call site, matching the existing pattern. */
+.dash-scope [class*="text-gray-900"]:not([class*="bg-soil-"]):not([class*="bg-harvest-"]):not([class*="bg-canopy-"]):not([class*="bg-red-"]),
+.dash-scope [class*="text-gray-800"]:not([class*="bg-soil-"]):not([class*="bg-harvest-"]):not([class*="bg-canopy-"]):not([class*="bg-red-"]),
+.dash-scope [class*="text-gray-700"]:not([class*="bg-soil-"]):not([class*="bg-harvest-"]):not([class*="bg-canopy-"]):not([class*="bg-red-"]) {
+  color: #f6f4ef;
+}
+
+.dash-scope [class*="text-gray-600"]:not([class*="bg-soil-"]):not([class*="bg-harvest-"]):not([class*="bg-canopy-"]):not([class*="bg-red-"]),
+.dash-scope [class*="text-gray-500"]:not([class*="bg-soil-"]):not([class*="bg-harvest-"]):not([class*="bg-canopy-"]):not([class*="bg-red-"]) {
   color: #e6dccd;
 }
 

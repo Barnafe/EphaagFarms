@@ -816,3 +816,57 @@ CREATE TABLE IF NOT EXISTS maintenance_assets (
   status TEXT NOT NULL DEFAULT 'good' CHECK (status IN ('good','due','in_repair')),
   last_serviced DATE
 );
+
+-- 2026-09-02: farmer shares are no longer a fixed ₦25,000 product — a
+-- farmer can buy a share for any amount from ₦2,500 upward (min enforced
+-- in farmerSharesController.js, not here, since it can change without a
+-- migration). Drop the old fixed default so it can't silently reapply on
+-- a column that's meant to vary per purchase now.
+ALTER TABLE farmer_shares ALTER COLUMN amount DROP DEFAULT;
+
+-- 2026-09-02: the tiered rate schedule (10/30/35/40/45%) now stays flat
+-- at 45% for every year after year 5 if a farmer leaves their share in
+-- rather than withdrawing capital at the 5-year mark — so a share can
+-- keep earning withdrawable yearly interest indefinitely past year 5.
+-- The old CHECK capped year_number at 5, which would reject those later
+-- withdrawals; widen it to any year 1+.
+ALTER TABLE share_interest_withdrawals DROP CONSTRAINT IF EXISTS share_interest_withdrawals_year_number_check;
+ALTER TABLE share_interest_withdrawals ADD CONSTRAINT share_interest_withdrawals_year_number_check
+  CHECK (year_number >= 1);
+
+-- RTC (Module 10) RENAMED 2026-09-02 to "Seminal" and narrowed to
+-- training courses only, per explicit instruction: "this isn't gonna
+-- contain consultancy and research anymore." research /
+-- consultancy_offerings / consultancy_requests are kept (never dropped,
+-- same non-destructive convention as the rest of this file) but are now
+-- unused dead tables — rtcController.js no longer routes to them.
+-- `seminars`/`seminar_attendance` are NOT part of that retirement:
+-- they're a separate feature (physical seminar attendance-marking for
+-- farmer leadership rank indices, see farmerController.js) that happens
+-- to share this section of the file — left completely untouched.
+
+-- Seminal content (2026-09-02) — this table used to be the plain,
+-- always-free "Courses" list (title+description only). Now it's the
+-- department's one and only content type: the company uploads a training
+-- course with optional materials + an online hosting link, an admin
+-- approves it, and only then do farmers see it and can attend/complete it.
+-- Seminal additive columns. `approved` gates visibility to farmers — a
+-- course is a draft the moment it's uploaded and only appears in
+-- myCourses() once an admin approves it. `materials_url` is an optional
+-- uploaded file (slides, PDF notes, etc — see uploadCourseMaterial in
+-- middleware/upload.js), `online_link` is the optional hosting URL
+-- farmers use to attend the course live, and `scheduled_at` is an
+-- optional date/time for that live session; a course with no
+-- `scheduled_at`/`online_link` is just self-paced materials+completion
+-- tracking, same as the old plain-course model. Defaulting `approved` to
+-- FALSE means every pre-existing course (which used to auto-publish with
+-- no approval step at all) goes back to draft/unapproved on migration —
+-- intentional, not a bug: the new business rule is that nothing reaches
+-- farmers without an explicit approval, including old rows.
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES users(id);
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id);
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS materials_url TEXT;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS online_link TEXT;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ;

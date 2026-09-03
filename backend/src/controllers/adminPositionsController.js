@@ -8,13 +8,19 @@ import { pool } from "../db/pool.js";
 //      Coordinator -> State Coordinator -> Federal), stored on
 //      farmer_profiles.rank.
 //   2. Admin department heads (HOD of Production/Procurement/Transport/
-//      Store/Finance/Maintenance/TRC), stored on users.department_head_of.
+//      Store/Finance/Maintenance/Seminal), stored on users.department_head_of.
+// 2026-09-02: "TRC" (Training, Research & Consultancy) renamed to
+// "Seminal" and narrowed to training-courses-only — see rtcController.js.
+// Any pre-existing user row with department_head_of = 'TRC' (old name)
+// keeps that exact string until reassigned; there's no DB constraint on
+// this column's values, so nothing breaks, but it's now a stale label
+// worth re-appointing via this same tool.
 // Every change is logged to coordinator_appointments (existing table,
 // previously unused) as a durable, auditable history — never just an
 // in-place update with no trace.
 
 const FARMER_RANKS = ["Member", "Unit Leader", "Ward Leader", "LGA Coordinator", "State Coordinator", "Federal"];
-const DEPARTMENTS = ["Production", "Procurement", "Transport", "Store", "Finance", "Maintenance", "TRC"];
+const DEPARTMENTS = ["Production", "Procurement", "Transport", "Store", "Finance", "Maintenance", "Seminal"];
 
 export async function searchFarmers(req, res) {
   const { q, state, lga } = req.query;

@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../api/client.js";
 
-const SHARE_PRICE = 25000;
-const ANNUAL_ROI_PCT = 10;
+const MIN_SHARE_AMOUNT = 2500;
 const LOCK_YEARS = 5;
 
 const STATUS_TONE = {
@@ -15,6 +14,7 @@ export default function FarmShareCard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [amount, setAmount] = useState("");
 
   async function load() {
     setLoading(true);
@@ -33,10 +33,17 @@ export default function FarmShareCard() {
     load();
   }, []);
 
-  async function handleBuy() {
+  async function handleBuy(e) {
+    e.preventDefault();
+    const numAmount = Number(amount);
+    if (!numAmount || numAmount < MIN_SHARE_AMOUNT) {
+      setError(`Enter an amount of at least ₦${MIN_SHARE_AMOUNT.toLocaleString()}`);
+      return;
+    }
     setSubmitting(true);
     try {
-      await apiFetch("/farmers/me/shares", { method: "POST" });
+      await apiFetch("/farmers/me/shares", { method: "POST", body: { amount: numAmount } });
+      setAmount("");
       await load();
     } catch (err) {
       setError(err.message);
@@ -70,15 +77,31 @@ export default function FarmShareCard() {
     <div className="card">
       <p className="text-sm text-ink-600">Buy Share</p>
       <p className="mt-1 text-xs text-ink-600">
-        One share is ₦{SHARE_PRICE.toLocaleString()}. Your capital is locked for {LOCK_YEARS} years and can't
-        be withdrawn before then — but the interest ({ANNUAL_ROI_PCT}% of your capital) becomes available to
-        withdraw once every year, starting after your first full year. Interest is always calculated on your
-        original capital only — it never compounds, whether or not you withdraw it each year.
+        Because you're one of us, farmer shares start from just ₦{MIN_SHARE_AMOUNT.toLocaleString()} — buy as
+        much as you want above that. Your capital is locked for {LOCK_YEARS} years and can't be withdrawn
+        before then, but the interest becomes available to withdraw once every year, starting after your
+        first full year. The rate climbs each year you stay in — 10% in year 1, 30% in year 2, 35% in year 3,
+        40% in year 4, and 45% in year 5 — and if you leave your share in past year 5, it keeps earning at a
+        flat 45% every year after. Interest is always calculated on your original capital only — it never
+        compounds, whether or not you withdraw it each year.
       </p>
 
-      <button className="btn-primary mt-4" type="button" onClick={handleBuy} disabled={submitting}>
-        {submitting ? "Buying…" : `Buy a share — ₦${SHARE_PRICE.toLocaleString()}`}
-      </button>
+      <form onSubmit={handleBuy} className="field mt-4 flex items-end gap-2">
+        <div className="flex-1">
+          <label className="text-xs text-ink-600">Amount (₦{MIN_SHARE_AMOUNT.toLocaleString()} min)</label>
+          <input
+            type="number"
+            min={MIN_SHARE_AMOUNT}
+            step="1"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder={`${MIN_SHARE_AMOUNT}`}
+          />
+        </div>
+        <button className="btn-primary" type="submit" disabled={submitting}>
+          {submitting ? "Buying…" : "Buy share"}
+        </button>
+      </form>
 
       {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
 
@@ -88,7 +111,7 @@ export default function FarmShareCard() {
             <div key={s.id} className="rounded-card border border-soil-200 p-3 text-sm">
               <div className="flex items-center justify-between">
                 <p className="text-ink-900">
-                  ₦{s.amount.toLocaleString()} · {s.annualRoiPct}%/yr on capital
+                  ₦{s.amount.toLocaleString()} · currently {s.currentYearPct}%/yr on capital
                 </p>
                 <span className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_TONE[s.status] || STATUS_TONE.active}`}>
                   {s.status === "capital_withdrawn" ? "Capital withdrawn" : "Active"}
@@ -102,7 +125,7 @@ export default function FarmShareCard() {
               <div className="mt-2 grid grid-cols-3 gap-1 sm:grid-cols-5">
                 {s.interestYears.map((y) => (
                   <div key={y.year} className="rounded-card bg-soil-50 p-1.5 text-center">
-                    <p className="text-[10px] text-ink-600">Yr {y.year}</p>
+                    <p className="text-[10px] text-ink-600">Yr {y.year} · {y.pct}%</p>
                     <p className="text-xs font-medium text-canopy-800">₦{y.amount.toLocaleString()}</p>
                     {y.withdrawn ? (
                       <p className="text-[10px] text-ink-600">Withdrawn</p>

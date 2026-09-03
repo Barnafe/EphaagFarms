@@ -1,35 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { apiFetch } from "../../api/client.js";
-
-const TYPE_LABELS = {
-  course: "Course",
-  seminar: "Seminar",
-  research: "Research",
-  consultancy: "Consultancy",
-};
+import { apiFetch, apiDownload } from "../../api/client.js";
 
 export default function CoursesPanel() {
   const [courses, setCourses] = useState([]);
-  const [seminars, setSeminars] = useState([]);
-  const [research, setResearch] = useState([]);
-  const [consultancy, setConsultancy] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [applyMessage, setApplyMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
     try {
-      const [{ courses: c }, { seminars: s }, { research: r }, { offerings: o }] = await Promise.all([
-        apiFetch("/rtc/courses"),
-        apiFetch("/rtc/seminars"),
-        apiFetch("/rtc/research"),
-        apiFetch("/rtc/consultancy"),
-      ]);
+      const { courses: c } = await apiFetch("/rtc/courses");
       setCourses(c);
-      setSeminars(s);
-      setResearch(r);
-      setConsultancy(o);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -45,10 +26,9 @@ export default function CoursesPanel() {
   // Re-sync the open detail card with fresh data after any action.
   useEffect(() => {
     if (!selected) return;
-    const pool = { course: courses, seminar: seminars, research, consultancy }[selected.type];
-    const fresh = pool.find((x) => x.id === selected.id);
-    if (fresh) setSelected({ type: selected.type, ...fresh });
-  }, [courses, seminars, research, consultancy]); // eslint-disable-line react-hooks/exhaustive-deps
+    const fresh = courses.find((c) => c.id === selected.id);
+    if (fresh) setSelected(fresh);
+  }, [courses]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleComplete(id) {
     try {
@@ -59,32 +39,21 @@ export default function CoursesPanel() {
     }
   }
 
-  async function handleApply(offeringId) {
+  async function handleDownload(id, title) {
     try {
-      await apiFetch(`/rtc/consultancy/${offeringId}/apply`, {
-        method: "POST",
-        body: { message: applyMessage },
-      });
-      setApplyMessage("");
-      await load();
+      await apiDownload(`/rtc/courses/${id}/material`, title);
     } catch (err) {
       setError(err.message);
     }
   }
 
-  const cards = [
-    ...courses.map((c) => ({ type: "course", ...c })),
-    ...seminars.map((s) => ({ type: "seminar", ...s })),
-    ...research.map((r) => ({ type: "research", ...r })),
-    ...consultancy.map((c) => ({ type: "consultancy", ...c })),
-  ];
-
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-medium text-white">Training, Research & Consultancy</h2>
+        <h2 className="text-lg font-medium text-white">Seminal</h2>
         <p className="mt-1 text-sm text-canopy-100">
-          Always free — courses, seminars, research, and one-on-one consultancy from EPHAAG Farms.
+          Training courses from EPHAAG Farms — always free. View materials, attend hosted online sessions,
+          and mark courses complete.
         </p>
       </div>
 
@@ -101,82 +70,66 @@ export default function CoursesPanel() {
           <button className="text-sm text-canopy-800" type="button" onClick={() => setSelected(null)}>
             ← Back
           </button>
-          <p className="mt-3 text-xs uppercase tracking-wide text-canopy-600">{TYPE_LABELS[selected.type]}</p>
+          <p className="mt-3 text-xs uppercase tracking-wide text-canopy-600">Course</p>
           <p className="mt-1 text-lg font-medium text-ink-900">{selected.title}</p>
+          {selected.description && <p className="mt-2 text-sm text-ink-600">{selected.description}</p>}
 
-          {selected.type === "course" && (
-            <>
-              {selected.description && <p className="mt-2 text-sm text-ink-600">{selected.description}</p>}
-              <div className="mt-4">
-                {selected.completed ? (
-                  <span className="rounded-full bg-canopy-50 px-3 py-1 text-xs font-medium text-canopy-800">
-                    Completed
-                  </span>
-                ) : (
-                  <button className="btn-primary" type="button" onClick={() => handleComplete(selected.id)}>
-                    Mark complete
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-
-          {selected.type === "seminar" && (
+          {selected.scheduledAt && (
             <p className="mt-2 text-sm text-ink-600">
-              {selected.event_date} · {selected.location}
+              Scheduled for {new Date(selected.scheduledAt).toLocaleString()}
             </p>
           )}
 
-          {selected.type === "research" && selected.summary && (
-            <p className="mt-2 text-sm text-ink-600">{selected.summary}</p>
-          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {selected.onlineLink && (
+              <a
+                className="btn-primary inline-block"
+                href={selected.onlineLink}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Attend online
+              </a>
+            )}
+            {selected.hasMaterials && (
+              <button
+                type="button"
+                className="rounded-full border border-canopy-400 px-3 py-1.5 text-xs font-medium text-canopy-800"
+                onClick={() => handleDownload(selected.id, selected.title)}
+              >
+                Download materials
+              </button>
+            )}
+          </div>
 
-          {selected.type === "consultancy" && (
-            <>
-              {selected.description && <p className="mt-2 text-sm text-ink-600">{selected.description}</p>}
-              <div className="mt-4">
-                {selected.requestStatus ? (
-                  <span className="inline-block rounded-full bg-canopy-50 px-3 py-1 text-xs font-medium text-canopy-800">
-                    Application {selected.requestStatus}
-                  </span>
-                ) : (
-                  <div className="space-y-2">
-                    <textarea
-                      value={applyMessage}
-                      onChange={(e) => setApplyMessage(e.target.value)}
-                      rows={2}
-                      placeholder="What would you like to discuss? (optional)"
-                    />
-                    <button className="btn-primary" type="button" onClick={() => handleApply(selected.id)}>
-                      Submit application
-                    </button>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+          <div className="mt-4">
+            {selected.completed ? (
+              <span className="rounded-full bg-canopy-50 px-3 py-1 text-xs font-medium text-canopy-800">
+                Completed
+              </span>
+            ) : (
+              <button className="btn-primary" type="button" onClick={() => handleComplete(selected.id)}>
+                Mark complete
+              </button>
+            )}
+          </div>
         </div>
-      ) : cards.length === 0 ? (
+      ) : courses.length === 0 ? (
         <p className="text-sm text-canopy-100">Nothing published yet.</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {cards.map((item) => (
+          {courses.map((c) => (
             <button
-              key={`${item.type}-${item.id}`}
+              key={c.id}
               type="button"
-              onClick={() => setSelected(item)}
+              onClick={() => setSelected(c)}
               className="card block text-left hover:border-canopy-400"
             >
-              <p className="text-xs uppercase tracking-wide text-canopy-600">{TYPE_LABELS[item.type]}</p>
-              <p className="mt-1 font-medium text-ink-900">{item.title}</p>
-              {item.type === "course" && item.completed && (
+              <p className="text-xs uppercase tracking-wide text-canopy-600">Course</p>
+              <p className="mt-1 font-medium text-ink-900">{c.title}</p>
+              {c.completed && (
                 <span className="mt-2 inline-block rounded-full bg-canopy-50 px-3 py-1 text-xs font-medium text-canopy-800">
                   Completed
-                </span>
-              )}
-              {item.type === "consultancy" && item.requestStatus && (
-                <span className="mt-2 inline-block rounded-full bg-canopy-50 px-3 py-1 text-xs font-medium text-canopy-800">
-                  Application {item.requestStatus}
                 </span>
               )}
             </button>

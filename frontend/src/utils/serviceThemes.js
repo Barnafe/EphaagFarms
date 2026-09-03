@@ -1,5 +1,5 @@
 // Each public "service room" (Investment, Farm Production, Produce Sourcing,
-// Farmer Financing, Logistics & Tracking, TRC) gets its own accent pairing
+// Farmer Financing, Logistics & Tracking, Seminal) gets its own accent pairing
 // from the existing brand palette — same six colors throughout the site,
 // just recombined so each department reads as its own place.
 
@@ -44,7 +44,7 @@ export const themes = {
     badge: "bg-clay-600",
     badgeText: "text-white",
   },
-  trc: {
+  seminal: {
     heroFrom: "#1c4720", // canopy-800
     heroTo: "#a97918", // harvest-600
     rowColor: "rgba(255, 255, 255, 0.16)",

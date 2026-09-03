@@ -1,76 +1,70 @@
+import path from "node:path";
 import { pool } from "../db/pool.js";
+import { MATERIALS_DIR } from "../middleware/upload.js";
 
 // ---------------------------------------------------------------------
-// Admin (Training, Research & Consultancy department) — publish content.
-// Kept intentionally simple to match the existing admin UI: creating an
-// item publishes it immediately, no separate draft/publish toggle.
+// "Seminal" (2026-09-02) — was "RTC" (Research, Training & Consultancy).
+// Renamed and narrowed to training courses only: the company uploads a
+// course (optionally with materials + an online hosting link + a
+// scheduled date), an admin approves it, and only then does it appear to
+// farmers, who can view materials, attend online, and mark it complete.
+// Research and Consultancy are retired — their DB tables and any old
+// requests still exist (never dropped) but nothing here routes to them
+// anymore.
 // ---------------------------------------------------------------------
+
+function mapCourseForAdmin(c) {
+  return {
+    id: c.id,
+    title: c.title,
+    description: c.description,
+    approved: c.approved,
+    approvedAt: c.approved_at,
+    hasMaterials: !!c.materials_url,
+    onlineLink: c.online_link,
+    scheduledAt: c.scheduled_at,
+    createdAt: c.created_at,
+  };
+}
 
 export async function adminListCourses(req, res) {
   const { rows } = await pool.query(`SELECT * FROM courses ORDER BY created_at DESC`);
-  res.json({ courses: rows });
+  res.json({ courses: rows.map(mapCourseForAdmin) });
 }
 
 export async function adminCreateCourse(req, res) {
-  const { title, description } = req.body;
+  const { title, description, onlineLink, scheduledAt } = req.body;
   if (!title) return res.status(400).json({ error: "title is required" });
+
+  const materialsFilename = req.file ? req.file.filename : null;
+
   const { rows } = await pool.query(
-    `INSERT INTO courses (title, description) VALUES ($1, $2) RETURNING *`,
-    [title, description || null]
+    `INSERT INTO courses (title, description, created_by, materials_url, online_link, scheduled_at)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [title, description || null, req.user.id, materialsFilename, onlineLink || null, scheduledAt || null]
   );
-  res.status(201).json({ course: rows[0] });
+  res.status(201).json({ course: mapCourseForAdmin(rows[0]) });
 }
 
-export async function adminListSeminars(req, res) {
-  const { rows } = await pool.query(`SELECT * FROM seminars ORDER BY event_date DESC`);
-  res.json({ seminars: rows });
-}
-
-export async function adminCreateSeminar(req, res) {
-  const { title, eventDate, location } = req.body;
-  if (!title || !eventDate || !location) {
-    return res.status(400).json({ error: "title, eventDate, and location are required" });
-  }
+// A course is created as a draft (approved = FALSE) and stays invisible
+// to farmers until an admin explicitly approves it — this is the
+// "upload and approve" step the department is built around. Any admin
+// can approve, including the one who uploaded it (kept simple, same MVP
+// pattern as this department's other single-admin actions).
+export async function adminApproveCourse(req, res) {
+  const { id } = req.params;
   const { rows } = await pool.query(
-    `INSERT INTO seminars (title, event_date, location) VALUES ($1, $2, $3) RETURNING *`,
-    [title, eventDate, location]
+    `UPDATE courses SET approved = TRUE, approved_by = $1, approved_at = now()
+     WHERE id = $2 RETURNING *`,
+    [req.user.id, id]
   );
-  res.status(201).json({ seminar: rows[0] });
-}
-
-export async function adminListResearch(req, res) {
-  const { rows } = await pool.query(`SELECT * FROM research ORDER BY created_at DESC`);
-  res.json({ research: rows });
-}
-
-export async function adminCreateResearch(req, res) {
-  const { title, summary } = req.body;
-  if (!title) return res.status(400).json({ error: "title is required" });
-  const { rows } = await pool.query(
-    `INSERT INTO research (title, summary) VALUES ($1, $2) RETURNING *`,
-    [title, summary || null]
-  );
-  res.status(201).json({ research: rows[0] });
-}
-
-export async function adminListConsultancy(req, res) {
-  const { rows } = await pool.query(`SELECT * FROM consultancy_offerings ORDER BY created_at DESC`);
-  res.json({ offerings: rows });
-}
-
-export async function adminCreateConsultancy(req, res) {
-  const { title, description } = req.body;
-  if (!title) return res.status(400).json({ error: "title is required" });
-  const { rows } = await pool.query(
-    `INSERT INTO consultancy_offerings (title, description) VALUES ($1, $2) RETURNING *`,
-    [title, description || null]
-  );
-  res.status(201).json({ offering: rows[0] });
+  if (!rows[0]) return res.status(404).json({ error: "Course not found" });
+  res.json({ course: mapCourseForAdmin(rows[0]) });
 }
 
 // ---------------------------------------------------------------------
-// Member (farmer) — browse published content, mark courses complete.
-// Always free, per the business model — no payment/gating here.
+// Member (farmer) — browse approved courses, mark them complete. Always
+// free, per the business model — no payment/gating here.
 // ---------------------------------------------------------------------
 
 export async function myCourses(req, res) {
@@ -78,6 +72,7 @@ export async function myCourses(req, res) {
     `SELECT c.*, COALESCE(cp.completed, FALSE) AS completed
      FROM courses c
      LEFT JOIN course_progress cp ON cp.course_id = c.id AND cp.user_id = $1
+     WHERE c.approved = TRUE
      ORDER BY c.created_at DESC`,
     [req.user.id]
   );
@@ -86,6 +81,9 @@ export async function myCourses(req, res) {
       id: c.id,
       title: c.title,
       description: c.description,
+      hasMaterials: !!c.materials_url,
+      onlineLink: c.online_link,
+      scheduledAt: c.scheduled_at,
       completed: c.completed,
     })),
   });
@@ -94,7 +92,10 @@ export async function myCourses(req, res) {
 export async function completeCourse(req, res) {
   const { id } = req.params;
 
-  const { rows: courseRows } = await pool.query(`SELECT id FROM courses WHERE id = $1`, [id]);
+  const { rows: courseRows } = await pool.query(
+    `SELECT id FROM courses WHERE id = $1 AND approved = TRUE`,
+    [id]
+  );
   if (!courseRows[0]) return res.status(404).json({ error: "Course not found" });
 
   await pool.query(
@@ -105,15 +106,17 @@ export async function completeCourse(req, res) {
   );
 
   // Recompute the farmer's running course completion percentage —
-  // completed courses out of every currently-published course, same
+  // completed courses out of every currently-approved course, same
   // "ratio over available content" idea as attendance_pct is a ratio
   // over seminars actually held.
   await pool.query(
     `UPDATE farmer_profiles SET course_pct = (
-       CASE WHEN (SELECT COUNT(*) FROM courses) = 0 THEN 0
+       CASE WHEN (SELECT COUNT(*) FROM courses WHERE approved = TRUE) = 0 THEN 0
        ELSE ROUND(100.0 * (
-         SELECT COUNT(*) FROM course_progress WHERE user_id = $1 AND completed
-       ) / (SELECT COUNT(*) FROM courses), 2)
+         SELECT COUNT(*) FROM course_progress cp
+         JOIN courses c ON c.id = cp.course_id
+         WHERE cp.user_id = $1 AND cp.completed AND c.approved = TRUE
+       ) / (SELECT COUNT(*) FROM courses WHERE approved = TRUE), 2)
        END
      ) WHERE user_id = $1`,
     [req.user.id]
@@ -122,90 +125,17 @@ export async function completeCourse(req, res) {
   res.json({ completed: true });
 }
 
-export async function mySeminars(req, res) {
-  const { rows } = await pool.query(`SELECT * FROM seminars ORDER BY event_date DESC`);
-  res.json({ seminars: rows });
-}
-
-export async function myResearch(req, res) {
-  const { rows } = await pool.query(`SELECT * FROM research ORDER BY created_at DESC`);
-  res.json({ research: rows });
-}
-
-export async function myConsultancy(req, res) {
-  const { rows } = await pool.query(
-    `SELECT c.*, cr.status AS request_status
-     FROM consultancy_offerings c
-     LEFT JOIN consultancy_requests cr ON cr.offering_id = c.id AND cr.user_id = $1
-     ORDER BY c.created_at DESC`,
-    [req.user.id]
-  );
-  res.json({
-    offerings: rows.map((o) => ({
-      id: o.id,
-      title: o.title,
-      description: o.description,
-      requestStatus: o.request_status || null,
-    })),
-  });
-}
-
-// A farmer applying for a direct one-on-one consultation against a
-// published offering. One application per offering per farmer.
-export async function applyForConsultancy(req, res) {
+// Downloading a course's materials — open to any authenticated user
+// (admin or farmer), but a farmer can only reach an approved course's
+// materials; admins can preview a pending course's materials too, since
+// that's exactly what they need before approving it.
+export async function downloadMaterial(req, res) {
   const { id } = req.params;
-  const { message } = req.body;
-
-  const { rows: offeringRows } = await pool.query(
-    `SELECT id FROM consultancy_offerings WHERE id = $1`,
-    [id]
-  );
-  if (!offeringRows[0]) return res.status(404).json({ error: "Offering not found" });
-
-  const { rows: existing } = await pool.query(
-    `SELECT id FROM consultancy_requests WHERE offering_id = $1 AND user_id = $2`,
-    [id, req.user.id]
-  );
-  if (existing[0]) return res.status(400).json({ error: "You've already applied for this" });
-
-  const { rows } = await pool.query(
-    `INSERT INTO consultancy_requests (offering_id, user_id, message) VALUES ($1, $2, $3) RETURNING *`,
-    [id, req.user.id, message || null]
-  );
-  res.status(201).json({ request: rows[0] });
-}
-
-export async function adminListConsultancyRequests(req, res) {
-  const { rows } = await pool.query(
-    `SELECT cr.*, u.name AS farmer_name, u.phone AS farmer_phone, co.title AS offering_title
-     FROM consultancy_requests cr
-     JOIN users u ON u.id = cr.user_id
-     JOIN consultancy_offerings co ON co.id = cr.offering_id
-     ORDER BY cr.created_at DESC`
-  );
-  res.json({
-    requests: rows.map((r) => ({
-      id: r.id,
-      farmerName: r.farmer_name,
-      farmerPhone: r.farmer_phone,
-      offeringTitle: r.offering_title,
-      message: r.message,
-      status: r.status,
-      createdAt: r.created_at,
-    })),
-  });
-}
-
-export async function adminUpdateConsultancyRequest(req, res) {
-  const { id } = req.params;
-  const { status } = req.body;
-  if (!["pending", "scheduled", "completed"].includes(status)) {
-    return res.status(400).json({ error: "Invalid status" });
+  const { rows } = await pool.query(`SELECT materials_url, approved FROM courses WHERE id = $1`, [id]);
+  const course = rows[0];
+  if (!course || !course.materials_url) return res.status(404).json({ error: "No materials on this course" });
+  if (!course.approved && req.user.role_type !== "admin") {
+    return res.status(404).json({ error: "No materials on this course" });
   }
-  const { rows } = await pool.query(
-    `UPDATE consultancy_requests SET status = $1 WHERE id = $2 RETURNING *`,
-    [status, id]
-  );
-  if (!rows[0]) return res.status(404).json({ error: "Request not found" });
-  res.json({ request: rows[0] });
+  res.sendFile(path.join(MATERIALS_DIR, course.materials_url));
 }

@@ -13,7 +13,7 @@ const services = [
   { icon: "🌾", color: "bg-canopy-900", title: "Farm production", desc: "We also grow — company-owned farms across multiple crops, adding directly to what we supply.", to: "/services/farm-production" },
   { icon: "%", color: "bg-clay-600", title: "Farmer financing", desc: "Aid and interest loans to fund production, reviewed by farmers' own local leaders.", to: "/services/farmer-financing" },
   { icon: "→", color: "bg-harvest-400", title: "Logistics & tracking", desc: "From processing to delivery, every shipment carries a reference you can trace.", to: "/services/logistics" },
-  { icon: "+", color: "bg-clay-600", title: "Training, Research & Consultancy", desc: "Free seminars, courses, and consultancy to raise farming standards nationwide.", to: "/services/trc" },
+  { icon: "+", color: "bg-clay-600", title: "Seminal", desc: "Free training courses, with materials and sessions hosted online.", to: "/services/seminal" },
   { icon: "≈", color: "bg-canopy-600", title: "Investment plans", desc: "Monthly or bulk investment plans with transparent, year-by-year returns.", to: "/services/investment" },
 ];
 

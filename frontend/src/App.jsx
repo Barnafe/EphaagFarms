@@ -26,10 +26,7 @@ const FruitsCashCrops = lazy(() => import("./pages/public/services/farm-producti
 const ProduceSourcingRoom = lazy(() => import("./pages/public/services/produce-sourcing/ProduceSourcingRoom.jsx"));
 const FarmerFinancingRoom = lazy(() => import("./pages/public/services/farmer-financing/FarmerFinancingRoom.jsx"));
 const LogisticsRoom = lazy(() => import("./pages/public/services/logistics/LogisticsRoom.jsx"));
-const TRCRoom = lazy(() => import("./pages/public/services/trc/TRCRoom.jsx"));
-const Training = lazy(() => import("./pages/public/services/trc/Training.jsx"));
-const Research = lazy(() => import("./pages/public/services/trc/Research.jsx"));
-const Consultancy = lazy(() => import("./pages/public/services/trc/Consultancy.jsx"));
+const Seminal = lazy(() => import("./pages/public/services/seminal/Seminal.jsx"));
 const LoginAdmin = lazy(() => import("./pages/auth/LoginAdmin.jsx"));
 const LoginMember = lazy(() => import("./pages/auth/LoginMember.jsx"));
 const Register = lazy(() => import("./pages/auth/Register.jsx"));
@@ -51,10 +48,7 @@ const MaintenanceDepartment = lazy(() => import("./modules/admin-maintenance-dep
 const FinanceDepartment = lazy(() => import("./modules/admin-finance-department/FinanceDepartment.jsx"));
 const StoreDepartment = lazy(() => import("./modules/admin-store-department/StoreDepartment.jsx"));
 const ProductionDepartment = lazy(() => import("./modules/admin-production-department/ProductionDepartment.jsx"));
-const TRCHub = lazy(() => import("./modules/admin-trc-department/TRCHub.jsx"));
-const ResearchPage = lazy(() => import("./modules/admin-trc-department/ResearchPage.jsx"));
-const TrainingPage = lazy(() => import("./modules/admin-trc-department/TrainingPage.jsx"));
-const ConsultancyPage = lazy(() => import("./modules/admin-trc-department/ConsultancyPage.jsx"));
+const SeminalDepartment = lazy(() => import("./modules/admin-seminal-department/SeminalDepartment.jsx"));
 const AnalyticsDepartment = lazy(() => import("./modules/admin-analytics/AnalyticsDepartment.jsx"));
 const RequestsApp = lazy(() => import("./modules/admin-requests/RequestsApp.jsx"));
 const PositionsPage = lazy(() => import("./modules/admin-positions/PositionsPage.jsx"));
@@ -91,10 +85,7 @@ export default function App() {
         <Route path="/services/farmer-financing" element={<FarmerFinancingRoom />} />
         <Route path="/services/logistics" element={<LogisticsRoom />} />
 
-        <Route path="/services/trc" element={<TRCRoom />} />
-        <Route path="/services/trc/training" element={<Training />} />
-        <Route path="/services/trc/research" element={<Research />} />
-        <Route path="/services/trc/consultancy" element={<Consultancy />} />
+        <Route path="/services/seminal" element={<Seminal />} />
 
         <Route path="/login/admin" element={<LoginAdmin />} />
         <Route path="/login/member" element={<LoginMember />} />
@@ -247,34 +238,10 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/trc"
+          path="/admin/seminal"
           element={
             <ProtectedRoute allow={["admin"]}>
-              <TRCHub />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/trc/research"
-          element={
-            <ProtectedRoute allow={["admin"]}>
-              <ResearchPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/trc/training"
-          element={
-            <ProtectedRoute allow={["admin"]}>
-              <TrainingPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/trc/consultancy"
-          element={
-            <ProtectedRoute allow={["admin"]}>
-              <ConsultancyPage />
+              <SeminalDepartment />
             </ProtectedRoute>
           }
         />

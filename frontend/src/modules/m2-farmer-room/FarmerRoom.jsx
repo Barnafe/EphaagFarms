@@ -106,7 +106,7 @@ export default function FarmerRoom() {
     { key: "profile", label: "Profile", icon: User },
     { key: "list-product", label: "Declare & List", icon: PackagePlus },
     { key: "transactions", label: "Transactions", icon: Receipt },
-    { key: "courses", label: "RTC", icon: GraduationCap },
+    { key: "courses", label: "Seminal", icon: GraduationCap },
     { key: "loans", label: "Loans", icon: Landmark },
     { key: "savings", label: "Savings", icon: PiggyBank },
     { key: "feedback", label: "Feedback", icon: MessageSquareWarning },

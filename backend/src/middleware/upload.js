@@ -107,3 +107,42 @@ export const uploadRequestAttachment = multer({
   fileFilter: requestAttachmentFileFilter,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
+
+// Seminal (training course) materials — optional file an admin attaches
+// when uploading a course (slides, notes, handouts). Wider file types
+// than the other uploads here since course materials are commonly
+// slideshows/docs, not just PDFs or images.
+export const MATERIALS_DIR = path.join(__dirname, "..", "..", "uploads", "materials");
+fs.mkdirSync(MATERIALS_DIR, { recursive: true });
+
+const materialStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, MATERIALS_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || "";
+    cb(null, `${req.user.id}-${Date.now()}${ext}`);
+  },
+});
+
+const MATERIAL_MIME_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+];
+
+function materialFileFilter(req, file, cb) {
+  if (!MATERIAL_MIME_TYPES.includes(file.mimetype)) {
+    return cb(new Error("Only PDF, Word, PowerPoint, or image files are accepted"));
+  }
+  cb(null, true);
+}
+
+export const uploadCourseMaterial = multer({
+  storage: materialStorage,
+  fileFilter: materialFileFilter,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB — slide decks run bigger than other uploads here
+});
