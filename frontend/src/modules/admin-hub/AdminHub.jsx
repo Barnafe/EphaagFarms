@@ -89,30 +89,6 @@ export default function AdminHub() {
           </p>
         </div>
 
-        <div className="mb-6 flex items-start gap-3 rounded-card border border-harvest-400/40 bg-harvest-400/10 p-4">
-          <Info size={18} className="mt-0.5 shrink-0 text-harvest-300" />
-          <p className="text-sm text-canopy-100">
-            <span className="font-medium text-white">Temporary universal access: </span>
-            until you hire and appoint real staff, this admin account can perform every position's
-            day-to-day work company-wide — not just department-head screens (all department pages
-            below), but also Unit Leader and Federal functions that are normally rank-gated for
-            farmers: loan <span className="font-medium">recommend</span> and{" "}
-            <span className="font-medium">final approval</span> live inside{" "}
-            <Link to="/admin/finance" className="underline hover:text-white">
-              Finance → Loans
-            </Link>
-            , and <span className="font-medium">attendance marking</span> lives inside{" "}
-            <Link to="/admin/analytics" className="underline hover:text-white">
-              Analytics → Mark attendance
-            </Link>
-            . To create a <span className="font-medium">seminar</span>, open{" "}
-            <Link to="/admin/trc" className="underline hover:text-white">
-              TRC → Training
-            </Link>
-            .
-          </p>
-        </div>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {departments.map((d) => {
             const Icon = d.icon;
