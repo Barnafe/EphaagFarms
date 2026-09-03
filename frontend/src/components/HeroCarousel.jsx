@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 
-// Placeholder slides — swap `videoSrc` for a real file once available and
-// this will render an actual <video> instead of the placeholder panel.
 const slides = [
-  { id: 1, label: "Video 1 of 3", caption: "Farmers at work across Nigeria", videoSrc: null },
-  { id: 2, label: "Video 2 of 3", caption: "Sourcing, processing, and delivery", videoSrc: null },
-  { id: 3, label: "Video 3 of 3", caption: "Seminars and farmer training", videoSrc: null },
+  { id: 1, label: "Video 1 of 3", caption: "Welcome to Ephaag Farms", videoSrc: "/videos/intro-slideshow.mp4" },
+  { id: 2, label: "Video 2 of 3", caption: "Sourcing, processing, and delivery", videoSrc: "/videos/crops-slideshow.mp4" },
+  { id: 3, label: "Video 3 of 3", caption: "Poultry across our farms", videoSrc: "/videos/poultry-slideshow.mp4" },
 ];
 
 const ROTATE_MS = 5000;
@@ -42,10 +40,11 @@ export default function HeroCarousel() {
             <video
               className="h-full w-full object-cover"
               src={slide.videoSrc}
-              autoPlay
+              autoPlay={i === active}
               muted
               loop
               playsInline
+              preload={i === active ? "auto" : "none"}
             />
           ) : (
             i === active && (
