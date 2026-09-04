@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import { LayoutDashboard, PackageCheck, User } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
+import { useAuth } from "../../context/AuthContext.jsx";
+import DashboardShell from "../../components/DashboardShell.jsx";
+import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import AllocationTaskList from "./AllocationTaskList.jsx";
 
 function mapTask(a) {
@@ -12,7 +16,17 @@ function mapTask(a) {
   };
 }
 
+const items = [
+  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { key: "tasks", label: "Tasks", icon: PackageCheck },
+  { key: "profile", label: "Profile", icon: User },
+];
+
 export default function StoreRoom() {
+  const { session } = useAuth();
+  const user = session?.user;
+
+  const [tab, setTab] = useState("dashboard");
   const [tasks, setTasks] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -42,27 +56,41 @@ export default function StoreRoom() {
     }
   }
 
-  return (
-    <div className="mx-auto max-w-3xl px-6 py-10 space-y-6">
-      <div>
-        <p className="text-xs uppercase tracking-wide text-canopy-600">Module 8</p>
-        <h1 className="text-xl font-medium text-ink-900">Store Room</h1>
-        <p className="mt-1 text-sm text-ink-600">
-          Orders allocated to you by the Store Department.
-        </p>
-      </div>
+  if (!user) return null;
 
+  const pendingCount = tasks.filter((t) => t.status === "assigned").length;
+
+  return (
+    <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
       {error && (
-        <div className="card border-red-200 bg-red-50">
+        <div className="card mb-6 border-red-200 bg-red-50">
           <p className="text-sm text-red-700">{error}</p>
         </div>
       )}
 
-      {loading ? (
-        <p className="text-sm text-ink-600">Loading…</p>
-      ) : (
-        <AllocationTaskList tasks={tasks} onConfirm={handleConfirm} />
+      {tab === "dashboard" && (
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-xl font-medium text-white">Welcome, {user.name}</h1>
+            <p className="mt-1 text-sm text-canopy-100">
+              Orders allocated to you by the Store Department.
+            </p>
+          </div>
+          <div className="card">
+            <p className="text-sm text-ink-600">Tasks pending</p>
+            <p className="text-lg font-medium text-canopy-800">{loading ? "…" : pendingCount}</p>
+          </div>
+        </div>
       )}
-    </div>
+
+      {tab === "tasks" &&
+        (loading ? (
+          <p className="text-sm text-canopy-100">Loading…</p>
+        ) : (
+          <AllocationTaskList tasks={tasks} onConfirm={handleConfirm} />
+        ))}
+
+      {tab === "profile" && <AccountProfileCard user={user} />}
+    </DashboardShell>
   );
 }
