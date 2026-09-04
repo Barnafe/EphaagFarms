@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { apiUpload } from "../../api/client.js";
+import PasswordInput from "../../components/PasswordInput.jsx";
 import { NIGERIA_STATE_NAMES, lgasForState } from "../../data/nigeriaStatesLgas.js";
 import FarmerRegisterWizard from "./FarmerRegisterWizard.jsx";
 
@@ -181,7 +182,7 @@ export default function Register() {
         )}
         <div>
           <label>Password</label>
-          <input name="password" type="password" required minLength={8} placeholder="At least 8 characters" />
+          <PasswordInput name="password" required minLength={8} placeholder="At least 8 characters" />
         </div>
         <div>
           <label>{role === "buyer" && buyerType === "organization" ? "Organization logo (optional)" : "Passport photo (optional)"}</label>

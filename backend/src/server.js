@@ -20,6 +20,9 @@ import rtcRoutes from "./routes/rtc.js";
 import analyticsRoutes from "./routes/analytics.js";
 import requestsRoutes from "./routes/requests.js";
 import adminPositionsRoutes from "./routes/admin-positions.js";
+import productionRoutes from "./routes/production.js";
+import contactRoutes from "./routes/contact.js";
+import maintenanceRoutes from "./routes/maintenance.js";
 import { runDueDateReminders } from "./controllers/investmentController.js";
 
 const app = express();
@@ -94,6 +97,9 @@ app.use("/api/rtc", rtcRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/requests", requestsRoutes);
 app.use("/api/admin/positions", adminPositionsRoutes);
+app.use("/api/production", productionRoutes);
+app.use("/api/contact", contactRoutes);
+app.use("/api/maintenance", maintenanceRoutes);
 
 // More routes land here module by module.
 

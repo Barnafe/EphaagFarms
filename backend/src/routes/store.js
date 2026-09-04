@@ -23,6 +23,10 @@ router.post("/orders/:id/allocate", requireRole("admin"), store.allocate);
 // Store Department (admin) — restock requests
 router.post("/restock-requests", requireRole("admin"), store.createRestockRequest);
 
+// Store Department (admin) — Production's declared company harvests
+router.get("/production-queue", requireRole("admin"), store.productionReceivingQueue);
+router.post("/production-harvests/:id/receive", requireRole("admin"), store.receiveProductionHarvest);
+
 // Store Room (distributor)
 router.get("/allocations/me", requireRole("distributor"), store.myAllocations);
 router.post("/allocations/:id/confirm", requireRole("distributor"), store.confirmAllocation);

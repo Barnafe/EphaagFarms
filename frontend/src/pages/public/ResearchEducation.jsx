@@ -1,5 +1,5 @@
-import PublicContentBrowser from "../../modules/m10-security-gate/PublicContentBrowser.jsx";
-import { seminars, courses, research, consultancy } from "../../modules/m10-security-gate/mockData.js";
+import PublicContentBrowser from "../../components/PublicContentBrowser.jsx";
+import { seminars, courses, research, consultancy } from "../../data/researchEducationContent.js";
 
 export default function ResearchEducation() {
   return (

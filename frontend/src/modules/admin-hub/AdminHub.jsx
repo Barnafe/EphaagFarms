@@ -10,7 +10,6 @@ import {
   GraduationCap,
   BarChart3,
   ClipboardCheck,
-  Info,
 } from "lucide-react";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 
@@ -86,30 +85,6 @@ export default function AdminHub() {
           <h1 className="text-xl font-medium text-white">Departments</h1>
           <p className="mt-1 text-sm text-canopy-100">
             Each department runs its own activities; admin oversees all of them from here.
-          </p>
-        </div>
-
-        <div className="mb-6 flex items-start gap-3 rounded-card border border-harvest-400/40 bg-harvest-400/10 p-4">
-          <Info size={18} className="mt-0.5 shrink-0 text-harvest-300" />
-          <p className="text-sm text-canopy-100">
-            <span className="font-medium text-white">Temporary universal access: </span>
-            until you hire and appoint real staff, this admin account can perform every position's
-            day-to-day work company-wide — not just department-head screens (all department pages
-            below), but also Unit Leader and Federal functions that are normally rank-gated for
-            farmers: loan <span className="font-medium">recommend</span> and{" "}
-            <span className="font-medium">final approval</span> live inside{" "}
-            <Link to="/admin/finance" className="underline hover:text-white">
-              Finance → Loans
-            </Link>
-            , and <span className="font-medium">attendance marking</span> lives inside{" "}
-            <Link to="/admin/analytics" className="underline hover:text-white">
-              Analytics → Mark attendance
-            </Link>
-            . To upload a <span className="font-medium">training course</span>, open{" "}
-            <Link to="/admin/seminal" className="underline hover:text-white">
-              Seminal
-            </Link>
-            .
           </p>
         </div>
 

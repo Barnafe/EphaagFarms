@@ -180,6 +180,66 @@ export async function receiveOrder(req, res) {
   }
 }
 
+// --- Production's declared company harvests --------------------------------
+// Production (admin) declares an annual harvest against a company-owned
+// farm (harvest_logs, status='declared') — that's just their own record,
+// same idea as a farmer declaring produce. It is NOT yet real stock.
+// Store confirms/receives it here, exactly like receiving an order's
+// goods, which is what actually adds it to the shared pool.
+
+export async function productionReceivingQueue(req, res) {
+  const { rows } = await pool.query(
+    `SELECT h.*, f.name AS farm_name, f.state AS farm_state, d.name AS declared_by_name
+     FROM harvest_logs h
+     JOIN company_farms f ON f.id = h.farm_id
+     LEFT JOIN users d ON d.id = h.declared_by
+     WHERE h.status = 'declared'
+     ORDER BY h.harvested_at ASC`
+  );
+  res.json({ harvests: rows });
+}
+
+export async function receiveProductionHarvest(req, res) {
+  const { id } = req.params;
+  const { quantityReceived } = req.body;
+  const qty = Number(quantityReceived);
+  if (!qty || qty <= 0) return res.status(400).json({ error: "quantityReceived must be a positive number" });
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: harvestRows } = await client.query(
+      `SELECT * FROM harvest_logs WHERE id = $1 AND status = 'declared' FOR UPDATE`,
+      [id]
+    );
+    const harvest = harvestRows[0];
+    if (!harvest) throw Object.assign(new Error("Harvest declaration not found or already received"), { status: 404 });
+
+    await client.query(
+      `UPDATE harvest_logs SET status = 'received', quantity_received = $1, received_by = $2, received_at = now()
+       WHERE id = $3`,
+      [qty, req.user.id, id]
+    );
+    await bumpInventory(client, harvest.crop, harvest.unit, qty);
+    await client.query(
+      `INSERT INTO stock_movements (crop, unit, direction, quantity, reason, recorded_by, note)
+       VALUES ($1, $2, 'in', $3, 'company_harvest', $4, $5)`,
+      [harvest.crop, harvest.unit, qty, req.user.id, `Company harvest, farm declaration ${harvest.id}`]
+    );
+
+    await client.query("COMMIT");
+    res.status(201).json({ received: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Could not receive this harvest" });
+  } finally {
+    client.release();
+  }
+}
+
 // --- Admin: orders ready for allocation, audited against stock -------------
 // "If an order come, store verify the quality against available stock and
 // be able to audit the order" — each order shows what it needs against

@@ -54,13 +54,19 @@ const FALLBACK_ICONS = { Grains: "🌾", Tubers: "🥔", Vegetables: "🥬", Oth
 export function mergeCatalog(prices) {
   return prices.map((p) => {
     const meta = catalogMeta[p.crop];
-    const category = meta?.category || "Other";
+    // DB-provided values (set via the admin "Add Catalog" form) win when
+    // present — that's what lets a newly-added crop carry its own
+    // category/description/icon instead of always falling back to generic
+    // ones. catalogMeta.js is still consulted for older/blank rows so
+    // nothing that already looked good regresses.
+    const category = p.category || meta?.category || "Other";
     return {
       id: meta?.id || p.crop.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       crop: p.crop,
       category,
-      icon: meta?.icon || FALLBACK_ICONS[category] || "🧺",
-      description: meta?.description || `Standard-priced ${p.crop.toLowerCase()}, sold by the ${p.unit}.`,
+      icon: p.icon || meta?.icon || FALLBACK_ICONS[category] || "🧺",
+      description:
+        p.description || meta?.description || `Standard-priced ${p.crop.toLowerCase()}, sold by the ${p.unit}.`,
       unit: p.unit,
       price: Number(p.price),
       sizes: meta?.sizes || null,

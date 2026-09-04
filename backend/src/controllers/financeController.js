@@ -9,10 +9,64 @@ import { pool } from "../db/pool.js";
 
 export async function listPrices(req, res) {
   const { rows } = await pool.query(
-    `SELECT id, crop, unit, buy_price, sell_price, last_reviewed
+    `SELECT id, crop, unit, buy_price, sell_price, category, description, icon, last_reviewed
      FROM standard_prices ORDER BY crop ASC`
   );
   res.json({ prices: rows });
+}
+
+// --- Add Catalog (2026-09-03 spec; unit changed to a fixed dropdown 2026-09-04) ---
+// Creates a brand-new crop/product entry — distinct from updatePrice below,
+// which only edits a crop that already exists. This is the single place a
+// new product enters the system: once inserted here it automatically shows
+// up in the buyer's Product Catalog (ProductCatalog.jsx merges every row
+// from GET /orders/catalog with catalogMeta.js, falling back to generic
+// category/icon/description for any crop catalogMeta.js doesn't know about)
+// and in every other screen that reads standard_prices (farmer's visible
+// prices, procurement's price list, order costing). No separate "publish"
+// step needed.
+//
+// Unit is a fixed pick-list, not free text — reuses the exact same
+// vocabulary as farmer_products/farmer_declarations' `unit` CHECK
+// constraint (see migration 001_init.sql), so the whole app speaks one
+// consistent unit vocabulary whether a farmer is listing or an admin is
+// cataloging. standard_prices itself has no DB-level CHECK on unit, so this
+// list is enforced here in the controller instead.
+export const CATALOG_UNITS = ["kg", "tons", "bags", "tubers", "crates", "baskets"];
+
+export async function createPrice(req, res) {
+  const { crop, unit, buyPrice, sellPrice, category, description, icon } = req.body;
+  if (!crop || !crop.trim()) return res.status(400).json({ error: "Crop/product name is required" });
+  if (!unit || !CATALOG_UNITS.includes(unit)) {
+    return res.status(400).json({ error: `Unit must be one of: ${CATALOG_UNITS.join(", ")}` });
+  }
+  if (buyPrice == null || sellPrice == null) {
+    return res.status(400).json({ error: "Both buy price and sell price are required" });
+  }
+  if (Number(buyPrice) < 0 || Number(sellPrice) < 0) {
+    return res.status(400).json({ error: "Prices can't be negative" });
+  }
+
+  const existing = await pool.query(`SELECT id FROM standard_prices WHERE crop ILIKE $1`, [crop.trim()]);
+  if (existing.rows[0]) {
+    return res.status(409).json({ error: "That crop/product is already in the catalog — edit its price instead" });
+  }
+
+  const { rows } = await pool.query(
+    `INSERT INTO standard_prices (crop, unit, price, buy_price, sell_price, category, description, icon, last_reviewed)
+     VALUES ($1, $2, $3, $3, $4, $5, $6, $7, CURRENT_DATE)
+     RETURNING id, crop, unit, buy_price, sell_price, category, description, icon, last_reviewed`,
+    [
+      crop.trim(),
+      unit,
+      Number(buyPrice),
+      Number(sellPrice),
+      category?.trim() || null,
+      description?.trim() || null,
+      icon?.trim() || null,
+    ]
+  );
+  res.status(201).json({ price: rows[0] });
 }
 
 export async function updatePrice(req, res) {
@@ -27,7 +81,7 @@ export async function updatePrice(req, res) {
          sell_price = COALESCE($2, sell_price),
          last_reviewed = CURRENT_DATE
      WHERE id = $3
-     RETURNING id, crop, unit, buy_price, sell_price, last_reviewed`,
+     RETURNING id, crop, unit, buy_price, sell_price, category, description, icon, last_reviewed`,
     [buyPrice ?? null, sellPrice ?? null, id]
   );
   if (!rows[0]) return res.status(404).json({ error: "Price row not found" });

@@ -18,4 +18,7 @@ export const REF_PREFIX = {
   savings: "SAV",
   request: "REQ",
   share: "SHR",
+  maintenanceRequest: "MREQ",
+  workOrder: "WO",
+  maintenanceExpense: "MEXP",
 };

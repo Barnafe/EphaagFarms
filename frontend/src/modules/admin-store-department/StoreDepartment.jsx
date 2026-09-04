@@ -3,6 +3,7 @@ import { apiFetch } from "../../api/client.js";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 import StockOverview from "./StockOverview.jsx";
 import ReceivingPanel from "./ReceivingPanel.jsx";
+import ProductionReceivingPanel from "./ProductionReceivingPanel.jsx";
 import AllocationPanel from "./AllocationPanel.jsx";
 import RestockRequestPanel from "./RestockRequestPanel.jsx";
 import MovementHistory from "./MovementHistory.jsx";
@@ -32,6 +33,7 @@ function mapOrder(o) {
 export default function StoreDepartment() {
   const [stock, setStock] = useState([]);
   const [receiving, setReceiving] = useState([]);
+  const [productionQueue, setProductionQueue] = useState([]);
   const [orders, setOrders] = useState([]);
   const [distributors, setDistributors] = useState([]);
   const [movements, setMovements] = useState([]);
@@ -41,16 +43,24 @@ export default function StoreDepartment() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [{ inventory }, { orders: toReceive }, { orders: queue }, { distributors: dir }, { movements: recent }] =
-        await Promise.all([
-          apiFetch("/store/inventory"),
-          apiFetch("/store/receiving-queue"),
-          apiFetch("/store/queue"),
-          apiFetch("/store/distributors"),
-          apiFetch("/store/movements"),
-        ]);
+      const [
+        { inventory },
+        { orders: toReceive },
+        { harvests: prodQueue },
+        { orders: queue },
+        { distributors: dir },
+        { movements: recent },
+      ] = await Promise.all([
+        apiFetch("/store/inventory"),
+        apiFetch("/store/receiving-queue"),
+        apiFetch("/store/production-queue"),
+        apiFetch("/store/queue"),
+        apiFetch("/store/distributors"),
+        apiFetch("/store/movements"),
+      ]);
       setStock(inventory.map(mapStock));
       setReceiving(toReceive);
+      setProductionQueue(prodQueue);
       setOrders(queue.map(mapOrder));
       setDistributors(dir);
       setMovements(recent);
@@ -71,6 +81,14 @@ export default function StoreDepartment() {
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  async function handleReceiveProduction(harvestId, quantityReceived) {
+    await apiFetch(`/store/production-harvests/${harvestId}/receive`, {
+      method: "POST",
+      body: { quantityReceived },
+    });
+    await loadAll();
   }
 
   async function handleAudit(orderId, verified, note) {
@@ -139,6 +157,7 @@ export default function StoreDepartment() {
           onSaveReorderLevel={handleSaveReorderLevel}
         />
         <ReceivingPanel orders={receiving} onReceive={handleReceive} />
+        <ProductionReceivingPanel harvests={productionQueue} onReceive={handleReceiveProduction} />
         <AllocationPanel orders={orders} distributors={distributors} onAudit={handleAudit} onAllocate={handleAllocate} />
         <RestockRequestPanel onSubmit={handleRestockSubmit} prefill={restockPrefill} />
         <MovementHistory movements={movements} />

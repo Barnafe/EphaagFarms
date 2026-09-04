@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { apiUpload } from "../../api/client.js";
 import { NIGERIA_STATE_NAMES, lgasForState } from "../../data/nigeriaStatesLgas.js";
 import { wardsForLga } from "../../data/nigeriaWards.js";
+import PasswordInput from "../../components/PasswordInput.jsx";
 
 const MARITAL_STATUS_OPTIONS = [
   { value: "single", label: "Single" },
@@ -610,8 +611,7 @@ export default function FarmerRegisterWizard() {
           </div>
           <div>
             <label>Create a password</label>
-            <input
-              type="password"
+            <PasswordInput
               minLength={8}
               value={form.password}
               onChange={(e) => set("password", e.target.value)}

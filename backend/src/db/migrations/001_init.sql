@@ -207,6 +207,16 @@ CREATE TABLE IF NOT EXISTS farmer_feedback (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Public contact form submissions (no auth required to submit).
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  email TEXT,
+  message TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','reviewed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS investor_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -503,6 +513,18 @@ ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS sell_price NUMERIC(14,2);
 UPDATE standard_prices SET buy_price = price WHERE buy_price IS NULL;
 UPDATE standard_prices SET sell_price = price WHERE sell_price IS NULL;
 
+-- 2026-09-03: "Add Catalog" (new crop/product creation, distinct from
+-- editing an existing crop's price). Category/description/icon previously
+-- lived only in the frontend's static catalogMeta.js (no way for an
+-- admin-created crop to carry any of that) — added here so a crop created
+-- through the app can supply its own, while catalogMeta.js is still
+-- consulted as a fallback for older/blank rows (see mergeCatalog in
+-- frontend/src/modules/m4-buyer-room/catalogMeta.js). All nullable — no
+-- existing row needs backfilling for the app to keep working.
+ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS category TEXT;
+ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS icon TEXT;
+
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reference TEXT UNIQUE NOT NULL,
@@ -726,7 +748,16 @@ CREATE TABLE IF NOT EXISTS company_farms (
   size_hectares NUMERIC(10,2),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','fallow'))
 );
+ALTER TABLE company_farms ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
+-- Production Department's own annual company-harvest record ("this year
+-- Ephaag harvested X yam, Y rice"), NOT a live sellable stock feed by
+-- itself. Admin "declares" a harvest here the same way a farmer declares
+-- produce — it's just a record until Store separately confirms/receives
+-- it, at which point (and only then) it enters store_inventory alongside
+-- everything else Store manages. `declared_by`/`received_by` keep this
+-- auditable the same way every other cross-department handoff in this
+-- app is (store_receipts, order_audits, coordinator_appointments).
 CREATE TABLE IF NOT EXISTS harvest_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   farm_id UUID NOT NULL REFERENCES company_farms(id) ON DELETE CASCADE,
@@ -735,6 +766,16 @@ CREATE TABLE IF NOT EXISTS harvest_logs (
   unit TEXT NOT NULL,
   harvested_at DATE NOT NULL DEFAULT CURRENT_DATE
 );
+ALTER TABLE harvest_logs ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'declared';
+ALTER TABLE harvest_logs ADD COLUMN IF NOT EXISTS declared_by UUID REFERENCES users(id);
+ALTER TABLE harvest_logs ADD COLUMN IF NOT EXISTS note TEXT;
+ALTER TABLE harvest_logs ADD COLUMN IF NOT EXISTS received_by UUID REFERENCES users(id);
+ALTER TABLE harvest_logs ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ;
+ALTER TABLE harvest_logs ADD COLUMN IF NOT EXISTS quantity_received NUMERIC(12,2);
+DO $$ BEGIN
+  ALTER TABLE harvest_logs DROP CONSTRAINT IF EXISTS harvest_logs_status_check;
+  ALTER TABLE harvest_logs ADD CONSTRAINT harvest_logs_status_check CHECK (status IN ('declared','received'));
+END $$;
 
 -- ---------------------------------------------------------------------
 -- Store Department — Store's own running inventory pool, aggregated by
@@ -787,12 +828,20 @@ CREATE TABLE IF NOT EXISTS stock_movements (
   unit TEXT NOT NULL,
   direction TEXT NOT NULL CHECK (direction IN ('in','out')),
   quantity NUMERIC(12,2) NOT NULL,
-  reason TEXT NOT NULL CHECK (reason IN ('goods_received','order_allocated','adjustment')),
+  reason TEXT NOT NULL CHECK (reason IN ('goods_received','order_allocated','adjustment','company_harvest')),
   order_id UUID REFERENCES orders(id),
   recorded_by UUID REFERENCES users(id),
   note TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Self-heal the reason CHECK for pre-existing DBs from before
+-- 'company_harvest' was added (inline CHECK above only applies on a
+-- fresh CREATE TABLE, per the migration-discipline rule).
+DO $$ BEGIN
+  ALTER TABLE stock_movements DROP CONSTRAINT IF EXISTS stock_movements_reason_check;
+  ALTER TABLE stock_movements ADD CONSTRAINT stock_movements_reason_check
+    CHECK (reason IN ('goods_received','order_allocated','adjustment','company_harvest'));
+END $$;
 
 -- Store's audit of an order against physical/quality stock before it can
 -- be allocated to a distributor ("store verify the quality against
@@ -870,3 +919,203 @@ ALTER TABLE courses ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS materials_url TEXT;
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS online_link TEXT;
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ;
+
+-- Maintenance Department (2026-09-04) — full build-out. Core workflow:
+-- Employee reports a problem -> Maintenance Request -> Supervisor review
+-- -> Work Order -> Technician assigned -> Diagnosis -> Repair/Parts used
+-- -> Inspection/Testing -> Work Completed -> Cost recorded -> History.
+-- Preventive Maintenance is a deliberately separate flow (own screen in
+-- the HOD portal, not just another work-order source): Asset -> Schedule
+-- -> due date approaching -> automatic reminder -> Work Order ->
+-- Maintenance performed -> next due date rolls forward.
+--
+-- Technicians/Contractors are plain personnel directories the HOD
+-- manages (name/contact/specialty), not login accounts — same shape as
+-- how driverDirectory reads role_type='transporter' users, except this
+-- department's field staff aren't system users at all, so they get their
+-- own small tables instead of a new users.role_type value.
+-- ---------------------------------------------------------------------
+
+ALTER TABLE maintenance_assets ADD COLUMN IF NOT EXISTS location TEXT;
+ALTER TABLE maintenance_assets ADD COLUMN IF NOT EXISTS serial_number TEXT;
+ALTER TABLE maintenance_assets ADD COLUMN IF NOT EXISTS purchase_date DATE;
+ALTER TABLE maintenance_assets ADD COLUMN IF NOT EXISTS warranty_expiry DATE;
+ALTER TABLE maintenance_assets ADD COLUMN IF NOT EXISTS department TEXT;
+ALTER TABLE maintenance_assets ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE maintenance_assets ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+-- Widen status to include 'retired' — self-heal the CHECK for pre-existing
+-- DBs the same way stock_movements does above (inline CHECK only applies
+-- on a fresh CREATE TABLE).
+DO $$ BEGIN
+  ALTER TABLE maintenance_assets DROP CONSTRAINT IF EXISTS maintenance_assets_status_check;
+  ALTER TABLE maintenance_assets ADD CONSTRAINT maintenance_assets_status_check
+    CHECK (status IN ('good','due','in_repair','retired'));
+END $$;
+
+CREATE TABLE IF NOT EXISTS maintenance_technicians (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  specialty TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS maintenance_contractors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_name TEXT NOT NULL,
+  contact_person TEXT,
+  phone TEXT,
+  email TEXT,
+  service_type TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Spare Parts & Inventory — same running-pool shape as store_inventory
+-- (a current quantity_on_hand kept in sync by maintenance_part_movements,
+-- the event ledger), scoped separately since this is the maintenance
+-- shop's own parts bin, not the general Store Department's crop pool.
+CREATE TABLE IF NOT EXISTS maintenance_parts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  part_number TEXT,
+  category TEXT,
+  unit TEXT NOT NULL DEFAULT 'pcs',
+  quantity_on_hand NUMERIC(12,2) NOT NULL DEFAULT 0,
+  unit_cost NUMERIC(12,2) NOT NULL DEFAULT 0,
+  reorder_level NUMERIC(12,2) NOT NULL DEFAULT 5,
+  supplier TEXT,
+  location TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS maintenance_part_movements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  part_id UUID NOT NULL REFERENCES maintenance_parts(id) ON DELETE CASCADE,
+  direction TEXT NOT NULL CHECK (direction IN ('in','out')),
+  quantity NUMERIC(12,2) NOT NULL,
+  reason TEXT NOT NULL CHECK (reason IN ('purchase','used_in_work_order','adjustment','return')),
+  work_order_id UUID,
+  recorded_by UUID REFERENCES users(id),
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Step 1 of the core workflow: an employee reports a problem. reported_by
+-- links to a real user when the reporter is logged in; reporter_name/
+-- reporter_department cover the common case of the HOD logging a request
+-- on behalf of someone who called or walked up (no login required to
+-- report a fault).
+CREATE TABLE IF NOT EXISTS maintenance_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  asset_id UUID REFERENCES maintenance_assets(id),
+  title TEXT NOT NULL,
+  description TEXT,
+  location TEXT,
+  priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','urgent')),
+  status TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted','under_review','approved','rejected','converted')),
+  reported_by UUID REFERENCES users(id),
+  reporter_name TEXT,
+  reporter_department TEXT,
+  reviewed_by UUID REFERENCES users(id),
+  reviewed_at TIMESTAMPTZ,
+  review_note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Steps 2-9: Supervisor review turns an approved request into a Work
+-- Order (or the HOD opens one directly for manual/preventive work).
+-- assigned_technician_id / assigned_contractor_id are both nullable —
+-- exactly one is normally set once the order moves past 'open', enforced
+-- in the controller rather than the DB so an order can still be created
+-- unassigned.
+CREATE TABLE IF NOT EXISTS maintenance_work_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  request_id UUID REFERENCES maintenance_requests(id),
+  schedule_id UUID,
+  asset_id UUID REFERENCES maintenance_assets(id),
+  source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('request','preventive','manual')),
+  title TEXT NOT NULL,
+  description TEXT,
+  priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','urgent')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN
+    ('open','assigned','diagnosis','in_progress','awaiting_parts','testing','completed','cancelled')),
+  assigned_technician_id UUID REFERENCES maintenance_technicians(id),
+  assigned_contractor_id UUID REFERENCES maintenance_contractors(id),
+  diagnosis TEXT,
+  work_performed TEXT,
+  scheduled_date DATE,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Parts consumed by a work order — feeds both the "Repair / Parts Used"
+-- workflow step and, via maintenance_part_movements ('used_in_work_order'),
+-- the running inventory total.
+CREATE TABLE IF NOT EXISTS maintenance_work_order_parts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  work_order_id UUID NOT NULL REFERENCES maintenance_work_orders(id) ON DELETE CASCADE,
+  part_id UUID NOT NULL REFERENCES maintenance_parts(id),
+  quantity NUMERIC(12,2) NOT NULL,
+  unit_cost NUMERIC(12,2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Step: Inspection / Testing, before a work order is signed off complete.
+CREATE TABLE IF NOT EXISTS maintenance_inspections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  work_order_id UUID REFERENCES maintenance_work_orders(id) ON DELETE CASCADE,
+  asset_id UUID REFERENCES maintenance_assets(id),
+  inspection_type TEXT NOT NULL DEFAULT 'post_repair' CHECK (inspection_type IN
+    ('pre_repair','post_repair','routine','safety')),
+  result TEXT NOT NULL CHECK (result IN ('pass','fail','needs_attention')),
+  notes TEXT,
+  inspected_by UUID REFERENCES users(id),
+  inspected_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Step: Cost Recorded. One row per cost line against a work order (labor,
+-- parts markup, contractor invoice, other) — Expenses section totals
+-- these, Reports rolls them up by category/month.
+CREATE TABLE IF NOT EXISTS maintenance_expenses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  work_order_id UUID REFERENCES maintenance_work_orders(id),
+  category TEXT NOT NULL CHECK (category IN ('labor','parts','contractor','other')),
+  description TEXT,
+  amount NUMERIC(12,2) NOT NULL,
+  vendor TEXT,
+  expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  recorded_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Preventive Maintenance — kept as its own table/flow, deliberately
+-- separate from ad-hoc maintenance_requests. next_due_date is what the
+-- "due date approaching" reminder and the Preventive Maintenance screen
+-- both read; completing the generated work order rolls it forward by
+-- frequency_value/frequency_type again.
+CREATE TABLE IF NOT EXISTS maintenance_schedules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  asset_id UUID NOT NULL REFERENCES maintenance_assets(id) ON DELETE CASCADE,
+  task_name TEXT NOT NULL,
+  frequency_type TEXT NOT NULL DEFAULT 'months' CHECK (frequency_type IN ('days','weeks','months')),
+  frequency_value INT NOT NULL DEFAULT 1,
+  last_completed_date DATE,
+  next_due_date DATE NOT NULL,
+  assigned_technician_id UUID REFERENCES maintenance_technicians(id),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused')),
+  reminder_sent_at TIMESTAMPTZ,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE maintenance_work_orders ADD COLUMN IF NOT EXISTS schedule_id UUID REFERENCES maintenance_schedules(id);
+

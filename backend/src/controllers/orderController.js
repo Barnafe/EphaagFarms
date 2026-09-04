@@ -5,7 +5,7 @@ import { generateReference, REF_PREFIX } from "../utils/reference.js";
 
 export async function catalog(req, res) {
   const { rows } = await pool.query(
-    "SELECT crop, unit, sell_price AS price, last_reviewed FROM standard_prices ORDER BY crop ASC"
+    "SELECT crop, unit, sell_price AS price, category, description, icon, last_reviewed FROM standard_prices ORDER BY crop ASC"
   );
   res.json({ prices: rows });
 }

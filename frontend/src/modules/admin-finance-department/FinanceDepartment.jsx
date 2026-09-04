@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { CreditCard, Landmark, Handshake, Tag, TrendingUp, PiggyBank } from "lucide-react";
+import { CreditCard, Landmark, Handshake, TrendingUp, PiggyBank } from "lucide-react";
 import { apiFetch, apiDownload } from "../../api/client.js";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 import DeptSectionNav from "../../components/DeptSectionNav.jsx";
@@ -9,7 +9,6 @@ import FinanceReviewPanel from "./FinanceReviewPanel.jsx";
 import BoostDepositReviewPanel from "./BoostDepositReviewPanel.jsx";
 import RepaymentReconciliationPanel from "./RepaymentReconciliationPanel.jsx";
 import SettlementPanel from "./SettlementPanel.jsx";
-import PriceEditorPanel from "./PriceEditorPanel.jsx";
 import LoanPipelinePanel from "./LoanPipelinePanel.jsx";
 import { ApplicationReviewPanel, PartnerStatusPanel, ROIPayoutPanel } from "./InvestmentPanels.jsx";
 import InsuranceApplyControl from "./InsuranceApplyControl.jsx";
@@ -69,12 +68,6 @@ const tabs = [
     description: "Pay farmers for produce sourced from them.",
   },
   {
-    key: "prices",
-    label: "Prices",
-    icon: Tag,
-    description: "Set the buy price (farmers) and sell price (buyers) for every crop.",
-  },
-  {
     key: "investments",
     label: "Investments",
     icon: TrendingUp,
@@ -101,8 +94,6 @@ export default function FinanceDepartment() {
   const [loanError, setLoanError] = useState(null);
   const [settlements, setSettlements] = useState([]);
   const [settlementError, setSettlementError] = useState(null);
-  const [prices, setPrices] = useState([]);
-  const [priceError, setPriceError] = useState(null);
   const [applications, setApplications] = useState([]);
   const [partnerReviews, setPartnerReviews] = useState([]);
   const [roiPayouts, setRoiPayouts] = useState([]);
@@ -217,20 +208,6 @@ export default function FinanceDepartment() {
     if (tab === "settlements") loadSettlements();
   }, [tab, loadSettlements]);
 
-  const loadPrices = useCallback(async () => {
-    try {
-      const { prices: pr } = await apiFetch("/finance/prices");
-      setPrices(pr.map((row) => ({ ...row, buy_price: Number(row.buy_price), sell_price: Number(row.sell_price) })));
-      setPriceError(null);
-    } catch (err) {
-      setPriceError(err.message);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (tab === "prices") loadPrices();
-  }, [tab, loadPrices]);
-
   async function handleConfirmPayment(id) {
     try {
       await apiFetch(`/orders/${id}/confirm-payment`, { method: "POST" });
@@ -264,15 +241,6 @@ export default function FinanceDepartment() {
       await loadSettlements();
     } catch (err) {
       setSettlementError(err.message);
-    }
-  }
-
-  async function handleSavePrice(priceId, { buyPrice, sellPrice }) {
-    try {
-      await apiFetch(`/finance/prices/${priceId}`, { method: "PATCH", body: { buyPrice, sellPrice } });
-      await loadPrices();
-    } catch (err) {
-      setPriceError(err.message);
     }
   }
 
@@ -463,17 +431,6 @@ export default function FinanceDepartment() {
             </div>
           )}
           <SettlementPanel payments={settlements} onPay={handlePaySettlement} />
-        </>
-      )}
-
-      {tab === "prices" && (
-        <>
-          {priceError && (
-            <div className="card border-red-200 bg-red-50">
-              <p className="text-sm text-red-700">{priceError}</p>
-            </div>
-          )}
-          <PriceEditorPanel prices={prices} onSave={handleSavePrice} />
         </>
       )}
 

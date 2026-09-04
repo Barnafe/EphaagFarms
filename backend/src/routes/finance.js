@@ -6,6 +6,7 @@ const router = Router();
 router.use(requireAuth, requireRole("admin"));
 
 router.get("/prices", finance.listPrices);
+router.post("/prices", finance.createPrice);
 router.patch("/prices/:id", finance.updatePrice);
 
 router.get("/payments/farmers", finance.listFarmerPayments);
