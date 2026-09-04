@@ -11,7 +11,7 @@ const DEPOSIT_CHOICES = [
 function ConsentModal({ onAgree, onCancel }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="max-w-md rounded-card bg-white p-6 shadow-xl">
+      <div className="on-light max-w-md rounded-card bg-white p-6 shadow-xl">
         <h3 className="text-lg font-medium text-ink-900">Before you save</h3>
         <p className="mt-2 text-sm text-ink-700">
           You're about to make a savings deposit. Deposits are only accepted between the

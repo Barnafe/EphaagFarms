@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import { LayoutDashboard, User } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
-import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import DashboardShell from "../../components/DashboardShell.jsx";
+import ActingAsBanner from "../../components/ActingAsBanner.jsx";
+import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import DispatchPanel from "./DispatchPanel.jsx";
 
 function mapOrder(o) {
@@ -14,7 +18,16 @@ function mapOrder(o) {
   };
 }
 
+const items = [
+  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { key: "profile", label: "Profile", icon: User },
+];
+
 export default function TransportDepartment() {
+  const { session } = useAuth();
+  const user = session?.user;
+
+  const [tab, setTab] = useState("dashboard");
   const [dispatchQueue, setDispatchQueue] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [error, setError] = useState(null);
@@ -49,25 +62,41 @@ export default function TransportDepartment() {
     }
   }
 
-  return (
-    <AdminDashboardShell>
-    <div className="max-w-3xl space-y-6">
-      <div>
-        <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
-        <h1 className="text-xl font-medium text-white">Transport Department</h1>
-        <p className="mt-1 text-sm text-canopy-100">
-          Assigns drivers and generates shipment documents once goods are ready to move.
-        </p>
-      </div>
+  if (!user) return null;
 
-      {error && (
-        <div className="card border-red-200 bg-red-50">
-          <p className="text-sm text-red-700">{error}</p>
+  return (
+    <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
+      <ActingAsBanner />
+
+      {tab === "dashboard" && (
+        <div className="max-w-3xl space-y-6">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
+            <h1 className="text-xl font-medium text-white">Transport Department</h1>
+            <p className="mt-1 text-sm text-canopy-100">
+              Assigns drivers and generates shipment documents once goods are ready to move.
+            </p>
+          </div>
+
+          {error && (
+            <div className="card border-red-200 bg-red-50">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          )}
+
+          <DispatchPanel jobs={dispatchQueue} drivers={drivers} onAssign={handleAssign} />
         </div>
       )}
 
-      <DispatchPanel jobs={dispatchQueue} drivers={drivers} onAssign={handleAssign} />
-    </div>
-    </AdminDashboardShell>
+      {tab === "profile" && (
+        <div className="max-w-3xl">
+          <div className="mb-6">
+            <p className="text-xs uppercase tracking-wide text-canopy-300">Transport</p>
+            <h1 className="text-xl font-medium text-white">Profile</h1>
+          </div>
+          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: "Transport HOD" }]} />
+        </div>
+      )}
+    </DashboardShell>
   );
 }

@@ -142,7 +142,7 @@ export default function DashboardShell({ items, activeKey, onSelect, children })
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 z-40 mt-2 w-44 rounded-card border border-soil-200 bg-white py-1 shadow-lg">
+              <div className="on-light absolute right-0 z-40 mt-2 w-44 rounded-card border border-soil-200 bg-white py-1 shadow-lg">
                 <button
                   onClick={() => {
                     setMenuOpen(false);

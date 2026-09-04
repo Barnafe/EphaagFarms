@@ -1,25 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
-import { ClipboardList, Tag } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Tag, User } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
-import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
-import DeptSectionNav from "../../components/DeptSectionNav.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import DashboardShell from "../../components/DashboardShell.jsx";
+import ActingAsBanner from "../../components/ActingAsBanner.jsx";
+import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import OrderQueue from "./OrderQueue.jsx";
 import OrderSourcingPanel from "./OrderSourcingPanel.jsx";
 import PriceListManager from "./PriceListManager.jsx";
 
-const SECTIONS = [
-  {
-    key: "orders",
-    label: "Orders",
-    icon: ClipboardList,
-    description: "Source pending orders from farmers and assign a processor once sourced.",
-  },
-  {
-    key: "pricing",
-    label: "Pricing",
-    icon: Tag,
-    description: "Standardized price list (display-only — edited from Finance Department).",
-  },
+const items = [
+  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { key: "orders", label: "Orders", icon: ClipboardList },
+  { key: "pricing", label: "Pricing", icon: Tag },
+  { key: "profile", label: "Profile", icon: User },
 ];
 
 function mapOrder(o) {
@@ -45,7 +39,10 @@ function mapFarmer(f) {
 }
 
 export default function ProcurementDepartment() {
-  const [tab, setTab] = useState(null); // null | "orders" | "pricing"
+  const { session } = useAuth();
+  const user = session?.user;
+
+  const [tab, setTab] = useState("dashboard");
   const [orders, setOrders] = useState([]);
   const [sourcedOrders, setSourcedOrders] = useState([]);
   const [farmers, setFarmers] = useState([]);
@@ -135,27 +132,33 @@ export default function ProcurementDepartment() {
     }
   }
 
+  if (!user) return null;
+
   return (
-    <AdminDashboardShell>
-    <div className="max-w-5xl space-y-6">
-      <div>
-        <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
-        <h1 className="text-xl font-medium text-white">Procurement Department</h1>
-        <p className="mt-1 text-sm text-canopy-100">
-          Sourcing, processor assignment, and the standardized price list.
-        </p>
-      </div>
+    <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
+      <ActingAsBanner />
 
       {error && (
-        <div className="card border-red-200 bg-red-50">
+        <div className="card mb-6 border-red-200 bg-red-50">
           <p className="text-sm text-red-700">{error}</p>
         </div>
       )}
 
-      <DeptSectionNav sections={SECTIONS} activeKey={tab} onSelect={setTab} deptLabel="Procurement sections" />
+      {tab === "dashboard" && (
+        <div className="max-w-5xl space-y-6">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
+            <h1 className="text-xl font-medium text-white">Procurement Department</h1>
+            <p className="mt-1 text-sm text-canopy-100">
+              Sourcing, processor assignment, and the standardized price list. Use the sidebar to
+              open Orders or Pricing.
+            </p>
+          </div>
+        </div>
+      )}
 
       {tab === "orders" && (
-        <>
+        <div className="max-w-5xl space-y-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <OrderQueue orders={orders} selectedId={selectedId} onSelect={setSelectedId} />
             {selectedOrder ? (
@@ -200,19 +203,30 @@ export default function ProcurementDepartment() {
               ))}
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {tab === "pricing" && (
-        <PriceListManager
-          prices={prices}
-          onUpdate={() => {
-            /* Price editing isn't wired yet — standardized prices are set
-               offline per the annual review, this UI is display-only for now. */
-          }}
-        />
+        <div className="max-w-5xl">
+          <PriceListManager
+            prices={prices}
+            onUpdate={() => {
+              /* Price editing isn't wired yet — standardized prices are set
+                 offline per the annual review, this UI is display-only for now. */
+            }}
+          />
+        </div>
       )}
-    </div>
-    </AdminDashboardShell>
+
+      {tab === "profile" && (
+        <div className="max-w-3xl">
+          <div className="mb-6">
+            <p className="text-xs uppercase tracking-wide text-canopy-300">Procurement</p>
+            <h1 className="text-xl font-medium text-white">Profile</h1>
+          </div>
+          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: "Procurement HOD" }]} />
+        </div>
+      )}
+    </DashboardShell>
   );
 }

@@ -146,3 +146,31 @@ export const uploadCourseMaterial = multer({
   fileFilter: materialFileFilter,
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB — slide decks run bigger than other uploads here
 });
+
+// Catalog/product photos — admin snaps or uploads a real image of the item
+// from the "Add Catalog" form (replaces the old emoji-icon-only input),
+// served back out statically the same way profile photos are (see
+// server.js) so <img src> can point straight at it.
+export const PRODUCT_IMAGES_DIR = path.join(__dirname, "..", "..", "uploads", "products");
+fs.mkdirSync(PRODUCT_IMAGES_DIR, { recursive: true });
+
+const productImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, PRODUCT_IMAGES_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || ".jpg";
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+  },
+});
+
+function productImageFileFilter(req, file, cb) {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
+    return cb(new Error("Only JPG, PNG, or WEBP images are accepted"));
+  }
+  cb(null, true);
+}
+
+export const uploadProductImage = multer({
+  storage: productImageStorage,
+  fileFilter: productImageFileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+});

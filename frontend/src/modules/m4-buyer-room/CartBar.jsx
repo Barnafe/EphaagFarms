@@ -9,7 +9,7 @@ export default function CartBar({ cart, onReview }) {
   const total = cart.reduce((sum, line) => sum + line.lineTotal, 0);
 
   return (
-    <div className="sticky bottom-4 z-10 flex items-center justify-between rounded-card border border-canopy-600 bg-white px-4 py-3 shadow-lg">
+    <div className="on-light sticky bottom-4 z-10 flex items-center justify-between rounded-card border border-canopy-600 bg-white px-4 py-3 shadow-lg">
       <div className="flex items-center gap-2">
         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-canopy-50 text-canopy-800">
           <ShoppingCart className="h-4 w-4" />

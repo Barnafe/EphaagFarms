@@ -2,6 +2,7 @@ import { useState } from "react";
 import { LayoutDashboard, User, Wrench, CalendarClock } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
 import DashboardShell from "../../components/DashboardShell.jsx";
+import ActingAsBanner from "../../components/ActingAsBanner.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import DashboardPanel from "./DashboardPanel.jsx";
 import MaintenanceWorkspace from "./MaintenanceWorkspace.jsx";
@@ -29,6 +30,7 @@ export default function MaintenanceDepartment() {
 
   return (
     <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
+      <ActingAsBanner />
       {tab === "dashboard" && (
         <div className="space-y-6">
           <div>

@@ -75,10 +75,12 @@ app.use(
 );
 app.use(express.json());
 
-// Profile photos only — agreement PDFs stay behind the authenticated
-// download route in investments.js, deliberately not exposed here.
+// Profile photos and catalog/product photos only — agreement PDFs stay
+// behind the authenticated download route in investments.js, deliberately
+// not exposed here.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use("/uploads/photos", express.static(path.join(__dirname, "..", "uploads", "photos")));
+app.use("/uploads/products", express.static(path.join(__dirname, "..", "uploads", "products")));
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 

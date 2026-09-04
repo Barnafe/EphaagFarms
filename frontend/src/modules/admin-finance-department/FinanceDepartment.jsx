@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { CreditCard, Landmark, Handshake, TrendingUp, PiggyBank } from "lucide-react";
+import { LayoutDashboard, CreditCard, Landmark, Handshake, TrendingUp, PiggyBank, User } from "lucide-react";
 import { apiFetch, apiDownload } from "../../api/client.js";
-import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
-import DeptSectionNav from "../../components/DeptSectionNav.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import DashboardShell from "../../components/DashboardShell.jsx";
+import ActingAsBanner from "../../components/ActingAsBanner.jsx";
+import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import PaymentConfirmationPanel from "./PaymentConfirmationPanel.jsx";
 import LoanDisbursementPanel from "./LoanDisbursementPanel.jsx";
 import FinanceReviewPanel from "./FinanceReviewPanel.jsx";
@@ -48,7 +50,8 @@ function mapRepayment(r) {
 }
 
 
-const tabs = [
+const items = [
+  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   {
     key: "payments",
     label: "Payment confirmations",
@@ -79,10 +82,14 @@ const tabs = [
     icon: PiggyBank,
     description: "Farmer savings balances, insurance, and withdrawal requests.",
   },
+  { key: "profile", label: "Profile", icon: User },
 ];
 
 export default function FinanceDepartment() {
-  const [tab, setTab] = useState(null);
+  const { session } = useAuth();
+  const user = session?.user;
+
+  const [tab, setTab] = useState("dashboard");
   const [payments, setPayments] = useState([]);
   const [paymentError, setPaymentError] = useState(null);
   const [loans, setLoans] = useState([]);
@@ -365,32 +372,38 @@ export default function FinanceDepartment() {
     }
   }
 
-  return (
-    <AdminDashboardShell>
-    <div className="max-w-4xl space-y-6">
-      <div>
-        <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
-        <h1 className="text-xl font-medium text-white">Finance Department</h1>
-        <p className="mt-1 text-sm text-canopy-100">
-          Payment confirmation, loans, settlements, and investments.
-        </p>
-      </div>
+  if (!user) return null;
 
-      <DeptSectionNav sections={tabs} activeKey={tab} onSelect={setTab} deptLabel="Finance sections" />
+  return (
+    <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
+      <ActingAsBanner />
+
+      {tab === "dashboard" && (
+        <div className="max-w-4xl space-y-6">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
+            <h1 className="text-xl font-medium text-white">Finance Department</h1>
+            <p className="mt-1 text-sm text-canopy-100">
+              Payment confirmation, loans, settlements, and investments. Use the sidebar to open a
+              section.
+            </p>
+          </div>
+        </div>
+      )}
 
       {tab === "payments" && (
-        <>
+        <div className="max-w-4xl space-y-6">
           {paymentError && (
             <div className="card border-red-200 bg-red-50">
               <p className="text-sm text-red-700">{paymentError}</p>
             </div>
           )}
           <PaymentConfirmationPanel orders={payments} onConfirm={handleConfirmPayment} />
-        </>
+        </div>
       )}
 
       {tab === "loans" && (
-        <>
+        <div className="max-w-4xl space-y-6">
           {loanError && (
             <div className="card border-red-200 bg-red-50">
               <p className="text-sm text-red-700">{loanError}</p>
@@ -420,22 +433,22 @@ export default function FinanceDepartment() {
           <BoostDepositReviewPanel deposits={pendingDeposits} onVerify={handleVerifyBoostDeposit} />
           <LoanDisbursementPanel loans={loans} onDisburse={handleDisburse} />
           <RepaymentReconciliationPanel repayments={repayments} onVerify={handleVerifyRepayment} />
-        </>
+        </div>
       )}
 
       {tab === "settlements" && (
-        <>
+        <div className="max-w-4xl space-y-6">
           {settlementError && (
             <div className="card border-red-200 bg-red-50">
               <p className="text-sm text-red-700">{settlementError}</p>
             </div>
           )}
           <SettlementPanel payments={settlements} onPay={handlePaySettlement} />
-        </>
+        </div>
       )}
 
       {tab === "investments" && (
-        <>
+        <div className="max-w-4xl space-y-6">
           {investmentError && (
             <div className="card border-red-200 bg-red-50">
               <p className="text-sm text-red-700">{investmentError}</p>
@@ -463,7 +476,7 @@ export default function FinanceDepartment() {
               </p>
             )}
           </div>
-        </>
+        </div>
       )}
 
       {tab === "savings" && (
@@ -518,7 +531,16 @@ export default function FinanceDepartment() {
           </div>
         </div>
       )}
-    </div>
-    </AdminDashboardShell>
+
+      {tab === "profile" && (
+        <div className="max-w-3xl">
+          <div className="mb-6">
+            <p className="text-xs uppercase tracking-wide text-canopy-300">Finance</p>
+            <h1 className="text-xl font-medium text-white">Profile</h1>
+          </div>
+          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: "Finance HOD" }]} />
+        </div>
+      )}
+    </DashboardShell>
   );
 }

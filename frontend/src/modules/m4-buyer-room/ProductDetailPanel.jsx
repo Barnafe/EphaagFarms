@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Minus, Plus, X } from "lucide-react";
+import { API_ORIGIN } from "../../api/client.js";
 
 // Full product detail modal — opened when a shopper taps a catalog card.
-// Shows the item's icon/description, price, a variant ("size") selector
-// where relevant, and a quantity stepper, then "Add to cart". Colors:
-// this is a white surface, so text uses plain text-gray-* (see note in
-// ProductCatalog.jsx) rather than text-ink-* which the dashboard's dark
-// theme would invert to a light color.
+// Shows the item's photo (or icon tile fallback)/description, price, a
+// variant ("size") selector where relevant, and a quantity stepper, then
+// "Add to cart". Colors: this is a white surface marked `.on-light` (see
+// index.css) so its text gets real black/gold colors instead of being
+// caught by .dash-scope's dark-theme text inversion — see ProductCatalog.jsx
+// for the fuller note on why that matters.
 export default function ProductDetailPanel({ item, onSave, onClose }) {
   const [quantity, setQuantity] = useState(1);
   const [size, setSize] = useState(item.sizes ? item.sizes[0] : null);
@@ -30,9 +32,13 @@ export default function ProductDetailPanel({ item, onSave, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-card bg-white sm:rounded-card">
-        <div className="relative flex h-40 items-center justify-center bg-gradient-to-br from-canopy-50 to-soil-50 text-7xl">
-          {item.icon}
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-card bg-white sm:rounded-card on-light">
+        <div className="relative flex h-40 items-center justify-center overflow-hidden bg-gradient-to-br from-canopy-50 to-soil-50 text-7xl">
+          {item.imageUrl ? (
+            <img src={`${API_ORIGIN}${item.imageUrl}`} alt={item.crop} className="h-full w-full object-cover" />
+          ) : (
+            item.icon
+          )}
           <button
             type="button"
             onClick={onClose}

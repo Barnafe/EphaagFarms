@@ -118,3 +118,44 @@ h1, h2, h3 {
 .dash-scope .field label {
   color: #f6f4ef;
 }
+
+/* -------------------------------------------------------------------
+   ".on-light" — white/light "shopping surface" cards that deliberately
+   keep a light background even while nested inside the otherwise-dark
+   .dash-scope (buyer's product catalog + cart + checkout + payment +
+   confirmation, the profile-menu dropdown in DashboardShell, the savings
+   deposit consent modal). Before this block, the general ink- and gray-
+   inversion rules above applied everywhere inside .dash-scope with no
+   way to tell a dark surface from a light one — so text on these white
+   cards was being turned the same light cream/tan meant for dark
+   backgrounds, which is nearly invisible on white (2026-09-04 bug
+   report: "the write up aren't visible... the color used for the text
+   aren't matching"). Every such surface must carry the `on-light` class
+   on its outer container for this to take effect.
+
+   Per that request, text here isn't just restored to the original gray
+   — it's given real brand colors: near-black for primary text, and a
+   golden yellow (the same harvest gold already used for prices/accents
+   elsewhere in the dashboard) for secondary/muted text. Plain yellow
+   (#ffeb3b-style) was avoided on purpose — it has very poor contrast on
+   a white background and would just trade one invisible-text bug for
+   another; this gold reads as yellow while staying readable.
+   !important is deliberate here: the general rules above use several
+   chained :not() clauses that outweigh a plain nested-class selector on
+   specificity alone, so without !important they'd keep winning even
+   though .on-light is more specific in intent. ------------------------------------------------------------------- */
+.dash-scope .on-light [class*="text-ink-900"],
+.dash-scope .on-light [class*="text-ink-800"],
+.dash-scope .on-light [class*="text-ink-700"],
+.dash-scope .on-light [class*="text-gray-900"],
+.dash-scope .on-light [class*="text-gray-800"],
+.dash-scope .on-light [class*="text-gray-700"] {
+  color: #171310 !important;
+}
+
+.dash-scope .on-light [class*="text-ink-600"],
+.dash-scope .on-light [class*="text-gray-600"],
+.dash-scope .on-light [class*="text-gray-500"],
+.dash-scope .on-light [class*="text-gray-400"] {
+  color: #a97918 !important;
+}

@@ -10,7 +10,7 @@ export default function PaymentPlaceholder({ total, onConfirm, onBack, submittin
   const [method, setMethod] = useState("transfer");
 
   return (
-    <div className="rounded-card border border-soil-200 bg-white p-5 space-y-4">
+    <div className="on-light rounded-card border border-soil-200 bg-white p-5 space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-gray-900">Payment</p>
         <button type="button" onClick={onBack} className="text-sm text-canopy-800">

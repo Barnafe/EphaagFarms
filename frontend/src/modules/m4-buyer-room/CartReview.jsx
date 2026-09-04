@@ -8,7 +8,7 @@ export default function CartReview({ cart, onUpdateQuantity, onRemove, onCheckou
   const total = cart.reduce((sum, line) => sum + line.lineTotal, 0);
 
   return (
-    <div className="rounded-card border border-soil-200 bg-white p-5 space-y-4">
+    <div className="on-light rounded-card border border-soil-200 bg-white p-5 space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-gray-900">Your cart</p>
         <button type="button" onClick={onBack} className="text-sm text-canopy-800">

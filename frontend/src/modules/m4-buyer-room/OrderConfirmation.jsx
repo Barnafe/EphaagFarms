@@ -2,7 +2,7 @@ import { CheckCircle2 } from "lucide-react";
 
 export default function OrderConfirmation({ order, onContinue }) {
   return (
-    <div className="rounded-card border border-soil-200 bg-white p-6 text-center space-y-1">
+    <div className="on-light rounded-card border border-soil-200 bg-white p-6 text-center space-y-1">
       <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-canopy-50 text-canopy-700">
         <CheckCircle2 className="h-7 w-7" />
       </span>

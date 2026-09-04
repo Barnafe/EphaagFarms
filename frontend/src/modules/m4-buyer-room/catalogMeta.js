@@ -65,6 +65,11 @@ export function mergeCatalog(prices) {
       crop: p.crop,
       category,
       icon: p.icon || meta?.icon || FALLBACK_ICONS[category] || "🧺",
+      // Real product photo, set by admin in the "Add Catalog" form — wins
+      // over the emoji icon when present (see ProductCatalog.jsx /
+      // ProductDetailPanel.jsx, which fall back to the icon tile when
+      // there's no photo yet, e.g. older catalog rows).
+      imageUrl: p.image_url || null,
       description:
         p.description || meta?.description || `Standard-priced ${p.crop.toLowerCase()}, sold by the ${p.unit}.`,
       unit: p.unit,

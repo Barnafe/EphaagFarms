@@ -11,10 +11,9 @@ import {
   GraduationCap,
   LogIn,
   Mail,
-  X,
 } from "lucide-react";
 import DashboardShell from "./DashboardShell.jsx";
-import { useActingAs } from "../context/ActingAsContext.jsx";
+import ActingAsBanner from "./ActingAsBanner.jsx";
 
 // key -> route, single source of truth for both the sidebar's active-item
 // highlight and where clicking each item navigates to.
@@ -63,7 +62,6 @@ const items = [
 export default function AdminDashboardShell({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { actingAs, setActingAs } = useActingAs();
 
   const activeKey =
     Object.keys(ROUTES)
@@ -74,29 +72,9 @@ export default function AdminDashboardShell({ children }) {
     navigate(ROUTES[key] || "/admin");
   }
 
-  function handleExitActingAs() {
-    setActingAs(null);
-    navigate("/admin");
-  }
-
   return (
     <DashboardShell items={items} activeKey={activeKey} onSelect={handleSelect}>
-      {actingAs && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-card border border-harvest-400/40 bg-harvest-400/10 px-4 py-2.5">
-          <p className="text-sm text-canopy-100">
-            <span className="font-medium text-white">Acting as: {actingAs}</span> — navigating and
-            acting just as that department's head would.
-          </p>
-          <button
-            type="button"
-            onClick={handleExitActingAs}
-            className="flex shrink-0 items-center gap-1 rounded-card px-2 py-1 text-xs font-medium text-canopy-100 hover:bg-canopy-800 hover:text-white"
-          >
-            <X size={14} />
-            Exit
-          </button>
-        </div>
-      )}
+      <ActingAsBanner />
       {children}
     </DashboardShell>
   );

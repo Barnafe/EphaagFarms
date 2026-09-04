@@ -24,7 +24,7 @@ export default function CheckoutForm({ cart, commitment, defaultAddress, default
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-card border border-soil-200 bg-white p-5 space-y-4">
+    <form onSubmit={handleSubmit} className="on-light rounded-card border border-soil-200 bg-white p-5 space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-gray-900">Checkout details</p>
         <button type="button" onClick={onBack} className="text-sm text-canopy-800">

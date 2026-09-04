@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import { LayoutDashboard, Inbox, Users, PlusCircle, History as HistoryIcon, User } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
-import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import DashboardShell from "../../components/DashboardShell.jsx";
+import ActingAsBanner from "../../components/ActingAsBanner.jsx";
+import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import StockOverview from "./StockOverview.jsx";
 import ReceivingPanel from "./ReceivingPanel.jsx";
 import ProductionReceivingPanel from "./ProductionReceivingPanel.jsx";
@@ -30,7 +34,20 @@ function mapOrder(o) {
   };
 }
 
+const items = [
+  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { key: "receiving", label: "Receiving", icon: Inbox },
+  { key: "allocation", label: "Allocation", icon: Users },
+  { key: "restock", label: "Restock", icon: PlusCircle },
+  { key: "history", label: "History", icon: HistoryIcon },
+  { key: "profile", label: "Profile", icon: User },
+];
+
 export default function StoreDepartment() {
+  const { session } = useAuth();
+  const user = session?.user;
+
+  const [tab, setTab] = useState("dashboard");
   const [stock, setStock] = useState([]);
   const [receiving, setReceiving] = useState([]);
   const [productionQueue, setProductionQueue] = useState([]);
@@ -133,35 +150,70 @@ export default function StoreDepartment() {
     return request;
   }
 
+  if (!user) return null;
+
   return (
-    <AdminDashboardShell>
-      <div className="max-w-3xl space-y-6">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
-          <h1 className="text-xl font-medium text-white">Store Department</h1>
-          <p className="mt-1 text-sm text-canopy-100">
-            Inventory, receiving, order audits, allocation to distributors, and restock requests.
-          </p>
+    <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
+      <ActingAsBanner />
+
+      {error && (
+        <div className="card mb-6 border-red-200 bg-red-50">
+          <p className="text-sm text-red-700">{error}</p>
         </div>
+      )}
 
-        {error && (
-          <div className="card border-red-200 bg-red-50">
-            <p className="text-sm text-red-700">{error}</p>
+      {tab === "dashboard" && (
+        <div className="max-w-3xl space-y-6">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
+            <h1 className="text-xl font-medium text-white">Store Department</h1>
+            <p className="mt-1 text-sm text-canopy-100">
+              Inventory on hand, low-stock alerts, and reorder levels.
+            </p>
           </div>
-        )}
+          <StockOverview
+            stock={stock}
+            onRaiseRestockRequest={handleRaiseRestockRequest}
+            requestingCrop={requestingCrop}
+            onSaveReorderLevel={handleSaveReorderLevel}
+          />
+        </div>
+      )}
 
-        <StockOverview
-          stock={stock}
-          onRaiseRestockRequest={handleRaiseRestockRequest}
-          requestingCrop={requestingCrop}
-          onSaveReorderLevel={handleSaveReorderLevel}
-        />
-        <ReceivingPanel orders={receiving} onReceive={handleReceive} />
-        <ProductionReceivingPanel harvests={productionQueue} onReceive={handleReceiveProduction} />
-        <AllocationPanel orders={orders} distributors={distributors} onAudit={handleAudit} onAllocate={handleAllocate} />
-        <RestockRequestPanel onSubmit={handleRestockSubmit} prefill={restockPrefill} />
-        <MovementHistory movements={movements} />
-      </div>
-    </AdminDashboardShell>
+      {tab === "receiving" && (
+        <div className="max-w-3xl space-y-6">
+          <ReceivingPanel orders={receiving} onReceive={handleReceive} />
+          <ProductionReceivingPanel harvests={productionQueue} onReceive={handleReceiveProduction} />
+        </div>
+      )}
+
+      {tab === "allocation" && (
+        <div className="max-w-3xl">
+          <AllocationPanel orders={orders} distributors={distributors} onAudit={handleAudit} onAllocate={handleAllocate} />
+        </div>
+      )}
+
+      {tab === "restock" && (
+        <div className="max-w-3xl">
+          <RestockRequestPanel onSubmit={handleRestockSubmit} prefill={restockPrefill} />
+        </div>
+      )}
+
+      {tab === "history" && (
+        <div className="max-w-3xl">
+          <MovementHistory movements={movements} />
+        </div>
+      )}
+
+      {tab === "profile" && (
+        <div className="max-w-3xl">
+          <div className="mb-6">
+            <p className="text-xs uppercase tracking-wide text-canopy-300">Store</p>
+            <h1 className="text-xl font-medium text-white">Profile</h1>
+          </div>
+          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: "Store HOD" }]} />
+        </div>
+      )}
+    </DashboardShell>
   );
 }

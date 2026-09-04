@@ -525,6 +525,14 @@ ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS category TEXT;
 ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS icon TEXT;
 
+-- 2026-09-04: real product photo instead of an emoji icon — admin now
+-- snaps/uploads an actual image of the item in the "Add Catalog" form
+-- (matches real shopping apps, where the item's photo is what draws a
+-- buyer in). `icon` is kept as-is (not dropped, no-drop convention) and
+-- still used as the fallback tile for any older row that has no photo —
+-- see mergeCatalog() in frontend/src/modules/m4-buyer-room/catalogMeta.js.
+ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS image_url TEXT;
+
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reference TEXT UNIQUE NOT NULL,

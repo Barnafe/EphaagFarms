@@ -4,7 +4,6 @@ import { apiFetch } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import DashboardShell from "../../components/DashboardShell.jsx";
 import BuyerProfileCard from "./BuyerProfileCard.jsx";
-import StandardPriceList from "./StandardPriceList.jsx";
 import StandingCommitmentCard from "./StandingCommitmentCard.jsx";
 import ProductCatalog from "./ProductCatalog.jsx";
 import ProductDetailPanel from "./ProductDetailPanel.jsx";
@@ -45,7 +44,7 @@ function mapOrder(o) {
 
 const items = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { key: "catalog", label: "Catalog", icon: ShoppingBasket },
+  { key: "catalog", label: "Shop Item", icon: ShoppingBasket },
   { key: "history", label: "Order history", icon: History },
   { key: "profile", label: "Profile", icon: User },
 ];
@@ -182,7 +181,6 @@ export default function BuyerRoom() {
                 <h1 className="text-xl font-medium text-white">Welcome, {user.name}</h1>
               </div>
               <StandingCommitmentCard commitment={commitment} onCommit={handleCommit} />
-              <StandardPriceList prices={catalogItems} />
             </div>
           )}
 

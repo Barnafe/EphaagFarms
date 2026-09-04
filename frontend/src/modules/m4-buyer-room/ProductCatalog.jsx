@@ -1,18 +1,21 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
+import { API_ORIGIN } from "../../api/client.js";
 
 // Shopping-site-style product grid (Jumia/Temu-like): search + category
-// pills up top, then a card grid. Each card shows the item's icon tile,
-// name, price, and unit — click anywhere on the card to open the full
-// product detail panel (ProductDetailPanel), same "click item → full
-// details open" flow as a real shopping site.
+// pills up top, then a card grid. Each card shows the item's photo (or an
+// icon tile as fallback for older items with no photo yet), name, price,
+// and unit — click anywhere on the card to open the full product detail
+// panel (ProductDetailPanel), same "click item → full details open" flow
+// as a real shopping site.
 //
 // Note on colors: product cards are deliberately white (like a real
 // shopping site), which sits inside the app's otherwise dark dashboard
-// theme (.dash-scope inverts the ink-* text classes to light colors for
-// the dark background). Text inside these white cards uses plain
-// text-gray-* instead of text-ink-* so it stays dark-on-white and isn't
-// caught by that inversion.
+// theme (.dash-scope inverts ink-*/gray-* text to light colors for the
+// dark background). That inversion used to swallow this component's text
+// entirely (light-on-white — the 2026-09-04 bug report). Fixed by marking
+// this white surface `.on-light`, which index.css gives its own real
+// black/gold (brand) colors instead — see the ".on-light" block there.
 export default function ProductCatalog({ items, onSelect }) {
   const categories = ["All", ...new Set(items.map((i) => i.category))];
   const [activeCategory, setActiveCategory] = useState("All");
@@ -25,7 +28,7 @@ export default function ProductCatalog({ items, onSelect }) {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="on-light space-y-4">
       <div className="rounded-card border border-soil-200 bg-white p-4 space-y-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -69,8 +72,16 @@ export default function ProductCatalog({ items, onSelect }) {
             onClick={() => onSelect(item)}
             className="group flex flex-col overflow-hidden rounded-card border border-soil-200 bg-white text-left transition hover:-translate-y-0.5 hover:shadow-lg hover:border-canopy-400"
           >
-            <div className="flex h-24 items-center justify-center bg-gradient-to-br from-canopy-50 to-soil-50 text-5xl transition group-hover:scale-105">
-              {item.icon}
+            <div className="flex h-24 items-center justify-center overflow-hidden bg-gradient-to-br from-canopy-50 to-soil-50 text-5xl transition group-hover:scale-105">
+              {item.imageUrl ? (
+                <img
+                  src={`${API_ORIGIN}${item.imageUrl}`}
+                  alt={item.crop}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                item.icon
+              )}
             </div>
             <div className="flex flex-1 flex-col gap-1 p-3">
               <span className="w-fit rounded-full bg-soil-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500">

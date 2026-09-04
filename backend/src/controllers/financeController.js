@@ -9,7 +9,7 @@ import { pool } from "../db/pool.js";
 
 export async function listPrices(req, res) {
   const { rows } = await pool.query(
-    `SELECT id, crop, unit, buy_price, sell_price, category, description, icon, last_reviewed
+    `SELECT id, crop, unit, buy_price, sell_price, category, description, icon, image_url, last_reviewed
      FROM standard_prices ORDER BY crop ASC`
   );
   res.json({ prices: rows });
@@ -34,6 +34,10 @@ export async function listPrices(req, res) {
 // list is enforced here in the controller instead.
 export const CATALOG_UNITS = ["kg", "tons", "bags", "tubers", "crates", "baskets"];
 
+// req.body fields arrive as strings here when the request is multipart
+// (an image file was attached) — same as adminCreateCourse in
+// rtcController.js. req.file is only present when a photo was uploaded;
+// items created with no photo just fall back to the emoji-icon tile.
 export async function createPrice(req, res) {
   const { crop, unit, buyPrice, sellPrice, category, description, icon } = req.body;
   if (!crop || !crop.trim()) return res.status(400).json({ error: "Crop/product name is required" });
@@ -52,10 +56,12 @@ export async function createPrice(req, res) {
     return res.status(409).json({ error: "That crop/product is already in the catalog — edit its price instead" });
   }
 
+  const imageUrl = req.file ? `/uploads/products/${req.file.filename}` : null;
+
   const { rows } = await pool.query(
-    `INSERT INTO standard_prices (crop, unit, price, buy_price, sell_price, category, description, icon, last_reviewed)
-     VALUES ($1, $2, $3, $3, $4, $5, $6, $7, CURRENT_DATE)
-     RETURNING id, crop, unit, buy_price, sell_price, category, description, icon, last_reviewed`,
+    `INSERT INTO standard_prices (crop, unit, price, buy_price, sell_price, category, description, icon, image_url, last_reviewed)
+     VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, CURRENT_DATE)
+     RETURNING id, crop, unit, buy_price, sell_price, category, description, icon, image_url, last_reviewed`,
     [
       crop.trim(),
       unit,
@@ -64,9 +70,26 @@ export async function createPrice(req, res) {
       category?.trim() || null,
       description?.trim() || null,
       icon?.trim() || null,
+      imageUrl,
     ]
   );
   res.status(201).json({ price: rows[0] });
+}
+
+// Attach/replace the photo on a catalog item that already exists — lets
+// admin fix or add a photo after the fact from the "Already in the
+// catalog" table, without having to touch price/unit/category again.
+export async function uploadPriceImage(req, res) {
+  const { id } = req.params;
+  if (!req.file) return res.status(400).json({ error: "No image uploaded" });
+  const imageUrl = `/uploads/products/${req.file.filename}`;
+  const { rows } = await pool.query(
+    `UPDATE standard_prices SET image_url = $1 WHERE id = $2
+     RETURNING id, crop, unit, buy_price, sell_price, category, description, icon, image_url, last_reviewed`,
+    [imageUrl, id]
+  );
+  if (!rows[0]) return res.status(404).json({ error: "Price row not found" });
+  res.json({ price: rows[0] });
 }
 
 export async function updatePrice(req, res) {
@@ -81,7 +104,7 @@ export async function updatePrice(req, res) {
          sell_price = COALESCE($2, sell_price),
          last_reviewed = CURRENT_DATE
      WHERE id = $3
-     RETURNING id, crop, unit, buy_price, sell_price, category, description, icon, last_reviewed`,
+     RETURNING id, crop, unit, buy_price, sell_price, category, description, icon, image_url, last_reviewed`,
     [buyPrice ?? null, sellPrice ?? null, id]
   );
   if (!rows[0]) return res.status(404).json({ error: "Price row not found" });
