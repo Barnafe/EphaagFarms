@@ -144,10 +144,7 @@ export default function AddCatalogPage() {
           <p className="text-xs uppercase tracking-wide text-canopy-300">Admin</p>
           <h1 className="text-xl font-medium text-white">Add catalog</h1>
           <p className="mt-1 text-sm text-canopy-100">
-            Add a new crop or product the company will produce and sell. Once added, it appears
-            automatically in the buyer's Product Catalog, the farmer's visible prices, and
-            Procurement's price list — no separate publish step. To change the price of something
-            already here, use <span className="font-medium text-white">Add Price</span> instead.
+            Already listed? Use <span className="font-medium text-white">Add Price</span> instead.
           </p>
         </div>
 
@@ -190,7 +187,6 @@ export default function AddCatalogPage() {
                   ref={fileInputRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  capture="environment"
                   className="hidden"
                   onChange={handleImagePick}
                 />
@@ -283,7 +279,6 @@ export default function AddCatalogPage() {
                 ref={rowFileInputRef}
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
-                capture="environment"
                 className="hidden"
                 onChange={handleRowImageChange}
               />

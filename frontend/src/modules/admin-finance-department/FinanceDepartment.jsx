@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, CreditCard, Landmark, Handshake, TrendingUp, PiggyBank, User } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { LayoutDashboard, CreditCard, Landmark, Handshake, TrendingUp, PiggyBank, Calculator, User } from "lucide-react";
 import { apiFetch, apiDownload } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import DashboardShell from "../../components/DashboardShell.jsx";
@@ -14,6 +15,7 @@ import SettlementPanel from "./SettlementPanel.jsx";
 import LoanPipelinePanel from "./LoanPipelinePanel.jsx";
 import { ApplicationReviewPanel, PartnerStatusPanel, ROIPayoutPanel } from "./InvestmentPanels.jsx";
 import InsuranceApplyControl from "./InsuranceApplyControl.jsx";
+import AccountingWorkspace from "./accounting/AccountingWorkspace.jsx";
 
 function mapLoan(l) {
   return {
@@ -82,6 +84,12 @@ const items = [
     icon: PiggyBank,
     description: "Farmer savings balances, insurance, and withdrawal requests.",
   },
+  {
+    key: "accounting",
+    label: "Accounting",
+    icon: Calculator,
+    description: "Requests, approvals, budgets, income/expense, payables/receivables, payments, bank & cash, reports and more.",
+  },
   { key: "profile", label: "Profile", icon: User },
 ];
 
@@ -89,7 +97,12 @@ export default function FinanceDepartment() {
   const { session } = useAuth();
   const user = session?.user;
 
-  const [tab, setTab] = useState("dashboard");
+  // Supports deep-linking in from elsewhere (the admin dashboard's summary
+  // cards use ?tab=accounting&section=transactions etc. so a click lands
+  // straight on the relevant screen instead of the top-level Dashboard tab).
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(searchParams.get("tab") || "dashboard");
+  const initialAccountingSection = searchParams.get("section") || null;
   const [payments, setPayments] = useState([]);
   const [paymentError, setPaymentError] = useState(null);
   const [loans, setLoans] = useState([]);
@@ -531,6 +544,8 @@ export default function FinanceDepartment() {
           </div>
         </div>
       )}
+
+      {tab === "accounting" && <AccountingWorkspace initialSection={initialAccountingSection} />}
 
       {tab === "profile" && (
         <div className="max-w-3xl">

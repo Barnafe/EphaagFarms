@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile safety net (2026-09-04): nothing on any screen should ever be able
+   to force the page wider than the device and reveal this cream background
+   behind the dashboard's dark shell — see the bg-canopy-950 fix below and
+   the [[ephaag-farms]] memory note for the bug this guards against. */
+html, body, #root {
+  @apply w-full overflow-x-hidden;
+}
+
 body {
   @apply bg-soil-50 text-ink-900 font-body;
 }

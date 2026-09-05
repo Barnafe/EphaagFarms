@@ -99,8 +99,7 @@ export default function ProductionDepartment() {
             <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
             <h1 className="text-xl font-medium text-white">Production Department</h1>
             <p className="mt-1 text-sm text-canopy-100">
-              Company-owned farms and Ephaag's own annual harvest record. Declared harvests are
-              confirmed and added to inventory separately by Store Department.
+              Company-owned farms and Ephaag's own annual harvest record.
             </p>
           </div>
           <div className="card">

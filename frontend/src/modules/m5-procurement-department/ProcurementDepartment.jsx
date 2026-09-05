@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, ClipboardList, Tag, User } from "lucide-react";
+import { LayoutDashboard, ClipboardList, ShoppingCart, Tag, User } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import DashboardShell from "../../components/DashboardShell.jsx";
@@ -8,10 +8,12 @@ import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import OrderQueue from "./OrderQueue.jsx";
 import OrderSourcingPanel from "./OrderSourcingPanel.jsx";
 import PriceListManager from "./PriceListManager.jsx";
+import PurchasingPanel from "./PurchasingPanel.jsx";
 
 const items = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "orders", label: "Orders", icon: ClipboardList },
+  { key: "purchasing", label: "Purchasing", icon: ShoppingCart },
   { key: "pricing", label: "Pricing", icon: Tag },
   { key: "profile", label: "Profile", icon: User },
 ];
@@ -203,6 +205,20 @@ export default function ProcurementDepartment() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {tab === "purchasing" && (
+        <div className="max-w-6xl">
+          <div className="mb-4">
+            <p className="text-xs uppercase tracking-wide text-canopy-300">Procurement Department</p>
+            <h1 className="text-xl font-medium text-white">Purchasing</h1>
+            <p className="mt-1 text-sm text-canopy-100">
+              Internal purchase requests: need verification → supplier sourcing → purchase order →
+              Finance payment → delivery → goods verification → invoice → final payment → audit.
+            </p>
+          </div>
+          <PurchasingPanel />
         </div>
       )}
 

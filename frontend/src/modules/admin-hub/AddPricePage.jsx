@@ -43,9 +43,7 @@ export default function AddPricePage() {
           <p className="text-xs uppercase tracking-wide text-canopy-300">Admin</p>
           <h1 className="text-xl font-medium text-white">Add price</h1>
           <p className="mt-1 text-sm text-canopy-100">
-            Set the buy price (what farmers are paid) and sell price (what buyers pay) for every crop
-            already in the catalog. Adding a brand-new crop happens in{" "}
-            <span className="font-medium text-white">Add Catalog</span> instead.
+            New crop? Use <span className="font-medium text-white">Add Catalog</span> instead.
           </p>
         </div>
 

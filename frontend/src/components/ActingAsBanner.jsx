@@ -7,7 +7,7 @@ import { useActingAs } from "../context/ActingAsContext.jsx";
 // ActingAsContext.jsx). Self-contained — reads actingAs straight from
 // context, so any department page can just drop this in without wiring
 // props. Renders nothing when actingAs is empty (i.e. the department was
-// reached directly from the Departments grid, not via Login As).
+// reached directly by URL, not via Login As).
 export default function ActingAsBanner() {
   const navigate = useNavigate();
   const { actingAs, setActingAs } = useActingAs();

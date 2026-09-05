@@ -1,5 +1,6 @@
 import { Router } from "../utils/asyncRouter.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { uploadPhoto } from "../middleware/upload.js";
 import * as m from "../controllers/maintenanceController.js";
 
 const router = Router();
@@ -31,10 +32,11 @@ router.patch("/parts/:id", m.updatePart);
 router.post("/parts/:id/adjust", m.adjustPartStock);
 router.get("/parts/movements", m.partMovementHistory);
 
-// Maintenance Requests
+// Maintenance Requests — review now happens in Admin's generic Requests
+// inbox (see routes/requests.js decideStep), not here; see createRequest's
+// comment in the controller for how the two are linked.
 router.get("/requests", m.listRequests);
-router.post("/requests", m.createRequest);
-router.post("/requests/:id/review", m.reviewRequest);
+router.post("/requests", uploadPhoto.single("photo"), m.createRequest);
 router.post("/requests/:id/convert", m.convertRequestToWorkOrder);
 
 // Work Orders

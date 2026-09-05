@@ -26,7 +26,7 @@ const FruitsCashCrops = lazy(() => import("./pages/public/services/farm-producti
 const ProduceSourcingRoom = lazy(() => import("./pages/public/services/produce-sourcing/ProduceSourcingRoom.jsx"));
 const FarmerFinancingRoom = lazy(() => import("./pages/public/services/farmer-financing/FarmerFinancingRoom.jsx"));
 const LogisticsRoom = lazy(() => import("./pages/public/services/logistics/LogisticsRoom.jsx"));
-const Seminal = lazy(() => import("./pages/public/services/seminal/Seminal.jsx"));
+const Trc = lazy(() => import("./pages/public/services/trc/Trc.jsx"));
 const LoginAdmin = lazy(() => import("./pages/auth/LoginAdmin.jsx"));
 const LoginMember = lazy(() => import("./pages/auth/LoginMember.jsx"));
 const Register = lazy(() => import("./pages/auth/Register.jsx"));
@@ -52,7 +52,7 @@ const MaintenanceDepartment = lazy(() => import("./modules/admin-maintenance-dep
 const FinanceDepartment = lazy(() => import("./modules/admin-finance-department/FinanceDepartment.jsx"));
 const StoreDepartment = lazy(() => import("./modules/admin-store-department/StoreDepartment.jsx"));
 const ProductionDepartment = lazy(() => import("./modules/admin-production-department/ProductionDepartment.jsx"));
-const SeminalDepartment = lazy(() => import("./modules/admin-seminal-department/SeminalDepartment.jsx"));
+const TrcDepartment = lazy(() => import("./modules/admin-trc-department/TrcDepartment.jsx"));
 const AnalyticsDepartment = lazy(() => import("./modules/admin-analytics/AnalyticsDepartment.jsx"));
 const RequestsApp = lazy(() => import("./modules/admin-requests/RequestsApp.jsx"));
 const PositionsPage = lazy(() => import("./modules/admin-positions/PositionsPage.jsx"));
@@ -89,7 +89,7 @@ export default function App() {
         <Route path="/services/farmer-financing" element={<FarmerFinancingRoom />} />
         <Route path="/services/logistics" element={<LogisticsRoom />} />
 
-        <Route path="/services/seminal" element={<Seminal />} />
+        <Route path="/services/trc" element={<Trc />} />
 
         <Route path="/login/admin" element={<LoginAdmin />} />
         <Route path="/login/member" element={<LoginMember />} />
@@ -274,10 +274,10 @@ export default function App() {
           }
         />
         <Route
-          path="/admin/seminal"
+          path="/admin/trc"
           element={
             <ProtectedRoute allow={["admin"]}>
-              <SeminalDepartment />
+              <TrcDepartment />
             </ProtectedRoute>
           }
         />

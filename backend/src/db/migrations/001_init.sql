@@ -892,34 +892,38 @@ ALTER TABLE share_interest_withdrawals ADD CONSTRAINT share_interest_withdrawals
   CHECK (year_number >= 1);
 
 -- RTC (Module 10) RENAMED 2026-09-02 to "Seminal" and narrowed to
--- training courses only, per explicit instruction: "this isn't gonna
--- contain consultancy and research anymore." research /
--- consultancy_offerings / consultancy_requests are kept (never dropped,
--- same non-destructive convention as the rest of this file) but are now
--- unused dead tables — rtcController.js no longer routes to them.
--- `seminars`/`seminar_attendance` are NOT part of that retirement:
+-- training courses only. RESTORED 2026-09-05: that narrowing was only
+-- ever meant for the farmer-facing tab inside Farmer's Room (which
+-- keeps its "Seminar" label and stays courses-only, since farmers
+-- specifically only need their own courses) — everywhere else in the
+-- system, TRC is back to its full three-part scope (rtcController.js
+-- now routes admin CRUD to `research` and `consultancy_offerings`/
+-- `consultancy_requests` again — none of these tables were ever
+-- dropped, so no schema change was needed to restore them).
+-- `seminars`/`seminar_attendance` were NEVER part of either rename:
 -- they're a separate feature (physical seminar attendance-marking for
 -- farmer leadership rank indices, see farmerController.js) that happens
--- to share this section of the file — left completely untouched.
+-- to share this section of the file — left completely untouched
+-- throughout.
 
--- Seminal content (2026-09-02) — this table used to be the plain,
--- always-free "Courses" list (title+description only). Now it's the
--- department's one and only content type: the company uploads a training
--- course with optional materials + an online hosting link, an admin
--- approves it, and only then do farmers see it and can attend/complete it.
--- Seminal additive columns. `approved` gates visibility to farmers — a
--- course is a draft the moment it's uploaded and only appears in
--- myCourses() once an admin approves it. `materials_url` is an optional
--- uploaded file (slides, PDF notes, etc — see uploadCourseMaterial in
--- middleware/upload.js), `online_link` is the optional hosting URL
--- farmers use to attend the course live, and `scheduled_at` is an
--- optional date/time for that live session; a course with no
--- `scheduled_at`/`online_link` is just self-paced materials+completion
--- tracking, same as the old plain-course model. Defaulting `approved` to
--- FALSE means every pre-existing course (which used to auto-publish with
--- no approval step at all) goes back to draft/unapproved on migration —
--- intentional, not a bug: the new business rule is that nothing reaches
--- farmers without an explicit approval, including old rows.
+-- Training/course content — the company uploads a training course with
+-- optional materials + an online hosting link, an admin approves it,
+-- and only then do farmers see it and can attend/complete it. This is
+-- the "Training" part of TRC, and also exactly what Farmer's Room's
+-- "Seminar" tab shows (same table, same endpoints, narrower label).
+-- `approved` gates visibility to farmers — a course is a draft the
+-- moment it's uploaded and only appears in myCourses() once an admin
+-- approves it. `materials_url` is an optional uploaded file (slides,
+-- PDF notes, etc — see uploadCourseMaterial in middleware/upload.js),
+-- `online_link` is the optional hosting URL farmers use to attend the
+-- course live, and `scheduled_at` is an optional date/time for that
+-- live session; a course with no `scheduled_at`/`online_link` is just
+-- self-paced materials+completion tracking, same as the old plain-course
+-- model. Defaulting `approved` to FALSE means every pre-existing course
+-- (which used to auto-publish with no approval step at all) goes back to
+-- draft/unapproved on migration — intentional, not a bug: the business
+-- rule is that nothing reaches farmers without an explicit approval,
+-- including old rows.
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES users(id);
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
@@ -1035,6 +1039,20 @@ CREATE TABLE IF NOT EXISTS maintenance_requests (
   review_note TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- 2026-09-04 rework: reporting no longer captures a free-text "reported on
+-- behalf of" name — the reporter instead attaches a photo of the faulty
+-- equipment as proof (photo_url, stored the same way as a profile photo —
+-- see uploadPhoto in middleware/upload.js, served from /uploads/photos).
+-- Review also no longer happens inside the Maintenance module itself:
+-- every report is mirrored into the generic cross-department
+-- `department_requests` workflow (department='Maintenance') so it lands in
+-- Admin's own Requests inbox for a *different* admin to open and decide.
+-- department_request_id links the two rows; requestsController.decideStep
+-- writes the decision back onto this row (status/reviewed_by/reviewed_at/
+-- review_note) once that request's approval trail concludes, so
+-- convertRequestToWorkOrder below keeps working unchanged off this table.
+ALTER TABLE maintenance_requests ADD COLUMN IF NOT EXISTS photo_url TEXT;
+ALTER TABLE maintenance_requests ADD COLUMN IF NOT EXISTS department_request_id UUID REFERENCES department_requests(id);
 
 -- Steps 2-9: Supervisor review turns an approved request into a Work
 -- Order (or the HOD opens one directly for manual/preventive work).
@@ -1126,4 +1144,505 @@ CREATE TABLE IF NOT EXISTS maintenance_schedules (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE maintenance_work_orders ADD COLUMN IF NOT EXISTS schedule_id UUID REFERENCES maintenance_schedules(id);
+
+-- ---------------------------------------------------------------------
+-- Procurement Department — "Purchasing" pipeline (2026-09-05). This is a
+-- DIFFERENT flow from the existing `/api/procurement` sourcing pipeline
+-- (which sources PRODUCE FROM FARMERS to fulfill buyer orders). This one
+-- is the internal supply-chain flow: a department needs something ->
+-- purchase request -> need verification -> RFQ/quotations from external
+-- suppliers -> supplier selection -> purchase order -> PO approval ->
+-- Finance payment/authorization -> supplier delivers -> goods
+-- verification (with a return/dispute branch) -> goods received ->
+-- invoice verification -> Finance final payment -> completed -> full
+-- audit trail. One admin role does every step today (no separate
+-- department logins exist yet), so "approval" stages are single
+-- admin-actioned transitions, same pattern as Production/Store depts —
+-- not a multi-approver chain like Loans.
+-- Suppliers are external vendors, not app users — a simple admin-managed
+-- directory, same shape as `farmer_products`/`suppliers` are to farmers.
+
+CREATE TABLE IF NOT EXISTS suppliers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  contact_person TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  category TEXT NOT NULL DEFAULT 'goods' CHECK (category IN ('goods', 'services', 'both')),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS purchase_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  department TEXT NOT NULL,
+  requested_by UUID NOT NULL REFERENCES users(id),
+  title TEXT NOT NULL,
+  justification TEXT,
+  needed_by DATE,
+  status TEXT NOT NULL DEFAULT 'pending_approval' CHECK (status IN (
+    'pending_approval', 'rejected', 'approved', 'sourcing',
+    'po_pending_approval', 'po_approved',
+    'payment_pending', 'awaiting_delivery', 'delivered',
+    'goods_disputed', 'goods_received',
+    'invoice_verification', 'final_payment_pending',
+    'completed', 'cancelled'
+  )),
+  approval_note TEXT,
+  approved_by UUID REFERENCES users(id),
+  approved_at TIMESTAMPTZ,
+  selected_supplier_id UUID REFERENCES suppliers(id),
+  selected_quotation_id UUID,
+  dispute_reason TEXT,
+  delivered_at TIMESTAMPTZ,
+  goods_verified_by UUID REFERENCES users(id),
+  goods_verified_at TIMESTAMPTZ,
+  goods_verification_result TEXT CHECK (goods_verification_result IN ('correct', 'wrong', 'damaged', 'incomplete')),
+  verification_note TEXT,
+  goods_received_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS purchase_request_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES purchase_requests(id) ON DELETE CASCADE,
+  description TEXT NOT NULL,
+  quantity NUMERIC(12,2) NOT NULL,
+  unit TEXT,
+  estimated_unit_price NUMERIC(14,2)
+);
+
+-- Immutable audit trail — same pattern/purpose as `loan_status_history`:
+-- every transition logged inside the same DB transaction as the status
+-- change itself, never a separate droppable write.
+CREATE TABLE IF NOT EXISTS purchase_request_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES purchase_requests(id) ON DELETE CASCADE,
+  from_status TEXT,
+  to_status TEXT NOT NULL,
+  actor_id UUID REFERENCES users(id),
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS supplier_quotations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES purchase_requests(id) ON DELETE CASCADE,
+  supplier_id UUID NOT NULL REFERENCES suppliers(id),
+  amount NUMERIC(14,2) NOT NULL,
+  valid_until DATE,
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'received' CHECK (status IN ('received', 'selected', 'rejected')),
+  created_by UUID REFERENCES users(id),
+  submitted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE purchase_requests DROP CONSTRAINT IF EXISTS fk_purchase_requests_selected_quotation;
+ALTER TABLE purchase_requests ADD CONSTRAINT fk_purchase_requests_selected_quotation
+  FOREIGN KEY (selected_quotation_id) REFERENCES supplier_quotations(id);
+
+CREATE TABLE IF NOT EXISTS purchase_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID UNIQUE NOT NULL REFERENCES purchase_requests(id) ON DELETE CASCADE,
+  po_reference TEXT UNIQUE NOT NULL,
+  supplier_id UUID NOT NULL REFERENCES suppliers(id),
+  quotation_id UUID REFERENCES supplier_quotations(id),
+  items JSONB NOT NULL,
+  total_amount NUMERIC(14,2) NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending_approval' CHECK (status IN ('pending_approval', 'approved', 'rejected')),
+  approved_by UUID REFERENCES users(id),
+  approved_at TIMESTAMPTZ,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Covers both Finance touchpoints in the flow: 'initial' = the
+-- pre-delivery "payment / financial authorization" step, 'final' = the
+-- post-invoice-verification final payment.
+CREATE TABLE IF NOT EXISTS procurement_payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES purchase_requests(id) ON DELETE CASCADE,
+  po_id UUID REFERENCES purchase_orders(id),
+  type TEXT NOT NULL CHECK (type IN ('initial', 'final')),
+  amount NUMERIC(14,2) NOT NULL,
+  status TEXT NOT NULL DEFAULT 'paid' CHECK (status IN ('pending', 'paid')),
+  reference TEXT,
+  notes TEXT,
+  paid_by UUID REFERENCES users(id),
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS supplier_invoices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES purchase_requests(id) ON DELETE CASCADE,
+  po_id UUID REFERENCES purchase_orders(id),
+  invoice_number TEXT,
+  amount NUMERIC(14,2) NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  verified BOOLEAN NOT NULL DEFAULT FALSE,
+  verified_by UUID REFERENCES users(id),
+  verified_at TIMESTAMPTZ,
+  verification_note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+-- =======================================================================
+-- Finance Department — full company accounting build-out (2026-09-04).
+-- This is separate from the pre-existing `finance` routes/controller
+-- (marketplace-facing: payment confirmation, loan disbursement,
+-- settlements, investments — all still live, untouched). This section is
+-- the internal accounting system the Finance HOD portal's new
+-- "Accounting" section runs on: financial requests -> approvals ->
+-- budgets -> income/expense -> payables/receivables -> payments -> bank &
+-- cash, plus monitoring, reconciliation, alerts, reports, audit and
+-- settings across the whole company.
+--
+-- Many leaf items in the requested architecture (e.g. "Pending Requests"
+-- / "Approved Requests" / "Rejected Requests", "Overdue Invoices" /
+-- "Due Invoices") are STATUS FILTERS on one table, not separate tables —
+-- the controller exposes them as query-param filters on the same
+-- endpoint rather than the DB growing a table per status.
+-- =======================================================================
+
+-- 10. Bank & Cash Management — every bank account, cash drawer, and petty
+-- cash float the company holds. current_balance is a running total kept
+-- in sync by finance_transactions (same running-pool pattern as
+-- maintenance_parts.quantity_on_hand / store_inventory).
+CREATE TABLE IF NOT EXISTS finance_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  account_type TEXT NOT NULL DEFAULT 'bank' CHECK (account_type IN ('bank','cash','petty_cash')),
+  account_number TEXT,
+  bank_name TEXT,
+  currency TEXT NOT NULL DEFAULT 'NGN',
+  opening_balance NUMERIC(14,2) NOT NULL DEFAULT 0,
+  current_balance NUMERIC(14,2) NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive')),
+  notes TEXT,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 4. Budget Management — company, department, project, operational and
+-- capital-expenditure budgets all share this one table (budget_type
+-- column), same shape idea as maintenance_work_orders.source. spent_amount
+-- is kept in sync from finance_expenses/finance_transactions postings
+-- against the budget.
+CREATE TABLE IF NOT EXISTS finance_budgets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  budget_type TEXT NOT NULL DEFAULT 'department' CHECK (budget_type IN
+    ('company','department','project','operational','capital')),
+  name TEXT NOT NULL,
+  department TEXT,
+  project_ref TEXT,
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  allocated_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+  spent_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('draft','active','closed')),
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Budget Adjustments — a top-up or claw-back against a budget, with a
+-- reason. Also doubles as the source of "Budget Alerts" (threshold /
+-- exceeded checks read allocated_amount vs spent_amount directly, no
+-- separate table needed for those).
+CREATE TABLE IF NOT EXISTS finance_budget_adjustments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  budget_id UUID NOT NULL REFERENCES finance_budgets(id) ON DELETE CASCADE,
+  amount NUMERIC(14,2) NOT NULL,
+  reason TEXT NOT NULL,
+  adjusted_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 2 & 3. Financial Requests + Approval Center — the core workflow: any
+-- department raises a spending/funding request against a budget, it
+-- moves through one or more approval steps (finance_approvals below),
+-- and lands on approved/rejected/returned. current_step tracks where it
+-- sits in the hierarchy defined by finance_approval_rules.
+CREATE TABLE IF NOT EXISTS finance_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  requester_id UUID REFERENCES users(id),
+  department TEXT NOT NULL,
+  category TEXT,
+  budget_id UUID REFERENCES finance_budgets(id),
+  amount NUMERIC(14,2) NOT NULL,
+  purpose TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN
+    ('pending','approved','rejected','returned')),
+  current_step INT NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Supporting Documents attached to a request (receipts, quotes, memos —
+-- generic attachment shape, reused by finance_documents for
+-- already-issued invoices/vouchers rather than duplicated here).
+CREATE TABLE IF NOT EXISTS finance_request_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES finance_requests(id) ON DELETE CASCADE,
+  file_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  uploaded_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Approval Hierarchy / Approval Limits config — which role must sign off
+-- a request at a given step, gated by amount range and (optionally) a
+-- specific department. The Approval Center walks a request's amount +
+-- department against this table to know who's up next.
+CREATE TABLE IF NOT EXISTS finance_approval_rules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  step_order INT NOT NULL,
+  min_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+  max_amount NUMERIC(14,2),
+  department TEXT,
+  required_role TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Approval History — one row per decision made on a request (approve /
+-- reject / return for correction / request clarification / escalate).
+CREATE TABLE IF NOT EXISTS finance_approvals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES finance_requests(id) ON DELETE CASCADE,
+  approver_id UUID REFERENCES users(id),
+  step_order INT NOT NULL DEFAULT 1,
+  decision TEXT NOT NULL CHECK (decision IN
+    ('approved','rejected','returned','clarification_requested','escalated')),
+  comment TEXT,
+  decided_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 5. Income / Revenue records — customer payments, sales revenue, and
+-- other income, categorised for the Revenue Reports.
+CREATE TABLE IF NOT EXISTS finance_income (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  source TEXT NOT NULL DEFAULT 'other' CHECK (source IN
+    ('customer_payment','sales_revenue','other')),
+  category TEXT,
+  amount NUMERIC(14,2) NOT NULL,
+  description TEXT,
+  received_from TEXT,
+  account_id UUID REFERENCES finance_accounts(id),
+  received_at DATE NOT NULL DEFAULT CURRENT_DATE,
+  recorded_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 6. Expense Management — department, employee, operational and capital
+-- expenses all share this table (category column), each optionally tied
+-- to the budget it draws down and to a request that authorized it.
+CREATE TABLE IF NOT EXISTS finance_expenses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  category TEXT NOT NULL DEFAULT 'operational' CHECK (category IN
+    ('department','employee','operational','capital')),
+  department TEXT,
+  description TEXT NOT NULL,
+  amount NUMERIC(14,2) NOT NULL,
+  employee_id UUID REFERENCES users(id),
+  budget_id UUID REFERENCES finance_budgets(id),
+  request_id UUID REFERENCES finance_requests(id),
+  account_id UUID REFERENCES finance_accounts(id),
+  receipt_path TEXT,
+  verified BOOLEAN NOT NULL DEFAULT FALSE,
+  expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  recorded_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 7. Accounts Payable — supplier invoices & contractor bills owed by the
+-- company. status is derived/kept current by the controller (outstanding
+-- -> due -> overdue as due_date passes, -> paid once amount_paid reaches
+-- amount).
+CREATE TABLE IF NOT EXISTS finance_payables (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  payee_type TEXT NOT NULL DEFAULT 'supplier' CHECK (payee_type IN ('supplier','contractor')),
+  payee_name TEXT NOT NULL,
+  invoice_number TEXT,
+  amount NUMERIC(14,2) NOT NULL,
+  amount_paid NUMERIC(14,2) NOT NULL DEFAULT 0,
+  department TEXT,
+  due_date DATE,
+  status TEXT NOT NULL DEFAULT 'outstanding' CHECK (status IN
+    ('outstanding','due','overdue','partially_paid','paid')),
+  notes TEXT,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 8. Accounts Receivable — customer invoices owed to the company. Same
+-- status lifecycle shape as finance_payables, mirrored for the other
+-- side of the ledger.
+CREATE TABLE IF NOT EXISTS finance_receivables (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  customer_name TEXT NOT NULL,
+  invoice_number TEXT,
+  amount NUMERIC(14,2) NOT NULL,
+  amount_received NUMERIC(14,2) NOT NULL DEFAULT 0,
+  due_date DATE,
+  status TEXT NOT NULL DEFAULT 'outstanding' CHECK (status IN
+    ('outstanding','due','overdue','partial','paid')),
+  notes TEXT,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 9. Payment Management — the lifecycle of actually paying out a payable
+-- or a financial request (or receiving against a receivable), from
+-- request through verification/authorization/scheduling to completion.
+-- Exactly one of payable_id / receivable_id / request_id is normally set
+-- (enforced in the controller, same convention as
+-- maintenance_work_orders' assigned_technician/assigned_contractor).
+CREATE TABLE IF NOT EXISTS finance_payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  payment_type TEXT NOT NULL DEFAULT 'payable' CHECK (payment_type IN
+    ('payable','receivable','request','other')),
+  payable_id UUID REFERENCES finance_payables(id),
+  receivable_id UUID REFERENCES finance_receivables(id),
+  request_id UUID REFERENCES finance_requests(id),
+  amount NUMERIC(14,2) NOT NULL,
+  method TEXT,
+  account_id UUID REFERENCES finance_accounts(id),
+  status TEXT NOT NULL DEFAULT 'requested' CHECK (status IN
+    ('requested','verified','authorized','scheduled','processing','completed','failed','cancelled')),
+  scheduled_date DATE,
+  processed_at TIMESTAMPTZ,
+  voucher_path TEXT,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 12. Financial Transactions — the unified ledger feed every posting
+-- lands on (income / expense / payment / transfer / refund /
+-- adjustment), each optionally linking back to the source record via
+-- related_table/related_id. This is what the Finance Dashboard's "Recent
+-- Transactions" and most of Financial Reports read from, and what keeps
+-- finance_accounts.current_balance current.
+CREATE TABLE IF NOT EXISTS finance_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  txn_type TEXT NOT NULL CHECK (txn_type IN
+    ('income','expense','payment','transfer','refund','adjustment')),
+  amount NUMERIC(14,2) NOT NULL,
+  account_id UUID REFERENCES finance_accounts(id),
+  transfer_to_account_id UUID REFERENCES finance_accounts(id),
+  department TEXT,
+  description TEXT,
+  related_table TEXT,
+  related_id UUID,
+  verified BOOLEAN NOT NULL DEFAULT FALSE,
+  transacted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  recorded_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 13. Invoices & Documents — customer/supplier invoices, receipts,
+-- payment vouchers, credit/debit notes, contracts and other supporting
+-- documents, all as one generic filed-document table (doc_type column),
+-- each optionally attached to whichever record it documents.
+CREATE TABLE IF NOT EXISTS finance_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  doc_type TEXT NOT NULL CHECK (doc_type IN
+    ('customer_invoice','supplier_invoice','receipt','payment_voucher','credit_note','debit_note','contract','supporting_document')),
+  reference TEXT,
+  related_table TEXT,
+  related_id UUID,
+  file_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  amount NUMERIC(14,2),
+  uploaded_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 14. Reconciliation — bank, cash, supplier, customer and department
+-- reconciliation runs. Ties a statement balance against the book balance
+-- for an account/period; the controller flags unmatched/duplicate
+-- transactions by diffing finance_transactions against this window.
+CREATE TABLE IF NOT EXISTS finance_reconciliations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  recon_type TEXT NOT NULL DEFAULT 'bank' CHECK (recon_type IN
+    ('bank','cash','supplier','customer','department')),
+  account_id UUID REFERENCES finance_accounts(id),
+  department TEXT,
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  statement_balance NUMERIC(14,2),
+  book_balance NUMERIC(14,2),
+  status TEXT NOT NULL DEFAULT 'in_progress' CHECK (status IN
+    ('in_progress','matched','unmatched','completed')),
+  notes TEXT,
+  reconciled_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 15. Financial Alerts — system-raised alerts (low cash, budget
+-- threshold/exceeded, overdue invoice, upcoming payment, unusual
+-- spending, large transaction, failed payment). Raised by the controller
+-- on read of the dashboard/relevant list rather than a background job,
+-- to keep this build self-contained.
+CREATE TABLE IF NOT EXISTS finance_alerts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  alert_type TEXT NOT NULL CHECK (alert_type IN
+    ('low_cash_balance','budget_threshold','budget_exceeded','overdue_invoice','upcoming_payment','unusual_spending','large_transaction','failed_payment')),
+  severity TEXT NOT NULL DEFAULT 'warning' CHECK (severity IN ('info','warning','critical')),
+  message TEXT NOT NULL,
+  related_table TEXT,
+  related_id UUID,
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 19. Finance Settings — financial categories, budget/approval/payment
+-- rules, spending limits, tax configuration, currency and notification
+-- rules. One flexible key/value-per-category table rather than a column
+-- per setting, since this list is exactly the kind of thing that grows
+-- without a migration (same reasoning as REF_PREFIX being code, not DB).
+CREATE TABLE IF NOT EXISTS finance_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category TEXT NOT NULL CHECK (category IN
+    ('financial_category','budget_rule','approval_rule','spending_limit','payment_rule','tax_configuration','currency','notification_rule','system_configuration')),
+  key TEXT NOT NULL,
+  value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_by UUID REFERENCES users(id),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (category, key)
+);
+
+-- 17. Audit & Compliance — generic audit trail for finance actions not
+-- already fully captured by finance_approvals (decisions) and
+-- finance_transactions (postings) alone — e.g. edits/adjustments to
+-- already-posted records, and any other user activity worth a trail.
+CREATE TABLE IF NOT EXISTS finance_audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_id UUID REFERENCES users(id),
+  action TEXT NOT NULL,
+  entity_table TEXT NOT NULL,
+  entity_id UUID,
+  details JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_finance_requests_status ON finance_requests(status);
+CREATE INDEX IF NOT EXISTS idx_finance_payables_status ON finance_payables(status);
+CREATE INDEX IF NOT EXISTS idx_finance_receivables_status ON finance_receivables(status);
+CREATE INDEX IF NOT EXISTS idx_finance_payments_status ON finance_payments(status);
+CREATE INDEX IF NOT EXISTS idx_finance_transactions_type ON finance_transactions(txn_type);
+CREATE INDEX IF NOT EXISTS idx_finance_transactions_department ON finance_transactions(department);
+CREATE INDEX IF NOT EXISTS idx_finance_expenses_department ON finance_expenses(department);
+CREATE INDEX IF NOT EXISTS idx_finance_alerts_is_read ON finance_alerts(is_read);
 

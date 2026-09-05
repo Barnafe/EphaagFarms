@@ -3,14 +3,25 @@ import { pool } from "../db/pool.js";
 import { MATERIALS_DIR } from "../middleware/upload.js";
 
 // ---------------------------------------------------------------------
-// "Seminal" (2026-09-02) — was "RTC" (Research, Training & Consultancy).
-// Renamed and narrowed to training courses only: the company uploads a
-// course (optionally with materials + an online hosting link + a
-// scheduled date), an admin approves it, and only then does it appear to
-// farmers, who can view materials, attend online, and mark it complete.
-// Research and Consultancy are retired — their DB tables and any old
-// requests still exist (never dropped) but nothing here routes to them
-// anymore.
+// TRC — Training, Research & Consultancy (admin department).
+//
+// 2026-09-05 RESTORED: a 2026-09-02 round had renamed this whole
+// department to "Seminal" and narrowed it to training-courses-only
+// system-wide. Per explicit correction, that narrowing was only ever
+// meant for ONE place — the farmer's own Farmer's Room tab, which is
+// used as their personal course/online-class list and is fine staying
+// labeled "Seminar" there. Everywhere else in the system (this admin
+// department, the homepage card, the public marketing page, HOD
+// appointments, department dropdowns) TRC is restored to its full
+// three-part scope: Training, Research, and Consultancy — this is one
+// of EPHAAG's core offerings, not a farmer-only feature.
+//
+// Training = the existing course upload/approve/materials/online-link
+// flow below (unchanged code, just no longer the department's ONLY
+// function). Research and Consultancy admin functions are added back
+// here, reading/writing the `research`/`consultancy_offerings`/
+// `consultancy_requests` tables, which were never dropped even during
+// the narrowing.
 // ---------------------------------------------------------------------
 
 function mapCourseForAdmin(c) {
@@ -138,4 +149,143 @@ export async function downloadMaterial(req, res) {
     return res.status(404).json({ error: "No materials on this course" });
   }
   res.sendFile(path.join(MATERIALS_DIR, course.materials_url));
+}
+
+// ---------------------------------------------------------------------
+// Research — admin publishes short research write-ups/summaries. Simple
+// list/create/delete, no approval gate (unlike courses) since this is
+// company-authored content, not something farmers submit.
+// ---------------------------------------------------------------------
+
+function mapResearch(r) {
+  return { id: r.id, title: r.title, summary: r.summary, createdAt: r.created_at };
+}
+
+export async function adminListResearch(req, res) {
+  const { rows } = await pool.query(`SELECT * FROM research ORDER BY created_at DESC`);
+  res.json({ research: rows.map(mapResearch) });
+}
+
+export async function adminCreateResearch(req, res) {
+  const { title, summary } = req.body;
+  if (!title) return res.status(400).json({ error: "title is required" });
+  const { rows } = await pool.query(
+    `INSERT INTO research (title, summary) VALUES ($1, $2) RETURNING *`,
+    [title, summary || null]
+  );
+  res.status(201).json({ research: mapResearch(rows[0]) });
+}
+
+export async function adminDeleteResearch(req, res) {
+  const { id } = req.params;
+  const { rowCount } = await pool.query(`DELETE FROM research WHERE id = $1`, [id]);
+  if (!rowCount) return res.status(404).json({ error: "Research item not found" });
+  res.json({ deleted: true });
+}
+
+// Member-facing: any farmer can browse published research (no approval
+// gate — see note above).
+export async function listResearch(req, res) {
+  const { rows } = await pool.query(`SELECT * FROM research ORDER BY created_at DESC`);
+  res.json({ research: rows.map(mapResearch) });
+}
+
+// ---------------------------------------------------------------------
+// Consultancy — admin publishes offerings (what a member can book), and
+// members submit requests against a published offering for a one-on-one
+// session. Admin tracks requests through pending -> scheduled -> completed.
+// ---------------------------------------------------------------------
+
+function mapOffering(o) {
+  return { id: o.id, title: o.title, description: o.description, createdAt: o.created_at };
+}
+
+function mapRequest(r) {
+  return {
+    id: r.id,
+    offeringId: r.offering_id,
+    offeringTitle: r.offering_title,
+    userId: r.user_id,
+    userName: r.user_name,
+    message: r.message,
+    status: r.status,
+    createdAt: r.created_at,
+  };
+}
+
+export async function adminListConsultancyOfferings(req, res) {
+  const { rows } = await pool.query(`SELECT * FROM consultancy_offerings ORDER BY created_at DESC`);
+  res.json({ offerings: rows.map(mapOffering) });
+}
+
+export async function adminCreateConsultancyOffering(req, res) {
+  const { title, description } = req.body;
+  if (!title) return res.status(400).json({ error: "title is required" });
+  const { rows } = await pool.query(
+    `INSERT INTO consultancy_offerings (title, description) VALUES ($1, $2) RETURNING *`,
+    [title, description || null]
+  );
+  res.status(201).json({ offering: mapOffering(rows[0]) });
+}
+
+export async function adminDeleteConsultancyOffering(req, res) {
+  const { id } = req.params;
+  const { rowCount } = await pool.query(`DELETE FROM consultancy_offerings WHERE id = $1`, [id]);
+  if (!rowCount) return res.status(404).json({ error: "Offering not found" });
+  res.json({ deleted: true });
+}
+
+export async function adminListConsultancyRequests(req, res) {
+  const { rows } = await pool.query(
+    `SELECT cr.*, co.title AS offering_title, u.name AS user_name
+     FROM consultancy_requests cr
+     JOIN consultancy_offerings co ON co.id = cr.offering_id
+     JOIN users u ON u.id = cr.user_id
+     ORDER BY cr.created_at DESC`
+  );
+  res.json({ requests: rows.map(mapRequest) });
+}
+
+export async function adminUpdateConsultancyRequestStatus(req, res) {
+  const { id } = req.params;
+  const { status } = req.body;
+  if (!["pending", "scheduled", "completed"].includes(status)) {
+    return res.status(400).json({ error: "Invalid status" });
+  }
+  const { rows } = await pool.query(
+    `UPDATE consultancy_requests SET status = $1 WHERE id = $2 RETURNING *`,
+    [status, id]
+  );
+  if (!rows[0]) return res.status(404).json({ error: "Request not found" });
+  res.json({ request: mapRequest(rows[0]) });
+}
+
+// Member-facing
+export async function listConsultancyOfferings(req, res) {
+  const { rows } = await pool.query(`SELECT * FROM consultancy_offerings ORDER BY created_at DESC`);
+  res.json({ offerings: rows.map(mapOffering) });
+}
+
+export async function submitConsultancyRequest(req, res) {
+  const { offeringId, message } = req.body;
+  if (!offeringId) return res.status(400).json({ error: "offeringId is required" });
+  const { rows: offeringRows } = await pool.query(`SELECT id FROM consultancy_offerings WHERE id = $1`, [offeringId]);
+  if (!offeringRows[0]) return res.status(404).json({ error: "Offering not found" });
+  const { rows } = await pool.query(
+    `INSERT INTO consultancy_requests (offering_id, user_id, message) VALUES ($1, $2, $3) RETURNING *`,
+    [offeringId, req.user.id, message || null]
+  );
+  res.status(201).json({ request: { id: rows[0].id, status: rows[0].status } });
+}
+
+export async function myConsultancyRequests(req, res) {
+  const { rows } = await pool.query(
+    `SELECT cr.*, co.title AS offering_title
+     FROM consultancy_requests cr
+     JOIN consultancy_offerings co ON co.id = cr.offering_id
+     WHERE cr.user_id = $1
+     ORDER BY cr.created_at DESC`,
+    [req.user.id]
+  );
+  res.json({ requests: rows.map((r) => ({ id: r.id, offeringTitle: r.offering_title, message: r.message, status: r.status, createdAt: r.created_at })) });
 }

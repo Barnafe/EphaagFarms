@@ -1,5 +1,6 @@
 import { pool } from "../db/pool.js";
 import { generateReference, REF_PREFIX } from "../utils/reference.js";
+import { sendMail } from "../utils/email.js";
 
 function httpError(message, status = 400) {
   return Object.assign(new Error(message), { status });
@@ -274,7 +275,7 @@ export async function partMovementHistory(req, res) {
 }
 
 // =======================================================================
-// Maintenance Requests  (workflow step 1-2: report -> supervisor review)
+// Maintenance Requests  (workflow step 1-2: report -> admin review)
 // =======================================================================
 
 export async function listRequests(req, res) {
@@ -288,33 +289,74 @@ export async function listRequests(req, res) {
   res.json({ requests: rows });
 }
 
+// Step 1: report a fault. No more free-text "reported on behalf of" — the
+// reporter instead snaps/uploads a photo of the equipment as proof
+// (req.file, via uploadPhoto middleware). Step 2 is no longer a review
+// inside this module: the report is mirrored straight into the generic
+// cross-department Requests workflow (department='Maintenance', no
+// hand-picked approver chain, so it goes directly to the always-final
+// "Admin final approval" step) so any OTHER admin opens it from their own
+// Requests inbox, reviews the photo/details, and approves or rejects it
+// there. See requestsController.decideStep for the write-back that flips
+// this row's status once that request is decided.
 export async function createRequest(req, res) {
-  const { assetId, title, description, location, priority, reporterName, reporterDepartment } = req.body;
+  const { assetId, title, description, location, priority } = req.body;
   if (!title) throw httpError("title is required");
-  const reference = generateReference(REF_PREFIX.maintenanceRequest);
-  const { rows } = await pool.query(
-    `INSERT INTO maintenance_requests
-       (reference, asset_id, title, description, location, priority, reported_by, reporter_name, reporter_department)
-     VALUES ($1,$2,$3,$4,$5,COALESCE($6,'medium'),$7,$8,$9) RETURNING *`,
-    [reference, assetId || null, title, description || null, location || null, priority, req.user.id, reporterName || null, reporterDepartment || null]
-  );
-  res.status(201).json({ request: rows[0] });
-}
+  const photoUrl = req.file ? req.file.filename : null;
 
-// Step 3: supervisor review — approve or reject. Approving does not by
-// itself create the work order; converting to a work order is an explicit
-// separate action so the reviewer can approve now and staff it later.
-export async function reviewRequest(req, res) {
-  const { id } = req.params;
-  const { decision, note } = req.body;
-  if (!["approved", "rejected"].includes(decision)) throw httpError("decision must be 'approved' or 'rejected'");
-  const { rows } = await pool.query(
-    `UPDATE maintenance_requests SET status = $1, reviewed_by = $2, reviewed_at = now(), review_note = $3
-     WHERE id = $4 AND status IN ('submitted','under_review') RETURNING *`,
-    [decision, req.user.id, note || null, id]
-  );
-  if (!rows[0]) throw httpError("Request not found or already decided", 400);
-  res.json({ request: rows[0] });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const mReference = generateReference(REF_PREFIX.maintenanceRequest);
+    const { rows: mRows } = await client.query(
+      `INSERT INTO maintenance_requests
+         (reference, asset_id, title, description, location, priority, reported_by, photo_url)
+       VALUES ($1,$2,$3,$4,$5,COALESCE($6,'medium'),$7,$8) RETURNING *`,
+      [mReference, assetId || null, title, description || null, location || null, priority, req.user.id, photoUrl]
+    );
+    const maintenanceRequest = mRows[0];
+
+    const dReference = generateReference(REF_PREFIX.request);
+    const { rows: dRows } = await client.query(
+      `INSERT INTO department_requests (reference, requester_id, department, title, description)
+       VALUES ($1,$2,'Maintenance',$3,$4) RETURNING *`,
+      [dReference, req.user.id, title, description || null]
+    );
+    const departmentRequest = dRows[0];
+    // Single step: the always-final, any-admin step — same rule the generic
+    // workflow auto-appends after any hand-picked chain, used here as the
+    // whole chain since a maintenance fault report has no specific
+    // per-department approver to name ahead of time.
+    await client.query(
+      `INSERT INTO request_approval_steps (request_id, step_order, approver_id, label)
+       VALUES ($1, 1, NULL, 'Admin final approval')`,
+      [departmentRequest.id]
+    );
+
+    const { rows: linked } = await client.query(
+      `UPDATE maintenance_requests SET department_request_id = $1 WHERE id = $2 RETURNING *`,
+      [departmentRequest.id, maintenanceRequest.id]
+    );
+
+    await client.query("COMMIT");
+
+    const { rows: admins } = await pool.query(`SELECT email FROM users WHERE role_type = 'admin' AND email IS NOT NULL`);
+    for (const { email } of admins) {
+      sendMail({
+        to: email,
+        subject: `Request ${departmentRequest.reference} awaiting final approval`,
+        html: `<p>"${departmentRequest.title}" (Maintenance) is awaiting final approval.</p>`,
+      }).catch(() => {});
+    }
+
+    res.status(201).json({ request: linked[0] });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // Step 4: Work Order created from an approved request.

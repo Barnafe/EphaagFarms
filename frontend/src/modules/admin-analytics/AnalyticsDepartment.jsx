@@ -11,35 +11,48 @@ import {
 } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
-import DeptSectionNav from "../../components/DeptSectionNav.jsx";
 import { NIGERIA_STATE_NAMES } from "../../data/nigeriaStatesLgas.js";
 import AttendanceMarker from "../m2-farmer-room/AttendanceMarker.jsx";
 import JurisdictionOverview from "../m2-farmer-room/JurisdictionOverview.jsx";
+import AnalyticsSectionNav from "./AnalyticsSectionNav.jsx";
+import { BarChartCard, HorizontalBarChartCard, PieChartCard, LineChartCard, CHART_COLORS } from "./AnalyticsCharts.jsx";
 
-function BreakdownTable({ title, rows, keyLabel = "Group", valueLabel = "Count" }) {
+const nairaFormatter = (v) => `₦${Number(v).toLocaleString()}`;
+const countFormatter = (v) => Number(v).toLocaleString();
+
+// Farmer ranking is a named leaderboard (a list of people, not an
+// aggregate breakdown) — it stays a table; everything else in this room
+// is aggregate counts/totals, which charts read far faster than a table
+// once volume grows.
+function RankingTable({ rows }) {
   return (
     <div className="card">
-      <p className="text-sm text-ink-600">{title}</p>
-      {(!rows || rows.length === 0) ? (
-        <p className="mt-2 text-sm text-ink-600">No data yet.</p>
-      ) : (
-        <table className="mt-3 w-full text-sm">
+      <p className="text-sm text-ink-600">Farmers ranked by training engagement</p>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
           <thead>
             <tr className="text-left text-xs text-ink-600">
-              <th className="pb-1">{keyLabel}</th>
-              <th className="pb-1 text-right">{valueLabel}</th>
+              <th className="pb-1">Farmer</th>
+              <th className="pb-1">Location</th>
+              <th className="pb-1">Leadership rank</th>
+              <th className="pb-1 text-right">Quarters engaged</th>
+              <th className="pb-1 text-right">Training rank</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className="border-t border-soil-100">
-                <td className="py-1 text-ink-900">{r.key ?? r.label}</td>
-                <td className="py-1 text-right text-canopy-800">{r.value}</td>
+            {rows.map((f) => (
+              <tr key={f.userId} className="border-t border-soil-100">
+                <td className="py-1 text-ink-900">{f.name}</td>
+                <td className="py-1 text-ink-600">{[f.unit, f.ward, f.lga, f.state].filter(Boolean).join(", ")}</td>
+                <td className="py-1 text-ink-600">{f.leadershipRank || "—"}</td>
+                <td className="py-1 text-right text-canopy-800">{f.quartersEngaged}</td>
+                <td className="py-1 text-right text-canopy-800">{f.trainingRankLabel}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      )}
+      </div>
+      {rows.length === 0 && <p className="mt-2 text-sm text-ink-600">No farmers yet.</p>}
     </div>
   );
 }
@@ -76,7 +89,7 @@ const SECTIONS = [
 ];
 
 export default function AnalyticsDepartment() {
-  const [section, setSection] = useState(null);
+  const [section, setSection] = useState("overview");
   const [error, setError] = useState(null);
 
   const [overview, setOverview] = useState(null);
@@ -212,7 +225,7 @@ export default function AnalyticsDepartment() {
           </p>
         </div>
 
-        <DeptSectionNav sections={SECTIONS} activeKey={section} onSelect={setSection} deptLabel="Analytics sections" />
+        <AnalyticsSectionNav sections={SECTIONS} activeKey={section} onSelect={setSection} />
 
         {error && (
           <div className="card border-red-200 bg-red-50">
@@ -222,13 +235,15 @@ export default function AnalyticsDepartment() {
 
         {section === "overview" && overview && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <BreakdownTable
+            <BarChartCard
               title="Users by role"
-              rows={overview.usersByRole.map((r) => ({ key: r.role, value: r.count }))}
+              data={overview.usersByRole.map((r) => ({ key: r.role, value: r.count }))}
+              valueFormatter={countFormatter}
             />
-            <BreakdownTable
+            <PieChartCard
               title="Loans by status"
-              rows={overview.loansByStatus.map((r) => ({ key: r.status, value: r.count }))}
+              data={overview.loansByStatus.map((r) => ({ key: r.status, value: r.count }))}
+              valueFormatter={countFormatter}
             />
             <div className="card">
               <p className="text-sm text-ink-600">Total savings on platform</p>
@@ -272,13 +287,15 @@ export default function AnalyticsDepartment() {
                   <p className="text-sm text-ink-600">Total farmers matching filter</p>
                   <p className="mt-1 text-2xl font-medium text-canopy-800">{farmers.totalFarmers}</p>
                 </div>
-                <BreakdownTable title="By gender" rows={farmers.byGender.map((r) => ({ key: r.key, value: r.count }))} />
-                <BreakdownTable title="By marital status" rows={farmers.byMaritalStatus.map((r) => ({ key: r.key, value: r.count }))} />
-                <BreakdownTable title="By farm type" rows={farmers.byFarmType.map((r) => ({ key: r.key, value: r.count }))} />
-                <BreakdownTable title="By farm size" rows={farmers.byFarmSize.map((r) => ({ key: r.key, value: r.count }))} />
-                <BreakdownTable title="By annual income band" rows={farmers.byAnnualIncome.map((r) => ({ key: r.key, value: r.count }))} />
-                <BreakdownTable title="By years of experience" rows={farmers.byYearsExperience.map((r) => ({ key: r.key, value: r.count }))} />
-                <BreakdownTable title="By state" rows={farmers.byState.map((r) => ({ key: r.key, value: r.count }))} />
+                <PieChartCard title="By gender" data={farmers.byGender.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} />
+                <PieChartCard title="By marital status" data={farmers.byMaritalStatus.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} />
+                <BarChartCard title="By farm type" data={farmers.byFarmType.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} color={CHART_COLORS[1]} />
+                <BarChartCard title="By farm size" data={farmers.byFarmSize.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} color={CHART_COLORS[2]} />
+                <BarChartCard title="By annual income band" data={farmers.byAnnualIncome.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} color={CHART_COLORS[3]} />
+                <BarChartCard title="By years of experience" data={farmers.byYearsExperience.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} color={CHART_COLORS[0]} />
+                <div className="sm:col-span-2">
+                  <HorizontalBarChartCard title="By state" data={farmers.byState.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} />
+                </div>
               </div>
             )}
           </div>
@@ -313,17 +330,22 @@ export default function AnalyticsDepartment() {
 
             {produce && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <BreakdownTable
+                <HorizontalBarChartCard
                   title="Total declared production by crop"
-                  keyLabel="Crop"
-                  valueLabel="Total"
-                  rows={produce.byCrop.map((r) => ({ key: r.crop, value: `${r.total.toLocaleString()} ${r.unit} (${r.farmerCount} farmers)` }))}
+                  subtitle="Quantities are in each crop's own unit — hover a bar for detail."
+                  data={produce.byCrop.map((r) => ({ key: r.crop, value: r.total, unit: r.unit, farmerCount: r.farmerCount }))}
+                  color={CHART_COLORS[1]}
+                  valueFormatter={(v, _n, item) =>
+                    item?.payload ? `${Number(v).toLocaleString()} ${item.payload.unit} (${item.payload.farmerCount} farmers)` : v
+                  }
                 />
-                <BreakdownTable
+                <HorizontalBarChartCard
                   title="Total declared production by state"
-                  keyLabel="State"
-                  valueLabel="Total (mixed units)"
-                  rows={produce.byState.map((r) => ({ key: r.state, value: `${r.total.toLocaleString()} (${r.farmerCount} farmers)` }))}
+                  subtitle="Totals mix units across crops — hover a bar for farmer count."
+                  data={produce.byState.map((r) => ({ key: r.state, value: r.total, farmerCount: r.farmerCount }))}
+                  valueFormatter={(v, _n, item) =>
+                    item?.payload ? `${Number(v).toLocaleString()} (${item.payload.farmerCount} farmers)` : v
+                  }
                 />
               </div>
             )}
@@ -382,17 +404,30 @@ export default function AnalyticsDepartment() {
 
         {section === "loans" && loans && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <BreakdownTable
-              title="By status"
-              keyLabel="Status"
-              valueLabel="Count / Total"
-              rows={loans.byStatus.map((r) => ({ key: r.status, value: `${r.count} (₦${r.totalAmount.toLocaleString()})` }))}
+            <PieChartCard
+              title="Loan applications by status"
+              subtitle="Share of all applications, by current status."
+              data={loans.byStatus.map((r) => ({ key: r.status, value: r.count }))}
+              valueFormatter={countFormatter}
             />
-            <BreakdownTable
-              title="By loan type"
-              keyLabel="Type"
-              valueLabel="Count / Total"
-              rows={loans.byType.map((r) => ({ key: r.loanType, value: `${r.count} (₦${r.totalAmount.toLocaleString()})` }))}
+            <BarChartCard
+              title="Loan amount by status"
+              subtitle="Total ₦ value tied up at each status."
+              data={loans.byStatus.map((r) => ({ key: r.status, value: r.totalAmount }))}
+              color={CHART_COLORS[2]}
+              valueFormatter={nairaFormatter}
+            />
+            <BarChartCard
+              title="Loans by type — count"
+              data={loans.byType.map((r) => ({ key: r.loanType, value: r.count }))}
+              color={CHART_COLORS[1]}
+              valueFormatter={countFormatter}
+            />
+            <BarChartCard
+              title="Loans by type — total amount"
+              data={loans.byType.map((r) => ({ key: r.loanType, value: r.totalAmount }))}
+              color={CHART_COLORS[3]}
+              valueFormatter={nairaFormatter}
             />
             <div className="card sm:col-span-2">
               <p className="text-sm text-ink-600">Repayments</p>
@@ -417,61 +452,39 @@ export default function AnalyticsDepartment() {
             <div className="card sm:col-span-2">
               <p className="text-sm text-ink-600">{savings.saversCount} farmers with at least one deposit</p>
             </div>
-            <BreakdownTable
-              title="Deposits by month (last 12)"
-              keyLabel="Month"
-              valueLabel="Total / Count"
-              rows={savings.byMonth.map((r) => ({
-                key: new Date(r.month).toLocaleDateString(undefined, { year: "numeric", month: "short" }),
-                value: `₦${r.total.toLocaleString()} (${r.depositCount})`,
-              }))}
-            />
+            <div className="sm:col-span-2">
+              <LineChartCard
+                title="Deposits by month (last 12)"
+                data={savings.byMonth.map((r) => ({
+                  key: new Date(r.month).toLocaleDateString(undefined, { year: "numeric", month: "short" }),
+                  value: r.total,
+                  depositCount: r.depositCount,
+                }))}
+                valueFormatter={(v, _n, item) =>
+                  item?.payload ? `₦${Number(v).toLocaleString()} (${item.payload.depositCount} deposits)` : nairaFormatter(v)
+                }
+              />
+            </div>
           </div>
         )}
 
         {section === "training" && training && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <BreakdownTable
+            <BarChartCard
               title="By leadership rank"
-              rows={training.byLeadershipRank.map((r) => ({ key: r.rank, value: r.count }))}
+              data={training.byLeadershipRank.map((r) => ({ key: r.rank, value: r.count }))}
+              valueFormatter={countFormatter}
             />
-            <BreakdownTable
+            <BarChartCard
               title="By training rank"
-              rows={training.byTrainingRank.map((r) => ({ key: r.rank, value: r.count }))}
+              data={training.byTrainingRank.map((r) => ({ key: r.rank, value: r.count }))}
+              color={CHART_COLORS[1]}
+              valueFormatter={countFormatter}
             />
           </div>
         )}
 
-        {section === "ranking" && ranking && (
-          <div className="card">
-            <p className="text-sm text-ink-600">Farmers ranked by training engagement</p>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[560px] text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-ink-600">
-                    <th className="pb-1">Farmer</th>
-                    <th className="pb-1">Location</th>
-                    <th className="pb-1">Leadership rank</th>
-                    <th className="pb-1 text-right">Quarters engaged</th>
-                    <th className="pb-1 text-right">Training rank</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ranking.map((f) => (
-                    <tr key={f.userId} className="border-t border-soil-100">
-                      <td className="py-1 text-ink-900">{f.name}</td>
-                      <td className="py-1 text-ink-600">{[f.unit, f.ward, f.lga, f.state].filter(Boolean).join(", ")}</td>
-                      <td className="py-1 text-ink-600">{f.leadershipRank || "—"}</td>
-                      <td className="py-1 text-right text-canopy-800">{f.quartersEngaged}</td>
-                      <td className="py-1 text-right text-canopy-800">{f.trainingRankLabel}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {ranking.length === 0 && <p className="mt-2 text-sm text-ink-600">No farmers yet.</p>}
-          </div>
-        )}
+        {section === "ranking" && ranking && <RankingTable rows={ranking} />}
 
         {section === "attendance" && (
           <div className="space-y-4">

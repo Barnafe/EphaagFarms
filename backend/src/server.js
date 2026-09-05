@@ -23,6 +23,8 @@ import adminPositionsRoutes from "./routes/admin-positions.js";
 import productionRoutes from "./routes/production.js";
 import contactRoutes from "./routes/contact.js";
 import maintenanceRoutes from "./routes/maintenance.js";
+import purchasingRoutes from "./routes/purchasing.js";
+import financeDepartmentRoutes from "./routes/finance-department.js";
 import { runDueDateReminders } from "./controllers/investmentController.js";
 
 const app = express();
@@ -102,6 +104,8 @@ app.use("/api/admin/positions", adminPositionsRoutes);
 app.use("/api/production", productionRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
+app.use("/api/purchasing", purchasingRoutes);
+app.use("/api/finance-department", financeDepartmentRoutes);
 
 // More routes land here module by module.
 
@@ -124,10 +128,17 @@ if (fs.existsSync(frontendDist)) {
 app.use((err, req, res, next) => {
   console.error(err);
   // Respect a well-formed client error's own status (e.g. malformed JSON
-  // body from body-parser carries statusCode 400) instead of always
-  // reporting 500 — a bad request from the client isn't a server failure.
-  const status = err.statusCode && err.statusCode < 500 ? err.statusCode : 500;
-  res.status(status).json({ error: status < 500 ? "Malformed request" : "Something went wrong" });
+  // body from body-parser carries statusCode 400, while controller-thrown
+  // errors across the app carry status via `Object.assign(new Error(...), 
+  // { status })` / the httpError() helper) instead of always reporting
+  // 500 — a bad request from the client isn't a server failure. Pre-existing
+  // bug fixed 2026-09-04: this only ever checked `err.statusCode`, so every
+  // controller-thrown validation error (400s/404s from maintenanceController,
+  // investmentController, orderController, etc., all of which set `.status`
+  // not `.statusCode`) was silently reported as a 500 to the client.
+  const declaredStatus = err.status || err.statusCode;
+  const status = declaredStatus && declaredStatus < 500 ? declaredStatus : 500;
+  res.status(status).json({ error: status < 500 ? err.message || "Malformed request" : "Something went wrong" });
 });
 
 const port = process.env.PORT || 4000;

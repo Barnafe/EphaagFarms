@@ -115,10 +115,7 @@ export default function RequestsApp() {
         <div>
           <p className="text-xs uppercase tracking-wide text-canopy-300">Paperless workflow</p>
           <h1 className="text-xl font-medium text-white">Requests</h1>
-          <p className="mt-1 text-sm text-canopy-100">
-            Raise a request from any department, route it through whoever needs to approve, and track
-            every decision — no papers, no chasing people down.
-          </p>
+          <p className="mt-1 text-sm text-canopy-100">Raise, route, approve, and track — no paperwork.</p>
         </div>
 
         {error && (

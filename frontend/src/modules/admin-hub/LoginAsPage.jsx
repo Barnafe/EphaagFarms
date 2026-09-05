@@ -17,7 +17,7 @@ const departments = [
   { key: "Store", to: "/admin/store", desc: "Inventory, receiving, allocation, restock requests.", icon: Warehouse },
   { key: "Finance", to: "/admin/finance", desc: "Payments, the loan pipeline, settlements.", icon: Landmark },
   { key: "Maintenance", to: "/admin/maintenance", desc: "Vehicle and equipment upkeep.", icon: Wrench },
-  { key: "Seminal", to: "/admin/seminal", desc: "Upload and approve farmer training courses.", icon: GraduationCap },
+  { key: "TRC", to: "/admin/trc", desc: "Training, Research & Consultancy — courses, research, and consultancy bookings.", icon: GraduationCap },
 ];
 
 export default function LoginAsPage() {
@@ -35,10 +35,7 @@ export default function LoginAsPage() {
         <div className="mb-6">
           <p className="text-xs uppercase tracking-wide text-canopy-300">Admin</p>
           <h1 className="text-xl font-medium text-white">Login as a department</h1>
-          <p className="mt-1 text-sm text-canopy-100">
-            Until real staff are hired and appointed, pick a department below to step straight into
-            its dashboard — no login details needed, and every control there stays fully active.
-          </p>
+          <p className="mt-1 text-sm text-canopy-100">Pick a department to step into its dashboard.</p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

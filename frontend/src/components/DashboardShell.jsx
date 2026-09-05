@@ -41,7 +41,7 @@ export default function DashboardShell({ items, activeKey, onSelect, children })
   }
 
   return (
-    <div className="flex min-h-screen bg-canopy-950">
+    <div className="flex w-full min-h-screen overflow-x-hidden bg-canopy-950">
       {/* ---------------- Sidebar (hamburger-triggered slide-out overlay, all breakpoints) ---------------- */}
       <aside
         className={`fixed inset-y-0 left-0 z-30 w-64 shrink-0 transform bg-canopy-900 shadow-2xl transition-transform duration-200 ${
@@ -108,20 +108,20 @@ export default function DashboardShell({ items, activeKey, onSelect, children })
       )}
 
       {/* ---------------- Main column (full width now that nav is an overlay, not a static column) ---------------- */}
-      <div className="flex min-h-screen flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-white/10 bg-canopy-900 px-4 py-3 md:px-8">
+      <div className="flex min-h-screen min-w-0 w-full flex-1 flex-col">
+        <header className="flex min-w-0 items-center justify-between border-b border-white/10 bg-canopy-900 px-4 py-3 md:px-8">
           <button
-            className="flex items-center gap-2 rounded p-1.5 text-white hover:bg-canopy-800"
+            className="flex min-w-0 shrink items-center gap-2 rounded p-1.5 text-white hover:bg-canopy-800"
             onClick={() => setNavOpen(true)}
             aria-label="Open menu"
           >
-            <Menu size={22} />
-            <span className="hidden text-sm font-medium text-canopy-100 sm:block">
+            <Menu size={22} className="shrink-0" />
+            <span className="hidden truncate text-sm font-medium text-canopy-100 sm:block">
               {items.find((i) => i.key === activeKey)?.label}
             </span>
           </button>
 
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               onClick={() => setMenuOpen((v) => !v)}
               className="flex items-center gap-2 rounded-card px-2 py-1.5 text-white hover:bg-canopy-800"
@@ -163,7 +163,7 @@ export default function DashboardShell({ items, activeKey, onSelect, children })
           </div>
         </header>
 
-        <main className="flex-1 bg-canopy-950 p-4 md:p-8">{children}</main>
+        <main className="min-w-0 w-full flex-1 overflow-x-hidden bg-canopy-950 p-4 md:p-8">{children}</main>
       </div>
     </div>
   );

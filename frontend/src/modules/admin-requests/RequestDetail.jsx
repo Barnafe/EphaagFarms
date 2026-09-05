@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getToken, BASE_URL } from "../../api/client.js";
+import { getToken, BASE_URL, API_ORIGIN } from "../../api/client.js";
 
 const STEP_TONE = {
   pending: "bg-harvest-50 text-harvest-600",
@@ -54,6 +54,18 @@ export default function RequestDetail({ request, currentUserId, onBack, onDecide
           >
             View attachment
           </button>
+        )}
+        {request.maintenance_photo_url && (
+          <div className="mt-2">
+            <p className="text-xs text-ink-600">Proof photo</p>
+            <a href={`${API_ORIGIN}/uploads/photos/${request.maintenance_photo_url}`} target="_blank" rel="noreferrer">
+              <img
+                src={`${API_ORIGIN}/uploads/photos/${request.maintenance_photo_url}`}
+                alt="Reported equipment"
+                className="mt-1 h-40 w-40 rounded-card border border-soil-200 object-cover"
+              />
+            </a>
+          </div>
         )}
         <p className="mt-1 text-sm font-medium text-ink-900">Status: {request.status}</p>
       </div>

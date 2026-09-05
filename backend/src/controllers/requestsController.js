@@ -124,9 +124,18 @@ async function attachSteps(requests) {
   return requests.map((r) => ({ ...r, steps: steps.filter((s) => s.request_id === r.id) }));
 }
 
+// Requests raised from a Maintenance fault report (see
+// maintenanceController.createRequest) carry a photo of the equipment
+// instead of the generic PDF/doc attachment_url — pulled in here via the
+// linked maintenance_requests row so the reviewing admin can see it.
+const MAINTENANCE_PHOTO_JOIN = `LEFT JOIN maintenance_requests mr ON mr.department_request_id = dr.id`;
+const MAINTENANCE_PHOTO_SELECT = `mr.photo_url AS maintenance_photo_url`;
+
 export async function myRequests(req, res) {
   const { rows } = await pool.query(
-    `SELECT * FROM department_requests WHERE requester_id = $1 ORDER BY created_at DESC`,
+    `SELECT dr.*, ${MAINTENANCE_PHOTO_SELECT} FROM department_requests dr
+     ${MAINTENANCE_PHOTO_JOIN}
+     WHERE dr.requester_id = $1 ORDER BY dr.created_at DESC`,
     [req.user.id]
   );
   res.json({ requests: await attachSteps(rows) });
@@ -137,7 +146,8 @@ export async function myRequests(req, res) {
 // belongs to me (or is the open-to-any-admin final step).
 export async function awaitingMyApproval(req, res) {
   const { rows } = await pool.query(
-    `SELECT dr.* FROM department_requests dr
+    `SELECT dr.*, ${MAINTENANCE_PHOTO_SELECT} FROM department_requests dr
+     ${MAINTENANCE_PHOTO_JOIN}
      WHERE dr.status = 'pending' AND EXISTS (
        SELECT 1 FROM request_approval_steps s
        WHERE s.request_id = dr.id AND s.status = 'pending'
@@ -154,8 +164,11 @@ export async function awaitingMyApproval(req, res) {
 
 export async function getRequest(req, res) {
   const { rows } = await pool.query(
-    `SELECT dr.*, u.name AS requester_name FROM department_requests dr
-     JOIN users u ON u.id = dr.requester_id WHERE dr.id = $1`,
+    `SELECT dr.*, u.name AS requester_name, ${MAINTENANCE_PHOTO_SELECT}
+     FROM department_requests dr
+     JOIN users u ON u.id = dr.requester_id
+     ${MAINTENANCE_PHOTO_JOIN}
+     WHERE dr.id = $1`,
     [req.params.id]
   );
   if (!rows[0]) return res.status(404).json({ error: "Request not found" });
@@ -219,6 +232,19 @@ export async function decideStep(req, res) {
 
     if (requestStatus !== "pending") {
       await client.query(`UPDATE department_requests SET status = $1 WHERE id = $2`, [requestStatus, id]);
+      // Write the decision back onto the originating maintenance_requests
+      // row (if this request came from a Maintenance fault report — see
+      // maintenanceController.createRequest) so the Maintenance module's
+      // own "approved -> convert to work order" step keeps working off
+      // that table, even though the actual review happened here.
+      if (request.department === "Maintenance") {
+        await client.query(
+          `UPDATE maintenance_requests
+             SET status = $1, reviewed_by = $2, reviewed_at = now(), review_note = $3
+           WHERE department_request_id = $4`,
+          [requestStatus, req.user.id, note || null, id]
+        );
+      }
     }
     await client.query("COMMIT");
 

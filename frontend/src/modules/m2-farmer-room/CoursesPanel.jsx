@@ -50,7 +50,7 @@ export default function CoursesPanel() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-medium text-white">Seminal</h2>
+        <h2 className="text-lg font-medium text-white">Seminar</h2>
         <p className="mt-1 text-sm text-canopy-100">
           Training courses from EPHAAG Farms — always free. View materials, attend hosted online sessions,
           and mark courses complete.

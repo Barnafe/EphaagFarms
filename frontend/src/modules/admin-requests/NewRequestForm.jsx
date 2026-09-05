@@ -7,7 +7,7 @@ const DEPARTMENTS = [
   "Maintenance",
   "Store",
   "Production",
-  "Seminal",
+  "TRC",
   "Other",
 ];
 

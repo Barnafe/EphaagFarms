@@ -106,7 +106,7 @@ export default function FarmerRoom() {
     { key: "profile", label: "Profile", icon: User },
     { key: "list-product", label: "Declare & List", icon: PackagePlus },
     { key: "transactions", label: "Transactions", icon: Receipt },
-    { key: "courses", label: "Seminal", icon: GraduationCap },
+    { key: "courses", label: "Seminar", icon: GraduationCap },
     { key: "loans", label: "Loans", icon: Landmark },
     { key: "savings", label: "Savings", icon: PiggyBank },
     { key: "feedback", label: "Feedback", icon: MessageSquareWarning },
@@ -128,11 +128,6 @@ export default function FarmerRoom() {
             <h1 className="text-xl font-medium text-white">
               Welcome back {honorific(user)} {user.name}
             </h1>
-            <p className="mt-1 text-sm text-canopy-100">
-              EPHAAG Farms connects farmers, buyers, processors, and investors across the country —
-              sourcing produce at fair, standardized prices and getting it where it's needed, feeding
-              humanity with safe food.
-            </p>
           </div>
           {loading ? (
             <p className="text-sm text-canopy-100">Loading…</p>

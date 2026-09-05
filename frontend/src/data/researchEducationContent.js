@@ -1,6 +1,6 @@
 // Static content for the public /research-education page. Not wired to a
 // backend — seminars/courses here are separate from the real, live RTC
-// courses system (Farmer's Room's "Seminal"/"RTC" tab, admin-trc-department),
+// courses system (Farmer's Room's "Seminar" tab, admin-trc-department),
 // this is just marketing copy for visitors browsing before they register.
 
 export const seminars = [

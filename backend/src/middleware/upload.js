@@ -108,7 +108,7 @@ export const uploadRequestAttachment = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
-// Seminal (training course) materials — optional file an admin attaches
+// Training course materials (TRC) — optional file an admin attaches
 // when uploading a course (slides, notes, handouts). Wider file types
 // than the other uploads here since course materials are commonly
 // slideshows/docs, not just PDFs or images.
