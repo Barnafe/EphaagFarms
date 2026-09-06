@@ -327,6 +327,31 @@ CREATE TABLE IF NOT EXISTS loan_repayments (
   verified BOOLEAN NOT NULL DEFAULT FALSE
 );
 
+-- Unit Leader recommendation tickets (2026-09-06 spec). A DIRECT GATE, not
+-- a graded index — this is the resolution of the "unit_leader_recommendation
+-- has no point value" gap: it was never supposed to have one. A Unit
+-- Leader proactively picks a farmer from their jurisdiction (before any
+-- loan application exists) and issues a one-time ticket with a reason.
+-- That farmer's *next* loan application skips straight to 'recommended'
+-- status instead of starting at 'pending' and waiting for a Unit Leader to
+-- review it after the fact — a free pass, valid exactly once. The unique
+-- partial index below enforces "only one *unused* ticket per farmer at a
+-- time" so a leader can't stack up multiple free passes for the same
+-- person. Consumed the moment applyForLoan uses it (see loanController.js);
+-- after that, the same farmer's following application goes back through
+-- the normal pending -> Unit-Leader-review pipeline.
+CREATE TABLE IF NOT EXISTS loan_recommendation_tickets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  farmer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  issued_by UUID NOT NULL REFERENCES users(id),
+  reason TEXT NOT NULL,
+  used_at TIMESTAMPTZ,
+  used_loan_id UUID REFERENCES loans(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS one_unused_ticket_per_farmer
+  ON loan_recommendation_tickets (farmer_id) WHERE used_at IS NULL;
+
 -- Loan approval workflow v2 (2026-08-11 spec): inserts a Finance
 -- verification stage between Unit Leader recommendation and Federal final
 -- approval. pending -> recommended -> finance_verified -> approved ->
@@ -532,6 +557,24 @@ ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS icon TEXT;
 -- still used as the fallback tile for any older row that has no photo —
 -- see mergeCatalog() in frontend/src/modules/m4-buyer-room/catalogMeta.js.
 ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+-- 2026-09-05: crops vs livestock (spec). A catalog item is either a crop
+-- (existing kg/tons/bags/etc. unit vocabulary, unchanged) or livestock
+-- (goat/chicken/etc.) — livestock is priced per animal and what varies the
+-- price isn't a measured unit but the animal's age/description ("1 year
+-- old goat", "3 months broiler"), which buyers need to see instead of a
+-- unit. `unit` is kept NOT NULL for every row (order costing still needs
+-- SOME unit to multiply quantity by) — for livestock it's silently set to
+-- the fixed value 'head' by the controller, never shown to the admin or
+-- buyer; `age_description` is what's actually displayed for livestock
+-- wherever the UI would otherwise show "per {unit}". Crops leave
+-- age_description null and keep using the real unit as before.
+ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS item_type TEXT NOT NULL DEFAULT 'crop';
+DO $$ BEGIN
+  ALTER TABLE standard_prices DROP CONSTRAINT IF EXISTS standard_prices_item_type_check;
+  ALTER TABLE standard_prices ADD CONSTRAINT standard_prices_item_type_check CHECK (item_type IN ('crop','livestock'));
+END $$;
+ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS age_description TEXT;
 
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -784,6 +827,27 @@ DO $$ BEGIN
   ALTER TABLE harvest_logs DROP CONSTRAINT IF EXISTS harvest_logs_status_check;
   ALTER TABLE harvest_logs ADD CONSTRAINT harvest_logs_status_check CHECK (status IN ('declared','received'));
 END $$;
+
+-- Company-wide annual production DECLARATION — distinct from harvest_logs
+-- above. harvest_logs is the granular, per-farm record ("Farm A's harvest
+-- was X yam on this date") used to see how each individual farm performs.
+-- This table is the single official company-wide figure per crop per
+-- year ("Ephaag produced X yam in 2026" — no farm attribution, because
+-- the whole point of a company declaration is the combined total, not a
+-- breakdown). One row per (year, crop): re-declaring the same year+crop
+-- updates the existing figure rather than creating a duplicate.
+CREATE TABLE IF NOT EXISTS production_annual_declarations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  year INTEGER NOT NULL,
+  crop TEXT NOT NULL,
+  quantity NUMERIC(12,2) NOT NULL,
+  unit TEXT NOT NULL,
+  note TEXT,
+  declared_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (year, crop)
+);
 
 -- ---------------------------------------------------------------------
 -- Store Department — Store's own running inventory pool, aggregated by
@@ -1646,3 +1710,74 @@ CREATE INDEX IF NOT EXISTS idx_finance_transactions_department ON finance_transa
 CREATE INDEX IF NOT EXISTS idx_finance_expenses_department ON finance_expenses(department);
 CREATE INDEX IF NOT EXISTS idx_finance_alerts_is_read ON finance_alerts(is_read);
 
+
+-- ---------------------------------------------------------------------
+-- 18. Universal referral system (2026-09-06 spec) — "every registered
+-- member" gets a referral code, shown/entered at registration
+-- (optional), tracked generically for every role. Separate from the
+-- investor-specific referral_code/referrals pair above (investor_profiles
+-- + referrals), which stays exactly as-is because it drives the
+-- Partner Investor bonus calculation (investor-to-investor investment
+-- referrals only) — this generic layer is a different, broader concept
+-- (who invited whom, company-wide) and intentionally doesn't feed the
+-- investor bonus math.
+-- ---------------------------------------------------------------------
+ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by_code TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS users_referral_code_key ON users(referral_code) WHERE referral_code IS NOT NULL;
+
+-- Backfill for any user created before this column existed — deterministic
+-- from the row's own id, so it's safe to re-run and never collides.
+UPDATE users SET referral_code = 'EPH' || UPPER(SUBSTRING(REPLACE(id::text, '-', '') FROM 1 FOR 6))
+WHERE referral_code IS NULL;
+
+CREATE TABLE IF NOT EXISTS member_referrals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referrer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  referred_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_member_referrals_referrer ON member_referrals(referrer_id);
+
+-- ---------------------------------------------------------------------
+-- 19. Unit Leader — "create unit" (2026-09-06 spec). A Unit Leader who
+-- has built up a strong, consistent group in a nearby community can
+-- propose it as a new unit; it sits pending until admin approves it,
+-- at which point it becomes an official company unit. Always shows in
+-- the proposing leader's own list regardless of status.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS units (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  state TEXT NOT NULL,
+  lga TEXT NOT NULL,
+  ward TEXT NOT NULL,
+  note TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  proposed_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reviewed_by UUID REFERENCES users(id),
+  reviewed_at TIMESTAMPTZ,
+  decision_note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_units_proposed_by ON units(proposed_by);
+CREATE INDEX IF NOT EXISTS idx_units_status ON units(status);
+
+-- ---------------------------------------------------------------------
+-- 20. Unit Leader — "report profile" (2026-09-06 spec). A leader can
+-- flag a profile within their own jurisdiction, with a reason and an
+-- optional proof image; it goes straight to admin as a pending review.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS profile_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reported_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reported_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reason TEXT NOT NULL,
+  proof_image_url TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'actioned', 'dismissed')),
+  reviewed_by UUID REFERENCES users(id),
+  reviewed_at TIMESTAMPTZ,
+  decision_note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_profile_reports_status ON profile_reports(status);

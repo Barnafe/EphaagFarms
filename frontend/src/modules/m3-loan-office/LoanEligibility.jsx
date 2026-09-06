@@ -1,4 +1,4 @@
-export default function LoanEligibility({ indices, history, onLoadHistory }) {
+export default function LoanEligibility({ indices, history, onLoadHistory, ticket }) {
   if (!indices) return null;
 
   // Farmer-facing display shows percentage only — the underlying points
@@ -42,6 +42,19 @@ export default function LoanEligibility({ indices, history, onLoadHistory }) {
           </p>
           <p className="mt-2 text-sm font-medium text-canopy-800">
             {leaderRec.recommended ? "Supported by your Unit Leader" : "No recommendation yet"}
+          </p>
+        </div>
+      )}
+
+      {ticket && (
+        <div className="card border-canopy-300 bg-canopy-50">
+          <p className="text-sm font-medium text-canopy-800">You have a free application ticket</p>
+          <p className="mt-1 text-xs text-ink-700">
+            Recommended by {ticket.issued_by_name}: "{ticket.reason}"
+          </p>
+          <p className="mt-1 text-xs text-ink-600">
+            Apply now — your application skips the usual review queue. This ticket is used up the
+            moment you submit.
           </p>
         </div>
       )}

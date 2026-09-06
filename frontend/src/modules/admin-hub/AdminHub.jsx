@@ -27,7 +27,7 @@ import {
 import { apiFetch } from "../../api/client.js";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { CashFlowChart, SplitDonut, CategoryDonut, FLOW_GREEN, FLOW_RED, GOLD } from "./HomeCharts.jsx";
+import { CashFlowChart, SplitDonut, CategoryDonut, MiniTrendChart, FLOW_GREEN, FLOW_RED, GOLD } from "./HomeCharts.jsx";
 
 function naira(n) {
   return `₦${(Number(n) || 0).toLocaleString()}`;
@@ -75,6 +75,9 @@ export default function AdminHub() {
   const [finance, setFinance] = useState(null);
   const [awaiting, setAwaiting] = useState([]);
   const [cashFlow, setCashFlow] = useState([]);
+  const [revenueTrend, setRevenueTrend] = useState([]);
+  const [expensesTrend, setExpensesTrend] = useState([]);
+  const [cashTrend, setCashTrend] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [error, setError] = useState("");
   const [now] = useState(() => new Date());
@@ -110,13 +113,30 @@ export default function AdminHub() {
         else if (t.txn_type === "expense" || t.txn_type === "payment") bucket.outflow += amt;
       }
       const days = [...byDay.keys()].sort();
-      setCashFlow(
-        days.map((d) => ({
-          label: new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-          inflow: byDay.get(d).inflow,
-          outflow: byDay.get(d).outflow,
-        }))
-      );
+      const dailyFlow = days.map((d) => ({
+        label: new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+        inflow: byDay.get(d).inflow,
+        outflow: byDay.get(d).outflow,
+      }));
+      setCashFlow(dailyFlow);
+
+      // Sparklines for the three stat tiles below, all derived from the
+      // same real per-day transaction data above — not separate fetches.
+      // Revenue/expenses trends are just the daily inflow/outflow values;
+      // the cash balance trend is the running cumulative net, anchored so
+      // its last point lands exactly on the current cash position from
+      // /finance-department/dashboard.
+      setRevenueTrend(dailyFlow.map((d) => d.inflow));
+      setExpensesTrend(dailyFlow.map((d) => d.outflow));
+      const cumulativeNet = [];
+      let running = 0;
+      for (const d of dailyFlow) {
+        running += d.inflow - d.outflow;
+        cumulativeNet.push(running);
+      }
+      const lastCumulative = cumulativeNet[cumulativeNet.length - 1] ?? 0;
+      const offset = Number(fin?.cashPosition ?? 0) - lastCumulative;
+      setCashTrend(cumulativeNet.map((v) => v + offset));
 
       setExpenseCategories(
         (incomeStatementRes.expenses || []).map((e) => ({ key: e.category || "Uncategorized", value: Number(e.total) }))
@@ -181,6 +201,7 @@ export default function AdminHub() {
                   <p className="text-sm">Total cash balance</p>
                 </div>
                 <p className="mt-1 text-xl font-medium text-white">{naira(finance?.cashPosition)}</p>
+                <MiniTrendChart data={cashTrend} color={GOLD} />
               </Link>
 
               <Link to="/admin/finance?tab=accounting&section=income" className="card transition hover:border-canopy-400 hover:shadow-md">
@@ -189,6 +210,7 @@ export default function AdminHub() {
                   <p className="text-sm">Revenue (this month)</p>
                 </div>
                 <p className="mt-1 text-xl font-medium text-white">{naira(finance?.monthToDateRevenue)}</p>
+                <MiniTrendChart data={revenueTrend} color={FLOW_GREEN} />
               </Link>
 
               <Link to="/admin/finance?tab=accounting&section=expenses" className="card transition hover:border-canopy-400 hover:shadow-md">
@@ -197,6 +219,7 @@ export default function AdminHub() {
                   <p className="text-sm">Expenses (this month)</p>
                 </div>
                 <p className="mt-1 text-xl font-medium text-white">{naira(finance?.monthToDateExpenses)}</p>
+                <MiniTrendChart data={expensesTrend} color={FLOW_RED} />
               </Link>
 
               <Link to="/admin/requests" className="card transition hover:border-canopy-400 hover:shadow-md">

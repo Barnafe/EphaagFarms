@@ -55,6 +55,9 @@ const ProductionDepartment = lazy(() => import("./modules/admin-production-depar
 const TrcDepartment = lazy(() => import("./modules/admin-trc-department/TrcDepartment.jsx"));
 const AnalyticsDepartment = lazy(() => import("./modules/admin-analytics/AnalyticsDepartment.jsx"));
 const RequestsApp = lazy(() => import("./modules/admin-requests/RequestsApp.jsx"));
+const AdminDashboardShell = lazy(() => import("./components/AdminDashboardShell.jsx"));
+const CommunityPage = lazy(() => import("./modules/admin-community/CommunityPage.jsx"));
+const UnitLeaderDepartment = lazy(() => import("./modules/admin-unit-leader-department/UnitLeaderDepartment.jsx"));
 const PositionsPage = lazy(() => import("./modules/admin-positions/PositionsPage.jsx"));
 
 export default function App() {
@@ -214,6 +217,24 @@ export default function App() {
           element={
             <ProtectedRoute allow={["admin"]}>
               <RequestsApp />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/community"
+          element={
+            <ProtectedRoute allow={["admin"]}>
+              <AdminDashboardShell>
+                <CommunityPage />
+              </AdminDashboardShell>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/unit-leader"
+          element={
+            <ProtectedRoute allow={["admin"]}>
+              <UnitLeaderDepartment />
             </ProtectedRoute>
           }
         />

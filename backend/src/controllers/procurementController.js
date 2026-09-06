@@ -8,6 +8,24 @@ async function withItems(orders) {
   return orders.map((o) => ({ ...o, items: items.filter((i) => i.order_id === o.id) }));
 }
 
+// --- Dashboard (2026-09-05 spec) --------------------------------------
+export async function dashboardSummary(req, res) {
+  const [{ rows: awaitingSourcing }, { rows: awaitingAssignment }, { rows: purchaseCounts }] = await Promise.all([
+    pool.query(`SELECT COUNT(*)::int AS count FROM orders WHERE status = 'payment_confirmed'`),
+    pool.query(`SELECT COUNT(*)::int AS count FROM orders WHERE status = 'sourcing'`),
+    pool.query(
+      `SELECT COUNT(*)::int AS count FROM purchase_requests
+       WHERE status NOT IN ('completed', 'cancelled', 'rejected')`
+    ),
+  ]);
+
+  res.json({
+    ordersAwaitingSourcing: awaitingSourcing[0].count,
+    ordersAwaitingProcessorAssignment: awaitingAssignment[0].count,
+    openPurchaseRequests: purchaseCounts[0].count,
+  });
+}
+
 // --- Queue: orders confirmed by Finance, awaiting sourcing ----------------
 
 export async function sourcingQueue(req, res) {

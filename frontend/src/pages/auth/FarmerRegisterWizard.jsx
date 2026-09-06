@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { apiUpload } from "../../api/client.js";
+import { apiFetch, apiUpload } from "../../api/client.js";
 import { NIGERIA_STATE_NAMES, lgasForState } from "../../data/nigeriaStatesLgas.js";
 import { wardsForLga } from "../../data/nigeriaWards.js";
 import PasswordInput from "../../components/PasswordInput.jsx";
@@ -132,9 +132,39 @@ export default function FarmerRegisterWizard() {
     businessIncomeFrequency: "",
     businessIncomeAmount: "",
     password: "",
+    referralCode: "",
   });
   const [selectedCrops, setSelectedCrops] = useState([]);
   const [photoFile, setPhotoFile] = useState(null);
+  const [referrer, setReferrer] = useState(null);
+  const [referrerError, setReferrerError] = useState("");
+  const [checkingReferrer, setCheckingReferrer] = useState(false);
+
+  // Referral is optional — recognizes a code as it's typed and shows whose
+  // it is, so the applicant can confirm before submitting. Debounced so it
+  // doesn't fire on every keystroke; silently no-ops on an empty field.
+  useEffect(() => {
+    const code = form.referralCode.trim();
+    if (!code) {
+      setReferrer(null);
+      setReferrerError("");
+      return;
+    }
+    setCheckingReferrer(true);
+    const timer = setTimeout(async () => {
+      try {
+        const result = await apiFetch(`/auth/referral-lookup?code=${encodeURIComponent(code)}`, { auth: false });
+        setReferrer(result);
+        setReferrerError("");
+      } catch {
+        setReferrer(null);
+        setReferrerError("No member found with that referral code.");
+      } finally {
+        setCheckingReferrer(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [form.referralCode]);
 
   const age = useMemo(() => calcAge(form.dob), [form.dob]);
   const lgaOptions = useMemo(() => lgasForState(form.state), [form.state]);
@@ -240,6 +270,7 @@ export default function FarmerRegisterWizard() {
         businessIncomeFrequency: form.businessIncomeFrequency || undefined,
         businessIncomeAmount: form.businessIncomeAmount || undefined,
         password: form.password,
+        referralCode: form.referralCode.trim() || undefined,
       };
 
       await register(payload);
@@ -608,6 +639,23 @@ export default function FarmerRegisterWizard() {
             <label>Profile picture (optional)</label>
             <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
             <p className="mt-1 text-xs text-ink-600">You can skip this and add it later from your profile.</p>
+          </div>
+          <div>
+            <label>Referral code (optional)</label>
+            <input
+              value={form.referralCode}
+              onChange={(e) => set("referralCode", e.target.value.toUpperCase())}
+              placeholder="e.g. EPH4F2A91"
+            />
+            {checkingReferrer && <p className="mt-1 text-xs text-ink-600">Checking…</p>}
+            {!checkingReferrer && referrer && (
+              <p className="mt-1 text-xs text-canopy-800">
+                Referred by {referrer.name} ({referrer.roleType})
+              </p>
+            )}
+            {!checkingReferrer && referrerError && (
+              <p className="mt-1 text-xs text-red-700">{referrerError}</p>
+            )}
           </div>
           <div>
             <label>Create a password</label>

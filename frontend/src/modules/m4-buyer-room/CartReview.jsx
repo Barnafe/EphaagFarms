@@ -31,7 +31,9 @@ export default function CartReview({ cart, onUpdateQuantity, onRemove, onCheckou
                   {line.size ? ` · ${line.size}` : ""}
                 </p>
                 <p className="text-xs text-gray-500">
-                  ₦{(line.lineTotal / line.quantity).toLocaleString()} / {line.unit}
+                  {line.itemType === "livestock"
+                    ? line.ageDescription
+                    : `₦${(line.lineTotal / line.quantity).toLocaleString()} / ${line.unit}`}
                 </p>
               </div>
 

@@ -33,7 +33,7 @@ function hashToken(raw) {
 // other sensitive internal tools.
 // ---------------------------------------------------------------------
 export async function register(req, res) {
-  const { name, email, phone, password, role_type, sex, state, lga, ward, unit, setupCode, ...extra } = req.body;
+  const { name, email, phone, password, role_type, sex, state, lga, ward, unit, setupCode, referralCode, ...extra } = req.body;
 
   if (!name || !password || !role_type) {
     return res.status(400).json({ error: "name, password, and role_type are required" });
@@ -93,6 +93,39 @@ export async function register(req, res) {
       [name, email || null, phone || null, password_hash, role_type, sex || null, state, lga, ward, unit]
     );
     const user = rows[0];
+
+    // Universal referral code — deterministic from the new row's own id,
+    // so it's guaranteed unique with no retry loop needed. Referral entry
+    // is optional (2026-09-06 spec: "referral is optional not mandatory"),
+    // so an invalid/unrecognized code is silently ignored rather than
+    // failing registration.
+    const ownReferralCode = "EPH" + user.id.replace(/-/g, "").slice(0, 6).toUpperCase();
+    let referredByCode = null;
+    if (referralCode && String(referralCode).trim()) {
+      const codeTrimmed = String(referralCode).trim().toUpperCase();
+      const { rows: referrerRows } = await client.query(
+        `SELECT id FROM users WHERE referral_code = $1`,
+        [codeTrimmed]
+      );
+      const referrer = referrerRows[0];
+      if (referrer && referrer.id !== user.id) {
+        referredByCode = codeTrimmed;
+        await client.query(
+          `INSERT INTO member_referrals (referrer_id, referred_id) VALUES ($1, $2)`,
+          [referrer.id, user.id]
+        );
+      }
+    }
+    await client.query(
+      `UPDATE users SET referral_code = $1, referred_by_code = $2 WHERE id = $3`,
+      [ownReferralCode, referredByCode, user.id]
+    );
+    // Snake_case to match every other base `users` column returned as-is
+    // from Postgres (photo_url, state, lga, etc.) — the frontend already
+    // reads those defensively (camelCase || snake_case), see
+    // ProfilePhotoUploader.jsx.
+    user.referral_code = ownReferralCode;
+    user.referred_by_code = referredByCode;
 
     if (role_type === "farmer") {
       const crops = Array.isArray(extra.crops)
@@ -238,9 +271,24 @@ export async function login(req, res) {
   res.json({ user: fullUser, token: signToken(user) });
 }
 
+// Public (no auth — registration hasn't created a token yet). Lets the
+// registration form recognize a referral code as it's typed and show whose
+// it is, without exposing anything beyond name/role — see
+// FarmerRegisterWizard.jsx step 4 ("Photo & password").
+export async function referralLookup(req, res) {
+  const code = String(req.query.code || "").trim().toUpperCase();
+  if (!code) return res.status(400).json({ error: "code is required" });
+  const { rows } = await pool.query(
+    `SELECT name, role_type FROM users WHERE referral_code = $1`,
+    [code]
+  );
+  if (!rows[0]) return res.status(404).json({ error: "No member found with that referral code" });
+  res.json({ name: rows[0].name, roleType: rows[0].role_type });
+}
+
 export async function me(req, res) {
   const { rows } = await pool.query(
-    "SELECT id, name, email, phone, role_type, sex, photo_url, state, lga, ward, unit, department_head_of FROM users WHERE id = $1",
+    "SELECT id, name, email, phone, role_type, sex, photo_url, state, lga, ward, unit, department_head_of, referral_code, referred_by_code FROM users WHERE id = $1",
     [req.user.id]
   );
   if (!rows[0]) return res.status(404).json({ error: "User not found" });

@@ -9,6 +9,27 @@ async function withItems(orders) {
   return orders.map((o) => ({ ...o, items: items.filter((i) => i.order_id === o.id) }));
 }
 
+// --- Dashboard (2026-09-05 spec) --------------------------------------
+export async function dashboardSummary(req, res) {
+  const [{ rows: readyToDispatch }, { rows: shipmentCounts }, { rows: driverCount }] = await Promise.all([
+    pool.query(
+      `SELECT COUNT(*)::int AS count FROM orders o
+       JOIN distributor_allocations a ON a.order_id = o.id
+       WHERE o.status = 'allocated' AND a.status = 'confirmed'
+         AND NOT EXISTS (SELECT 1 FROM shipments s WHERE s.order_id = o.id)`
+    ),
+    pool.query(`SELECT status, COUNT(*)::int AS count FROM shipments GROUP BY status`),
+    pool.query(`SELECT COUNT(*)::int AS count FROM users WHERE role_type = 'transporter'`),
+  ]);
+
+  res.json({
+    readyToDispatch: readyToDispatch[0].count,
+    enRoute: shipmentCounts.find((r) => r.status === "en_route")?.count || 0,
+    deliveredTotal: shipmentCounts.find((r) => r.status === "delivered")?.count || 0,
+    registeredDrivers: driverCount[0].count,
+  });
+}
+
 // --- Admin: orders ready to dispatch -----------------------------------
 // Ready = allocated to a distributor who has confirmed, no shipment yet.
 

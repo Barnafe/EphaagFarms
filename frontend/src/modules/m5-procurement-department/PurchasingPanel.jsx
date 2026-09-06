@@ -25,7 +25,12 @@ const TERMINAL_STATUSES = ["completed", "rejected", "cancelled"];
 const SECTIONS = [
   { key: "pipeline", label: "Pipeline", icon: ClipboardList, description: "Active purchase requests, stage by stage." },
   { key: "new", label: "New request", icon: FilePlus2, description: "Raise a purchase request for a department." },
-  { key: "suppliers", label: "Suppliers", icon: Truck, description: "External vendor directory." },
+  {
+    key: "suppliers",
+    label: "Vendors",
+    icon: Truck,
+    description: "External vendor directory for internal purchasing (tools, supplies, services) — not farmer/crop sourcing, which is handled in the Orders tab.",
+  },
   { key: "history", label: "History / Audit", icon: HistoryIcon, description: "Completed, rejected and cancelled requests with full trail." },
 ];
 

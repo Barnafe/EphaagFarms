@@ -9,6 +9,32 @@ import { pool } from "../db/pool.js";
 // (declare -> someone else confirms/sources it). Production never
 // touches store_inventory directly.
 
+// --- Dashboard (2026-09-05 spec) --------------------------------------
+// Quick at-a-glance summary for the department's own landing tab, same
+// pattern as maintenanceController.dashboardSummary / AdminHub's cards.
+
+export async function dashboardSummary(req, res) {
+  const [{ rows: farmCounts }, { rows: harvestYear }, { rows: pendingReceipt }] = await Promise.all([
+    pool.query(`SELECT status, COUNT(*)::int AS count FROM company_farms GROUP BY status`),
+    pool.query(
+      `SELECT COUNT(*)::int AS count, COUNT(DISTINCT crop)::int AS distinct_crops
+       FROM harvest_logs WHERE date_part('year', harvested_at) = date_part('year', CURRENT_DATE)`
+    ),
+    pool.query(`SELECT COUNT(*)::int AS count FROM harvest_logs WHERE status = 'declared'`),
+  ]);
+
+  const activeFarms = farmCounts.find((r) => r.status === "active")?.count || 0;
+  const fallowFarms = farmCounts.find((r) => r.status === "fallow")?.count || 0;
+
+  res.json({
+    activeFarms,
+    fallowFarms,
+    harvestsThisYear: harvestYear[0].count,
+    distinctCropsThisYear: harvestYear[0].distinct_crops,
+    awaitingStoreReceipt: pendingReceipt[0].count,
+  });
+}
+
 // --- Farms ---------------------------------------------------------------
 
 export async function listFarms(req, res) {
@@ -130,4 +156,53 @@ export async function annualSummary(req, res) {
       totalReceived: Number(r.total_received),
     })),
   });
+}
+
+// --- Annual production declarations ----------------------------------------
+// The company's own official annual figure per crop, company-wide — NOT
+// tied to any one farm. This is deliberately separate from harvest_logs:
+// harvest_logs is per-farm (used to see how each individual farm is
+// producing, via the Harvests tab), while this is "Ephaag declares X yam
+// for 2026" as a single combined total, the same way a farmer declares
+// their own produce as one figure rather than plot-by-plot. Re-declaring
+// the same year+crop updates the existing row (see the UNIQUE(year, crop)
+// constraint) rather than piling up duplicates.
+
+export async function listAnnualDeclarations(req, res) {
+  const { year } = req.query;
+  const params = [];
+  let where = "";
+  if (year) {
+    params.push(Number(year));
+    where = `WHERE d.year = $${params.length}`;
+  }
+  const { rows } = await pool.query(
+    `SELECT d.*, u.name AS declared_by_name
+     FROM production_annual_declarations d
+     LEFT JOIN users u ON u.id = d.declared_by
+     ${where}
+     ORDER BY d.crop ASC`,
+    params
+  );
+  res.json({ declarations: rows });
+}
+
+export async function declareAnnualProduction(req, res) {
+  const { year, crop, quantity, unit, note } = req.body;
+  if (!year || !crop || !quantity || !unit) {
+    return res.status(400).json({ error: "year, crop, quantity, and unit are required" });
+  }
+  const qty = Number(quantity);
+  if (!qty || qty <= 0) return res.status(400).json({ error: "quantity must be a positive number" });
+
+  const { rows } = await pool.query(
+    `INSERT INTO production_annual_declarations (year, crop, quantity, unit, note, declared_by)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (year, crop) DO UPDATE
+       SET quantity = EXCLUDED.quantity, unit = EXCLUDED.unit, note = EXCLUDED.note,
+           declared_by = EXCLUDED.declared_by, updated_at = now()
+     RETURNING *`,
+    [Number(year), crop, qty, unit, note || null, req.user.id]
+  );
+  res.status(201).json({ declaration: rows[0] });
 }

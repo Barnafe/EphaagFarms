@@ -1,4 +1,4 @@
-export default function JurisdictionOverview({ farmers, rank }) {
+export default function JurisdictionOverview({ farmers, rank, onView }) {
   if (rank === "Member") return null;
 
   return (
@@ -12,7 +12,8 @@ export default function JurisdictionOverview({ farmers, rank }) {
             <tr className="text-left text-ink-600">
               <th className="pb-2 pr-4">Farmer</th>
               <th className="pb-2 pr-4">Unit</th>
-              <th className="pb-2">Attendance</th>
+              <th className="pb-2 pr-4">Attendance</th>
+              {onView && <th className="pb-2">Profile</th>}
             </tr>
           </thead>
           <tbody>
@@ -20,7 +21,18 @@ export default function JurisdictionOverview({ farmers, rank }) {
               <tr key={f.id} className="border-t border-soil-200">
                 <td className="py-2 pr-4 text-ink-900">{f.name}</td>
                 <td className="py-2 pr-4 text-ink-600">{f.unit}</td>
-                <td className="py-2 text-ink-600">{f.attendancePct}%</td>
+                <td className="py-2 pr-4 text-ink-600">{f.attendancePct}%</td>
+                {onView && (
+                  <td className="py-2">
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-canopy-800 underline"
+                      onClick={() => onView(f.id)}
+                    >
+                      View
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

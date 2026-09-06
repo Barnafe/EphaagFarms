@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { LayoutDashboard, CreditCard, Landmark, Handshake, TrendingUp, PiggyBank, Calculator, User } from "lucide-react";
+import { LayoutDashboard, CreditCard, Landmark, Handshake, TrendingUp, PiggyBank, Calculator, FileCheck2, User } from "lucide-react";
 import { apiFetch, apiDownload } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { departmentRoleLabel } from "../../utils/departmentRole.js";
 import DashboardShell from "../../components/DashboardShell.jsx";
 import ActingAsBanner from "../../components/ActingAsBanner.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
+import DeptDashboardCards from "../../components/DeptDashboardCards.jsx";
+import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.jsx";
 import PaymentConfirmationPanel from "./PaymentConfirmationPanel.jsx";
 import LoanDisbursementPanel from "./LoanDisbursementPanel.jsx";
 import FinanceReviewPanel from "./FinanceReviewPanel.jsx";
@@ -88,7 +91,13 @@ const items = [
     key: "accounting",
     label: "Accounting",
     icon: Calculator,
-    description: "Requests, approvals, budgets, income/expense, payables/receivables, payments, bank & cash, reports and more.",
+    description: "Budgets, income/expense, payables/receivables, payments, bank & cash, reports and more (includes Finance's own payment-authorization requests).",
+  },
+  {
+    key: "requests",
+    label: "Requests",
+    icon: FileCheck2,
+    description: "The general cross-department request/approval workflow — raise a request from Finance and route it to whoever needs to sign off, in order.",
   },
   { key: "profile", label: "Profile", icon: User },
 ];
@@ -388,7 +397,7 @@ export default function FinanceDepartment() {
   if (!user) return null;
 
   return (
-    <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
+    <DashboardShell items={items} activeKey={tab} onSelect={setTab} exitTo="/admin">
       <ActingAsBanner />
 
       {tab === "dashboard" && (
@@ -401,6 +410,30 @@ export default function FinanceDepartment() {
               section.
             </p>
           </div>
+          <DeptDashboardCards
+            endpoint="/finance/dashboard"
+            onNavigate={setTab}
+            buildCards={(d) => [
+              {
+                label: "Awaiting payment confirmation",
+                value: d.pendingPaymentConfirmations,
+                hint: "Orders paid, not yet confirmed",
+                nav: "payments",
+              },
+              { label: "Pending loans", value: d.pendingLoans, hint: "Awaiting a decision", nav: "loans" },
+              { label: "Disbursed loans", value: d.disbursedLoans, nav: "loans" },
+              {
+                label: "Unpaid farmer settlements",
+                value: d.unpaidFarmerSettlements,
+                nav: "settlements",
+              },
+              {
+                label: "Pending investment applications",
+                value: d.pendingInvestmentApplications,
+                nav: "investments",
+              },
+            ]}
+          />
         </div>
       )}
 
@@ -547,13 +580,15 @@ export default function FinanceDepartment() {
 
       {tab === "accounting" && <AccountingWorkspace initialSection={initialAccountingSection} />}
 
+      {tab === "requests" && <DepartmentRequestsPanel department="Finance" />}
+
       {tab === "profile" && (
         <div className="max-w-3xl">
           <div className="mb-6">
             <p className="text-xs uppercase tracking-wide text-canopy-300">Finance</p>
             <h1 className="text-xl font-medium text-white">Profile</h1>
           </div>
-          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: "Finance HOD" }]} />
+          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: departmentRoleLabel(user, "Finance") }]} />
         </div>
       )}
     </DashboardShell>

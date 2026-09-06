@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { LayoutDashboard, User, Wrench, CalendarClock } from "lucide-react";
+import { LayoutDashboard, User, Wrench, CalendarClock, FileCheck2 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { departmentRoleLabel } from "../../utils/departmentRole.js";
 import DashboardShell from "../../components/DashboardShell.jsx";
 import ActingAsBanner from "../../components/ActingAsBanner.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
+import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.jsx";
 import DashboardPanel from "./DashboardPanel.jsx";
 import MaintenanceWorkspace from "./MaintenanceWorkspace.jsx";
 import PreventiveMaintenance from "./PreventiveMaintenance.jsx";
@@ -19,6 +21,7 @@ const items = [
   { key: "profile", label: "Profile", icon: User },
   { key: "maintenance", label: "Maintenance", icon: Wrench },
   { key: "preventive", label: "Preventive Maintenance", icon: CalendarClock },
+  { key: "requests", label: "Requests", icon: FileCheck2 },
 ];
 
 export default function MaintenanceDepartment() {
@@ -29,7 +32,7 @@ export default function MaintenanceDepartment() {
   if (!user) return null;
 
   return (
-    <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
+    <DashboardShell items={items} activeKey={tab} onSelect={setTab} exitTo="/admin">
       <ActingAsBanner />
       {tab === "dashboard" && (
         <div className="space-y-6">
@@ -51,13 +54,15 @@ export default function MaintenanceDepartment() {
             <p className="text-xs uppercase tracking-wide text-canopy-300">Maintenance</p>
             <h1 className="text-xl font-medium text-white">Profile</h1>
           </div>
-          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: "Maintenance HOD" }]} />
+          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: departmentRoleLabel(user, "Maintenance") }]} />
         </div>
       )}
 
       {tab === "maintenance" && <MaintenanceWorkspace />}
 
       {tab === "preventive" && <PreventiveMaintenance />}
+
+      {tab === "requests" && <DepartmentRequestsPanel department="Maintenance" />}
     </DashboardShell>
   );
 }

@@ -414,6 +414,31 @@ export async function recordAttendance(req, res) {
   }
 }
 
+// A single jurisdiction farmer's profile, for the "view profile" ->
+// "report this profile" flow in the leader's Rank tab. Same jurisdiction
+// rule as jurisdictionOverview above; admin has no jurisdiction of its
+// own, so any farmer is viewable.
+export async function jurisdictionFarmerProfile(req, res) {
+  const { id } = req.params;
+  const filters = [`u.id = $1`, `u.role_type = 'farmer'`];
+  const values = [id];
+  if (req.user.role_type !== "admin") {
+    const me = req.farmerProfile;
+    values.push(me.state, me.lga, me.ward, me.unit);
+    filters.push(`u.state = $2`, `u.lga = $3`, `u.ward = $4`, `u.unit = $5`);
+  }
+  const { rows } = await pool.query(
+    `SELECT u.id, u.name, u.sex, u.state, u.lga, u.ward, u.unit, u.photo_url,
+            fp.rank, fp.crops, fp.attendance_pct, fp.course_pct, fp.farm_type, fp.years_experience
+     FROM users u
+     JOIN farmer_profiles fp ON fp.user_id = u.id
+     WHERE ${filters.join(" AND ")}`,
+    values
+  );
+  if (!rows[0]) return res.status(404).json({ error: "Profile not found in your jurisdiction" });
+  res.json({ profile: rows[0] });
+}
+
 export async function attendanceHistory(req, res) {
   const { rows } = await pool.query(
     `SELECT s.id, s.title, s.event_date, s.location,
@@ -434,6 +459,41 @@ export async function attendanceHistory(req, res) {
       location: s.location,
       attendedCount: Number(s.attended_count),
       totalCount: Number(s.total_count),
+    })),
+  });
+}
+
+// --- A farmer's OWN attendance record (2026-09-06 spec) ------------------
+// Distinct from attendanceHistory() above, which is a Unit Leader's own
+// record of what THEY marked. This is the other side: what an individual
+// farmer has personally attended, for their own "Attendance" screen.
+// Self-marking doesn't exist and never has — attended/absent is only ever
+// set by a Unit Leader (see recordAttendance), this is read-only.
+export async function myAttendanceRecord(req, res) {
+  const [{ rows: profileRows }, { rows }] = await Promise.all([
+    pool.query(`SELECT attendance_pct FROM farmer_profiles WHERE user_id = $1`, [req.user.id]),
+    pool.query(
+      `SELECT s.title, s.event_date, s.location, sa.attended
+       FROM seminar_attendance sa
+       JOIN seminars s ON s.id = sa.seminar_id
+       WHERE sa.user_id = $1
+       ORDER BY s.event_date DESC`,
+      [req.user.id]
+    ),
+  ]);
+
+  res.json({
+    present: rows.filter((r) => r.attended).length,
+    total: rows.length,
+    // Same stored figure JurisdictionOverview shows leaders about this
+    // farmer — kept identical rather than recomputed, so the two never
+    // disagree.
+    attendancePct: profileRows[0]?.attendance_pct != null ? Number(profileRows[0].attendance_pct) : 0,
+    records: rows.map((r) => ({
+      title: r.title,
+      eventDate: r.event_date,
+      location: r.location,
+      attended: r.attended,
     })),
   });
 }

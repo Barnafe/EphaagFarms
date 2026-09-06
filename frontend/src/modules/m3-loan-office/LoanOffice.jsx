@@ -83,6 +83,7 @@ export default function LoanOffice() {
   const [recommended, setRecommended] = useState([]);
   const [eligibility, setEligibility] = useState(null);
   const [eligibilityHistory, setEligibilityHistory] = useState(null);
+  const [ticket, setTicket] = useState(null);
   const [deposits, setDeposits] = useState([]);
   const [mainSavingsBalance, setMainSavingsBalance] = useState(0);
   const [aidedTerms, setAidedTerms] = useState(null);
@@ -103,6 +104,9 @@ export default function LoanOffice() {
 
       const indices = await apiFetch("/loans/me/eligibility");
       setEligibility(indices);
+
+      const { ticket: myTicket } = await apiFetch("/loans/me/recommendation-ticket");
+      setTicket(myTicket);
 
       const { deposits: myDeposits } = await apiFetch("/loans/boost-deposits/me");
       setDeposits(myDeposits.map(mapDeposit));
@@ -228,7 +232,7 @@ export default function LoanOffice() {
 
       {!loading && (
         <>
-          <LoanEligibility indices={eligibility} history={eligibilityHistory} onLoadHistory={handleLoadEligibilityHistory} />
+          <LoanEligibility indices={eligibility} history={eligibilityHistory} onLoadHistory={handleLoadEligibilityHistory} ticket={ticket} />
 
           {loan.status === "none" && (
             <>

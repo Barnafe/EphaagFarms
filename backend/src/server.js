@@ -25,6 +25,9 @@ import contactRoutes from "./routes/contact.js";
 import maintenanceRoutes from "./routes/maintenance.js";
 import purchasingRoutes from "./routes/purchasing.js";
 import financeDepartmentRoutes from "./routes/finance-department.js";
+import referralRoutes from "./routes/referrals.js";
+import unitRoutes from "./routes/units.js";
+import profileReportRoutes from "./routes/profile-reports.js";
 import { runDueDateReminders } from "./controllers/investmentController.js";
 
 const app = express();
@@ -106,6 +109,9 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/purchasing", purchasingRoutes);
 app.use("/api/finance-department", financeDepartmentRoutes);
+app.use("/api/referrals", referralRoutes);
+app.use("/api/units", unitRoutes);
+app.use("/api/profile-reports", profileReportRoutes);
 
 // More routes land here module by module.
 

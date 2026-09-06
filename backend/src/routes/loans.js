@@ -17,6 +17,7 @@ router.get("/me", requireRole("farmer"), loans.myLoans);
 router.get("/me/eligibility", requireRole("farmer"), loans.myEligibilityIndices);
 router.get("/me/aided-terms", requireRole("farmer"), loans.myAidedLoanTerms);
 router.get("/me/eligibility/history", requireRole("farmer"), loans.myEligibilityHistory);
+router.get("/me/recommendation-ticket", requireRole("farmer"), loans.myRecommendationTicket);
 router.get("/:loanId/repayments", requireRole("farmer"), loans.myLoanRepayments);
 router.post("/:loanId/repayments", requireRole("farmer"), loans.logRepayment);
 router.get("/:loanId/history", requireRole("farmer"), loans.myLoanHistory);
@@ -27,6 +28,12 @@ router.get("/:loanId/history", requireRole("farmer"), loans.myLoanHistory);
 router.get("/pending/my-unit", requireFarmerRankOrAdmin("Unit Leader"), loans.pendingForMyUnit);
 router.post("/:id/recommend", requireFarmerRankOrAdmin("Unit Leader"), loans.recommendLoan);
 router.post("/:id/reject", requireFarmerRankOrAdmin("Unit Leader", "Federal"), loans.rejectLoan);
+
+// Unit Leader — recommendation tickets (2026-09-06 spec): pre-authorize a
+// farmer before any application exists, separate from reviewing an
+// already-submitted pending one above.
+router.post("/recommendation-tickets", requireFarmerRankOrAdmin("Unit Leader"), loans.issueRecommendationTicket);
+router.get("/recommendation-tickets/issued", requireFarmerRankOrAdmin("Unit Leader"), loans.myIssuedTickets);
 
 // Federal — final approval (also admin, same pattern)
 router.get("/recommended", requireFarmerRankOrAdmin("Federal"), loans.financeVerifiedLoans);

@@ -24,6 +24,45 @@ import { generateReference, REF_PREFIX } from "../utils/reference.js";
 // store_inventory.quantity_on_hand is the running total, stock_movements is
 // the durable "why did it change" trail.
 
+// --- Dashboard (2026-09-05 spec) --------------------------------------
+export async function dashboardSummary(req, res) {
+  const [
+    { rows: lowStock },
+    { rows: totalItems },
+    { rows: receivingCount },
+    { rows: allocationCount },
+    { rows: pendingRestocks },
+  ] = await Promise.all([
+    pool.query(`SELECT COUNT(*)::int AS count FROM store_inventory WHERE quantity_on_hand <= reorder_level`),
+    pool.query(`SELECT COUNT(*)::int AS count FROM store_inventory`),
+    pool.query(
+      `SELECT COUNT(*)::int AS count FROM orders o
+       WHERE o.status = 'processing'
+         AND EXISTS (
+           SELECT 1 FROM order_items oi WHERE oi.order_id = o.id
+           AND NOT EXISTS (SELECT 1 FROM store_receipts sr WHERE sr.order_item_id = oi.id)
+         )`
+    ),
+    pool.query(
+      `SELECT COUNT(*)::int AS count FROM orders o
+       WHERE o.status = 'processing'
+         AND NOT EXISTS (SELECT 1 FROM distributor_allocations a WHERE a.order_id = o.id)`
+    ),
+    pool.query(
+      `SELECT COUNT(*)::int AS count FROM department_requests
+       WHERE department = 'Store' AND status = 'pending'`
+    ),
+  ]);
+
+  res.json({
+    lowStockItems: lowStock[0].count,
+    totalStockItems: totalItems[0].count,
+    ordersAwaitingReceipt: receivingCount[0].count,
+    ordersAwaitingAllocation: allocationCount[0].count,
+    pendingRestockRequests: pendingRestocks[0].count,
+  });
+}
+
 async function withItems(orders) {
   if (orders.length === 0) return orders;
   const { rows: items } = await pool.query(

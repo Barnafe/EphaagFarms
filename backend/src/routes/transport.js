@@ -6,6 +6,7 @@ const router = Router();
 router.use(requireAuth);
 
 // Transport Department (admin)
+router.get("/dashboard", requireRole("admin"), transport.dashboardSummary);
 router.get("/queue", requireRole("admin"), transport.dispatchQueue);
 router.get("/drivers", requireRole("admin"), transport.driverDirectory);
 router.post("/orders/:id/assign-driver", requireRole("admin"), transport.assignDriver);

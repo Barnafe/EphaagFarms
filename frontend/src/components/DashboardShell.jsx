@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronDown, LogOut, Menu, X } from "lucide-react";
+import { ChevronDown, DoorOpen, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useActingAs } from "../context/ActingAsContext.jsx";
 import { API_ORIGIN } from "../api/client.js";
 import logo from "../assets/logo.png";
 
@@ -23,8 +24,21 @@ function initials(name = "") {
 //
 // items: [{ key, label, icon: LucideComponent }]
 // activeKey / onSelect: which item is showing + how to switch
-export default function DashboardShell({ items, activeKey, onSelect, children }) {
+//
+// exitTo: only passed by the admin-facing department shells (Production,
+// Procurement, Transport, Store, Finance, Maintenance, TRC — see each
+// department's *Department.jsx). When set, an "Exit" entry is always
+// available in the hamburger menu itself, not just in ActingAsBanner —
+// that banner only renders when the department was reached via "Login
+// As" (see ActingAsContext.jsx), so a department opened directly from
+// AdminDashboardShell's own sidebar (TRC, most commonly) previously had
+// no banner and therefore no way back at all. This is unconditional
+// regardless of how the department was reached. Never passed by member
+// rooms (Farmer/Buyer/Processor/Investor/Transporter/Distributor), which
+// only ever show "Log out".
+export default function DashboardShell({ items, activeKey, onSelect, exitTo, children }) {
   const { session, logout } = useAuth();
+  const { setActingAs } = useActingAs();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   // Closed by default on EVERY screen size — the whole nav lives behind the
@@ -38,6 +52,16 @@ export default function DashboardShell({ items, activeKey, onSelect, children })
   function handleLogout() {
     logout();
     navigate("/");
+  }
+
+  function handleExit() {
+    // Clear actingAs first so the back-button trap (ActingAsContext.jsx)
+    // disarms itself, then replace (not push) so this department's history
+    // entry doesn't linger as a stray back-stop — mirrors ActingAsBanner's
+    // own Exit button, which does the same thing for the "Login As" case.
+    setActingAs(null);
+    setNavOpen(false);
+    navigate(exitTo, { replace: true });
   }
 
   return (
@@ -88,6 +112,15 @@ export default function DashboardShell({ items, activeKey, onSelect, children })
           </nav>
 
           <div className="border-t border-white/10 px-3 py-3">
+            {exitTo && (
+              <button
+                onClick={handleExit}
+                className="flex w-full items-center gap-3 rounded-card px-3 py-2.5 text-left text-sm font-medium text-canopy-100 hover:bg-canopy-800 hover:text-white"
+              >
+                <DoorOpen size={18} />
+                <span>Exit</span>
+              </button>
+            )}
             <button
               onClick={handleLogout}
               className="flex w-full items-center gap-3 rounded-card px-3 py-2.5 text-left text-sm font-medium text-canopy-100 hover:bg-canopy-800 hover:text-white"

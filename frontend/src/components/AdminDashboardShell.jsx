@@ -11,6 +11,7 @@ import {
   GraduationCap,
   LogIn,
   Mail,
+  Flag,
 } from "lucide-react";
 import DashboardShell from "./DashboardShell.jsx";
 import ActingAsBanner from "./ActingAsBanner.jsx";
@@ -25,6 +26,7 @@ const ROUTES = {
   loginAs: "/admin/login-as",
   analytics: "/admin/analytics",
   requests: "/admin/requests",
+  community: "/admin/community",
   positions: "/admin/positions",
   feedback: "/admin/feedback",
   contactMessages: "/admin/contact-messages",
@@ -39,6 +41,7 @@ const items = [
   { key: "loginAs", label: "Login As", icon: LogIn },
   { key: "analytics", label: "Analytics", icon: BarChart3 },
   { key: "requests", label: "Requests", icon: ClipboardCheck },
+  { key: "community", label: "Community", icon: Flag },
   { key: "positions", label: "Positions", icon: ShieldCheck },
   { key: "feedback", label: "Feedback", icon: MessageSquareWarning },
   { key: "contactMessages", label: "Contact messages", icon: Mail },

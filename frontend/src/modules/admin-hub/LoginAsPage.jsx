@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Sprout, ShoppingCart, Truck, Warehouse, Landmark, Wrench, GraduationCap, LogIn } from "lucide-react";
+import { Sprout, ShoppingCart, Truck, Warehouse, Landmark, Wrench, GraduationCap, LogIn, Users } from "lucide-react";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 import { useActingAs } from "../../context/ActingAsContext.jsx";
 
@@ -18,6 +18,14 @@ const departments = [
   { key: "Finance", to: "/admin/finance", desc: "Payments, the loan pipeline, settlements.", icon: Landmark },
   { key: "Maintenance", to: "/admin/maintenance", desc: "Vehicle and equipment upkeep.", icon: Wrench },
   { key: "TRC", to: "/admin/trc", desc: "Training, Research & Consultancy — courses, research, and consultancy bookings.", icon: GraduationCap },
+  // Not one of the 7 HOD-appointed positions (no department_head_of value
+  // for this) — Unit Leader is a farmer rank, not a department. Added here
+  // anyway (2026-09-06 spec) purely as another "step into this seat"
+  // entry point, wired the same way: the backend already treats
+  // role_type='admin' as a company-wide Unit Leader bypass on every
+  // relevant endpoint (farmerRank.js), this just gives that bypass a
+  // real screen.
+  { key: "Unit Leader", to: "/admin/unit-leader", desc: "Jurisdiction, attendance, loan review, and creating new units.", icon: Users },
 ];
 
 export default function LoginAsPage() {
@@ -26,7 +34,11 @@ export default function LoginAsPage() {
 
   function handleLoginAs(dept) {
     setActingAs(dept.key);
-    navigate(dept.to);
+    // replace, not push: this picker screen shouldn't linger in history as
+    // an extra back-stop between the department and the admin dashboard —
+    // see ActingAsContext.jsx for the back-button trap that takes over
+    // from here while acting as a department.
+    navigate(dept.to, { replace: true });
   }
 
   return (

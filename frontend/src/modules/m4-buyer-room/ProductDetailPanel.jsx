@@ -24,6 +24,8 @@ export default function ProductDetailPanel({ item, onSave, onClose }) {
     onSave({
       crop: item.crop,
       unit: item.unit,
+      itemType: item.itemType,
+      ageDescription: item.ageDescription,
       size,
       quantity: Number(quantity),
       lineTotal,
@@ -55,9 +57,17 @@ export default function ProductDetailPanel({ item, onSave, onClose }) {
         <div className="space-y-4 p-5">
           <div>
             <h2 className="text-lg font-medium text-gray-900">{item.crop}</h2>
+            {item.itemType === "livestock" && item.ageDescription && (
+              <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-canopy-700">
+                {item.ageDescription}
+              </p>
+            )}
             <p className="mt-1 text-sm text-gray-500">{item.description}</p>
             <p className="mt-2 text-xl font-semibold text-canopy-800">
-              ₦{item.price.toLocaleString()} <span className="text-sm font-normal text-gray-500">/ {item.unit}</span>
+              ₦{item.price.toLocaleString()}{" "}
+              <span className="text-sm font-normal text-gray-500">
+                / {item.itemType === "livestock" ? "animal" : item.unit}
+              </span>
             </p>
           </div>
 
@@ -84,7 +94,9 @@ export default function ProductDetailPanel({ item, onSave, onClose }) {
           )}
 
           <div>
-            <p className="mb-1 text-sm font-medium text-gray-800">Quantity ({item.unit})</p>
+            <p className="mb-1 text-sm font-medium text-gray-800">
+              Quantity ({item.itemType === "livestock" ? "animals" : item.unit})
+            </p>
             <div className="flex w-fit items-center rounded-full border border-gray-200">
               <button
                 type="button"

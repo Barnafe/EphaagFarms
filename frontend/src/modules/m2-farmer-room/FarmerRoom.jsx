@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, User, PackagePlus, Receipt, GraduationCap, Landmark, PiggyBank, MessageSquareWarning, History, Users } from "lucide-react";
+import { LayoutDashboard, User, PackagePlus, Receipt, GraduationCap, Landmark, PiggyBank, MessageSquareWarning, History, Users, Share2, CalendarCheck } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import DashboardShell from "../../components/DashboardShell.jsx";
@@ -7,15 +7,20 @@ import FarmerProfileCard from "./FarmerProfileCard.jsx";
 import JurisdictionOverview from "./JurisdictionOverview.jsx";
 import JurisdictionReport from "./JurisdictionReport.jsx";
 import AttendanceMarker from "./AttendanceMarker.jsx";
+import RecommendationTool from "./RecommendationTool.jsx";
 import ListProductPanel from "./ListProductPanel.jsx";
 import DeclareProductPanel from "./DeclareProductPanel.jsx";
 import TransactionsPanel from "./TransactionsPanel.jsx";
 import CoursesPanel from "./CoursesPanel.jsx";
+import AttendanceRoom from "./AttendanceRoom.jsx";
 import SavingsPanel from "./SavingsPanel.jsx";
 import FarmShareCard from "./FarmShareCard.jsx";
 import RankingCard from "./RankingCard.jsx";
 import CompanyGrowthChart from "./CompanyGrowthChart.jsx";
 import FeedbackPanel from "./FeedbackPanel.jsx";
+import ReferralPanel from "./ReferralPanel.jsx";
+import CreateUnitPanel from "./CreateUnitPanel.jsx";
+import FarmerProfileReportModal from "./FarmerProfileReportModal.jsx";
 import LoanOffice from "../m3-loan-office/LoanOffice.jsx";
 
 function honorific(user) {
@@ -52,6 +57,7 @@ export default function FarmerRoom() {
   const [error, setError] = useState(null);
   const [loanStatus, setLoanStatus] = useState({ hasLoan: false, amount: 0, repaidAmount: 0 });
   const [jurisdictionFarmers, setJurisdictionFarmers] = useState([]);
+  const [viewingFarmerId, setViewingFarmerId] = useState(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -107,11 +113,13 @@ export default function FarmerRoom() {
     { key: "list-product", label: "Declare & List", icon: PackagePlus },
     { key: "transactions", label: "Transactions", icon: Receipt },
     { key: "courses", label: "Seminar", icon: GraduationCap },
+    { key: "attendance", label: "Attendance", icon: CalendarCheck },
     { key: "loans", label: "Loans", icon: Landmark },
     { key: "savings", label: "Savings", icon: PiggyBank },
     { key: "feedback", label: "Feedback", icon: MessageSquareWarning },
     { key: "history", label: "History", icon: History },
     ...(isLeader ? [{ key: "rank", label: "Rank", icon: Users }] : []),
+    { key: "referral", label: "Referral", icon: Share2 },
   ];
 
   return (
@@ -157,6 +165,8 @@ export default function FarmerRoom() {
 
       {tab === "courses" && <CoursesPanel />}
 
+      {tab === "attendance" && <AttendanceRoom />}
+
       {tab === "loans" && <LoanOffice />}
 
       {tab === "savings" && (
@@ -183,10 +193,22 @@ export default function FarmerRoom() {
 
       {tab === "rank" && isLeader && (
         <div className="space-y-6">
+          <RecommendationTool farmers={jurisdictionFarmers} />
           <AttendanceMarker farmers={jurisdictionFarmers} onRecorded={loadAll} />
-          <JurisdictionOverview farmers={jurisdictionFarmers} rank={rank} />
+          <JurisdictionOverview
+            farmers={jurisdictionFarmers}
+            rank={rank}
+            onView={rank === "Unit Leader" ? setViewingFarmerId : undefined}
+          />
           <JurisdictionReport />
+          {rank === "Unit Leader" && <CreateUnitPanel />}
         </div>
+      )}
+
+      {tab === "referral" && <ReferralPanel />}
+
+      {viewingFarmerId && (
+        <FarmerProfileReportModal farmerId={viewingFarmerId} onClose={() => setViewingFarmerId(null)} />
       )}
     </DashboardShell>
   );

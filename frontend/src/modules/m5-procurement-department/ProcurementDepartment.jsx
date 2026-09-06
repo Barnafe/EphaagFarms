@@ -1,20 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, ClipboardList, ShoppingCart, Tag, User } from "lucide-react";
+import { LayoutDashboard, ClipboardList, ShoppingCart, FileCheck2, User } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { departmentRoleLabel } from "../../utils/departmentRole.js";
 import DashboardShell from "../../components/DashboardShell.jsx";
 import ActingAsBanner from "../../components/ActingAsBanner.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
+import DeptDashboardCards from "../../components/DeptDashboardCards.jsx";
+import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.jsx";
 import OrderQueue from "./OrderQueue.jsx";
 import OrderSourcingPanel from "./OrderSourcingPanel.jsx";
-import PriceListManager from "./PriceListManager.jsx";
 import PurchasingPanel from "./PurchasingPanel.jsx";
 
+// Pricing is admin-only now (2026-09-05): standardized prices are set and
+// edited exclusively via Admin's Add Catalog / Add Price tools. Procurement
+// used to have a read-only "Pricing" tab here with a non-functional "edit"
+// button (price editing was never actually wired to it) — removed rather
+// than left as a dead, misleading control.
 const items = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "orders", label: "Orders", icon: ClipboardList },
   { key: "purchasing", label: "Purchasing", icon: ShoppingCart },
-  { key: "pricing", label: "Pricing", icon: Tag },
+  { key: "requests", label: "Requests", icon: FileCheck2 },
   { key: "profile", label: "Profile", icon: User },
 ];
 
@@ -50,7 +57,6 @@ export default function ProcurementDepartment() {
   const [farmers, setFarmers] = useState([]);
   const [processors, setProcessors] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
-  const [prices, setPrices] = useState([]);
   const [error, setError] = useState(null);
 
   const loadOrders = useCallback(async () => {
@@ -82,30 +88,12 @@ export default function ProcurementDepartment() {
     }
   }, []);
 
-  const loadPrices = useCallback(async () => {
-    try {
-      const { prices: list } = await apiFetch("/orders/catalog");
-      setPrices(
-        list.map((p) => ({
-          crop: p.crop,
-          unit: p.unit,
-          price: Number(p.price),
-          lastReviewed: p.last_reviewed,
-        }))
-      );
-    } catch (err) {
-      setError(err.message);
-    }
-  }, []);
-
   useEffect(() => {
     if (tab === "orders") {
       loadOrders();
       loadSourced();
-    } else if (tab === "pricing") {
-      loadPrices();
     }
-  }, [tab, loadOrders, loadSourced, loadPrices]);
+  }, [tab, loadOrders, loadSourced]);
 
   const selectedOrder = orders.find((o) => o.id === selectedId) ?? null;
 
@@ -137,7 +125,7 @@ export default function ProcurementDepartment() {
   if (!user) return null;
 
   return (
-    <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
+    <DashboardShell items={items} activeKey={tab} onSelect={setTab} exitTo="/admin">
       <ActingAsBanner />
 
       {error && (
@@ -152,10 +140,24 @@ export default function ProcurementDepartment() {
             <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
             <h1 className="text-xl font-medium text-white">Procurement Department</h1>
             <p className="mt-1 text-sm text-canopy-100">
-              Sourcing, processor assignment, and the standardized price list. Use the sidebar to
-              open Orders or Pricing.
+              Sourcing, processor assignment, and internal purchasing. Use the sidebar to open
+              Orders or Purchasing. Standardized prices are managed by Admin (Add Catalog / Add
+              Price), not here.
             </p>
           </div>
+          <DeptDashboardCards
+            endpoint="/procurement/dashboard"
+            onNavigate={setTab}
+            buildCards={(d) => [
+              { label: "Awaiting sourcing", value: d.ordersAwaitingSourcing, nav: "orders" },
+              {
+                label: "Awaiting processor assignment",
+                value: d.ordersAwaitingProcessorAssignment,
+                nav: "orders",
+              },
+              { label: "Open purchase requests", value: d.openPurchaseRequests, nav: "purchasing" },
+            ]}
+          />
         </div>
       )}
 
@@ -222,17 +224,7 @@ export default function ProcurementDepartment() {
         </div>
       )}
 
-      {tab === "pricing" && (
-        <div className="max-w-5xl">
-          <PriceListManager
-            prices={prices}
-            onUpdate={() => {
-              /* Price editing isn't wired yet — standardized prices are set
-                 offline per the annual review, this UI is display-only for now. */
-            }}
-          />
-        </div>
-      )}
+      {tab === "requests" && <DepartmentRequestsPanel department="Procurement" />}
 
       {tab === "profile" && (
         <div className="max-w-3xl">
@@ -240,7 +232,7 @@ export default function ProcurementDepartment() {
             <p className="text-xs uppercase tracking-wide text-canopy-300">Procurement</p>
             <h1 className="text-xl font-medium text-white">Profile</h1>
           </div>
-          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: "Procurement HOD" }]} />
+          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: departmentRoleLabel(user, "Procurement") }]} />
         </div>
       )}
     </DashboardShell>

@@ -15,8 +15,13 @@ import { pool } from "../db/pool.js";
 // - Confirmed index maxes (2026-08-11): savings 6, repayment 12,
 //   training 20 (revised up from 10 — 2 sessions/month x 2.5pts, all
 //   sessions in a quarter = 20), funds utilization 12 (still untracked,
-//   always 0). Unit leader recommendation has no assigned point value —
-//   never included in the numeric subtotal, shown as a separate boolean.
+//   always 0). Unit leader recommendation has NO assigned point value BY
+//   DESIGN, confirmed 2026-09-06 — it is a direct application GATE, not a
+//   graded index: a farmer holding an unused recommendation ticket skips
+//   the normal eligibility pipeline outright rather than earning points
+//   toward it. See loan_recommendation_tickets / issueRecommendationTicket
+//   in loanController.js for the actual gate mechanism; this engine only
+//   ever surfaces it as a read-only boolean for display.
 // - Training and repayment maxes are reached via PROPORTIONAL credit
 //   against an expected-per-quarter count (6 sessions, 3 monthly
 //   repayments) rather than a hardcoded pass/fail — this is Claude's
@@ -120,7 +125,7 @@ export async function getIndicesSnapshot(farmerId) {
       { key: "loan_repayment", label: "Maintenance of loan repayment", points: round2(snap.repayment_points), maxPoints: INDEX_MAX.repayment },
       { key: "training_attendance", label: "Training attendance", points: round2(snap.training_points), maxPoints: INDEX_MAX.training },
       { key: "funds_utilization", label: "Productive funds utilization", points: round2(snap.funds_utilization_points), maxPoints: INDEX_MAX.fundsUtilization, note: "Not yet tracked by the system" },
-      { key: "unit_leader_recommendation", label: "Unit leader recommendation", points: null, maxPoints: null, recommended: unitLeaderRecommended, note: "Point value not yet set" },
+      { key: "unit_leader_recommendation", label: "Unit leader recommendation", points: null, maxPoints: null, recommended: unitLeaderRecommended, note: "A direct gate, not a graded score — see /loans/me/recommendation-ticket for an active ticket" },
     ],
     subtotal: round2(Number(snap.savings_points) + Number(snap.repayment_points) + Number(snap.training_points)),
     subtotalMax: INDEX_MAX.savings + INDEX_MAX.repayment + INDEX_MAX.training,

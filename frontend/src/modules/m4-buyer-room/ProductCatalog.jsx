@@ -88,7 +88,9 @@ export default function ProductCatalog({ items, onSelect }) {
                 {item.category}
               </span>
               <p className="font-medium leading-tight text-gray-900">{item.crop}</p>
-              <p className="text-xs text-gray-500">per {item.unit}</p>
+              <p className="text-xs text-gray-500">
+                {item.itemType === "livestock" ? item.ageDescription : `per ${item.unit}`}
+              </p>
               <div className="mt-auto flex items-center justify-between pt-1">
                 <p className="font-semibold text-canopy-800">₦{item.price.toLocaleString()}</p>
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-canopy-600 text-base leading-none text-white transition group-hover:bg-canopy-800">

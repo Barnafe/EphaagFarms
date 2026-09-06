@@ -6,6 +6,7 @@ const router = Router();
 
 router.use(requireAuth, requireRole("admin"));
 
+router.get("/dashboard", procurement.dashboardSummary);
 router.get("/queue", procurement.sourcingQueue);
 router.get("/farmers", procurement.farmerDirectory);
 router.get("/farmers/:farmerId/products", procurement.farmerAvailableProducts);

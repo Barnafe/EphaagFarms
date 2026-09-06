@@ -15,8 +15,11 @@ export default function ActingAsBanner() {
   if (!actingAs) return null;
 
   function handleExit() {
+    // Clear actingAs first so the back-button trap (ActingAsContext.jsx)
+    // disarms itself, then replace (not push) into the admin dashboard —
+    // this is the one sanctioned door out of a department.
     setActingAs(null);
-    navigate("/admin");
+    navigate("/admin", { replace: true });
   }
 
   return (

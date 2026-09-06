@@ -5,6 +5,9 @@ import * as store from "../controllers/storeController.js";
 const router = Router();
 router.use(requireAuth);
 
+// Store Department (admin) — dashboard
+router.get("/dashboard", requireRole("admin"), store.dashboardSummary);
+
 // Store Department (admin) — inventory
 router.get("/inventory", requireRole("admin"), store.inventory);
 router.patch("/inventory/:id/reorder-level", requireRole("admin"), store.updateReorderLevel);

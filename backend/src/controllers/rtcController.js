@@ -24,6 +24,26 @@ import { MATERIALS_DIR } from "../middleware/upload.js";
 // the narrowing.
 // ---------------------------------------------------------------------
 
+// --- Dashboard (2026-09-05 spec) --------------------------------------
+export async function dashboardSummary(req, res) {
+  const [{ rows: courseCounts }, { rows: researchCount }, { rows: consultReqCounts }] = await Promise.all([
+    pool.query(`SELECT approved, COUNT(*)::int AS count FROM courses GROUP BY approved`),
+    pool.query(`SELECT COUNT(*)::int AS count FROM research`),
+    pool.query(`SELECT status, COUNT(*)::int AS count FROM consultancy_requests GROUP BY status`),
+  ]);
+
+  const approvedCourses = courseCounts.find((r) => r.approved === true)?.count || 0;
+  const draftCourses = courseCounts.find((r) => r.approved === false)?.count || 0;
+  const pendingConsultancy = consultReqCounts.find((r) => r.status === "pending")?.count || 0;
+
+  res.json({
+    approvedCourses,
+    draftCourses,
+    publishedResearch: researchCount[0].count,
+    pendingConsultancyRequests: pendingConsultancy,
+  });
+}
+
 function mapCourseForAdmin(c) {
   return {
     id: c.id,

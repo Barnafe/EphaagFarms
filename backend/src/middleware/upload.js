@@ -81,6 +81,33 @@ export const uploadSheet = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
+// Optional proof image attached to a Unit Leader's profile report — image
+// only, own directory, served statically like photos/products (see
+// server.js) since these are reviewed by admin, not publicly sensitive.
+export const REPORT_PROOFS_DIR = path.join(__dirname, "..", "..", "uploads", "report-proofs");
+fs.mkdirSync(REPORT_PROOFS_DIR, { recursive: true });
+
+const reportProofStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, REPORT_PROOFS_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || ".jpg";
+    cb(null, `${req.user.id}-${Date.now()}${ext}`);
+  },
+});
+
+function reportProofFileFilter(req, file, cb) {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
+    return cb(new Error("Only JPG, PNG, or WEBP images are accepted"));
+  }
+  cb(null, true);
+}
+
+export const uploadReportProof = multer({
+  storage: reportProofStorage,
+  fileFilter: reportProofFileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+});
+
 // Cross-department request attachments — optional, per the requester's
 // choice. PDF or common image types, same size cap as other document
 // uploads in this app.

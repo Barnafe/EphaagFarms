@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, GraduationCap, BookOpen, Handshake, User } from "lucide-react";
+import { LayoutDashboard, GraduationCap, BookOpen, Handshake, FileCheck2, User } from "lucide-react";
 import { apiFetch, apiUpload, apiDownload } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { departmentRoleLabel } from "../../utils/departmentRole.js";
 import DashboardShell from "../../components/DashboardShell.jsx";
 import ActingAsBanner from "../../components/ActingAsBanner.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
+import DeptDashboardCards from "../../components/DeptDashboardCards.jsx";
+import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.jsx";
 
 // TRC — Training, Research & Consultancy. Restored 2026-09-05 to its
 // full three-part scope after a 2026-09-02 round had narrowed the whole
@@ -19,6 +22,12 @@ const items = [
   { key: "training", label: "Training", icon: GraduationCap },
   { key: "research", label: "Research", icon: BookOpen },
   { key: "consultancy", label: "Consultancy", icon: Handshake },
+  {
+    key: "approvals",
+    label: "Approval requests",
+    icon: FileCheck2,
+    description: "The general cross-department request/approval workflow (distinct from the consultancy booking requests under Consultancy).",
+  },
   { key: "profile", label: "Profile", icon: User },
 ];
 
@@ -205,7 +214,7 @@ export default function TrcDepartment() {
   if (!user) return null;
 
   return (
-    <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
+    <DashboardShell items={items} activeKey={tab} onSelect={setTab} exitTo="/admin">
       <ActingAsBanner />
 
       {error && (
@@ -223,6 +232,20 @@ export default function TrcDepartment() {
               Free to members. Use the sidebar to open Training, Research, or Consultancy.
             </p>
           </div>
+          <DeptDashboardCards
+            endpoint="/rtc/admin/dashboard"
+            onNavigate={setTab}
+            buildCards={(d) => [
+              { label: "Approved courses", value: d.approvedCourses, nav: "training" },
+              { label: "Draft courses", value: d.draftCourses, hint: "Awaiting approval", nav: "training" },
+              { label: "Published research", value: d.publishedResearch, nav: "research" },
+              {
+                label: "Pending consultancy requests",
+                value: d.pendingConsultancyRequests,
+                nav: "consultancy",
+              },
+            ]}
+          />
         </div>
       )}
 
@@ -452,13 +475,15 @@ export default function TrcDepartment() {
         </div>
       )}
 
+      {tab === "approvals" && <DepartmentRequestsPanel department="TRC" />}
+
       {tab === "profile" && (
         <div className="max-w-3xl">
           <div className="mb-6">
             <p className="text-xs uppercase tracking-wide text-canopy-300">TRC</p>
             <h1 className="text-xl font-medium text-white">Profile</h1>
           </div>
-          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: "TRC HOD" }]} />
+          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: departmentRoleLabel(user, "TRC") }]} />
         </div>
       )}
     </DashboardShell>

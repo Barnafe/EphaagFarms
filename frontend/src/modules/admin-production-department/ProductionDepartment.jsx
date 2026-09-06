@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, Sprout, ClipboardList, BarChart3, User } from "lucide-react";
+import { LayoutDashboard, Sprout, ClipboardList, BarChart3, FileCheck2, User } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { departmentRoleLabel } from "../../utils/departmentRole.js";
 import DashboardShell from "../../components/DashboardShell.jsx";
 import ActingAsBanner from "../../components/ActingAsBanner.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
+import DeptDashboardCards from "../../components/DeptDashboardCards.jsx";
+import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.jsx";
 import FarmList from "./FarmList.jsx";
 import HarvestLog from "./HarvestLog.jsx";
 import AnnualSummary from "./AnnualSummary.jsx";
@@ -16,6 +19,7 @@ const items = [
   { key: "farms", label: "Farms", icon: Sprout },
   { key: "harvests", label: "Harvests", icon: ClipboardList },
   { key: "summary", label: "Annual summary", icon: BarChart3 },
+  { key: "requests", label: "Requests", icon: FileCheck2 },
   { key: "profile", label: "Profile", icon: User },
 ];
 
@@ -27,6 +31,7 @@ export default function ProductionDepartment() {
   const [farms, setFarms] = useState([]);
   const [harvests, setHarvests] = useState([]);
   const [summary, setSummary] = useState([]);
+  const [declarations, setDeclarations] = useState([]);
   const [year, setYear] = useState(CURRENT_YEAR);
   const [error, setError] = useState(null);
 
@@ -46,8 +51,12 @@ export default function ProductionDepartment() {
 
   const loadSummary = useCallback(async (y) => {
     try {
-      const { summary: s } = await apiFetch(`/production/summary?year=${y}`);
+      const [{ summary: s }, { declarations: d }] = await Promise.all([
+        apiFetch(`/production/summary?year=${y}`),
+        apiFetch(`/production/declarations?year=${y}`),
+      ]);
       setSummary(s);
+      setDeclarations(d);
     } catch (err) {
       setError(err.message);
     }
@@ -81,10 +90,15 @@ export default function ProductionDepartment() {
     await Promise.all([loadFarmsAndHarvests(), loadSummary(year)]);
   }
 
+  async function handleDeclareAnnual(body) {
+    await apiFetch("/production/declarations", { method: "POST", body });
+    await loadSummary(year);
+  }
+
   if (!user) return null;
 
   return (
-    <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
+    <DashboardShell items={items} activeKey={tab} onSelect={setTab} exitTo="/admin">
       <ActingAsBanner />
 
       {error && (
@@ -102,10 +116,26 @@ export default function ProductionDepartment() {
               Company-owned farms and Ephaag's own annual harvest record.
             </p>
           </div>
-          <div className="card">
-            <p className="text-sm text-ink-600">Company farms</p>
-            <p className="text-lg font-medium text-canopy-800">{farms.length}</p>
-          </div>
+          <DeptDashboardCards
+            endpoint="/production/dashboard"
+            onNavigate={setTab}
+            buildCards={(d) => [
+              { label: "Active farms", value: d.activeFarms, nav: "farms" },
+              { label: "Fallow farms", value: d.fallowFarms, nav: "farms" },
+              {
+                label: "Harvests this year",
+                value: d.harvestsThisYear,
+                hint: `${d.distinctCropsThisYear} distinct crops`,
+                nav: "harvests",
+              },
+              {
+                label: "Awaiting Store receipt",
+                value: d.awaitingStoreReceipt,
+                hint: "Declared, not yet confirmed",
+                nav: "harvests",
+              },
+            ]}
+          />
         </div>
       )}
 
@@ -123,9 +153,17 @@ export default function ProductionDepartment() {
 
       {tab === "summary" && (
         <div className="max-w-3xl">
-          <AnnualSummary year={year} onYearChange={setYear} summary={summary} />
+          <AnnualSummary
+            year={year}
+            onYearChange={setYear}
+            summary={summary}
+            declarations={declarations}
+            onDeclareAnnual={handleDeclareAnnual}
+          />
         </div>
       )}
+
+      {tab === "requests" && <DepartmentRequestsPanel department="Production" />}
 
       {tab === "profile" && (
         <div className="max-w-3xl">
@@ -133,7 +171,7 @@ export default function ProductionDepartment() {
             <p className="text-xs uppercase tracking-wide text-canopy-300">Production</p>
             <h1 className="text-xl font-medium text-white">Profile</h1>
           </div>
-          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: "Production HOD" }]} />
+          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: departmentRoleLabel(user, "Production") }]} />
         </div>
       )}
     </DashboardShell>

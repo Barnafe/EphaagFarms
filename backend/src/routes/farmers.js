@@ -58,6 +58,12 @@ router.get(
   requireFarmerRankOrAdmin("Unit Leader", "Ward Leader", "LGA Coordinator", "State Coordinator", "Federal"),
   farmers.attendanceHistory
 );
+router.get(
+  "/jurisdiction/:id",
+  requireFarmerRankOrAdmin("Unit Leader", "Ward Leader", "LGA Coordinator", "State Coordinator", "Federal"),
+  farmers.jurisdictionFarmerProfile
+);
+router.get("/attendance/me", requireRole("farmer"), farmers.myAttendanceRecord);
 
 // Admin
 router.get("/admin/savings", requireRole("admin"), savings.adminListSavings);

@@ -11,6 +11,7 @@ router.use(requireAuth);
 // This is also exactly what farmers see in their own Farmer's Room tab
 // (labeled "Seminar" there) — same endpoints, same data, just a
 // narrower farmer-facing label on the same underlying feature.
+router.get("/admin/dashboard", requireRole("admin"), rtc.dashboardSummary);
 router.get("/admin/courses", requireRole("admin"), rtc.adminListCourses);
 router.post("/admin/courses", requireRole("admin"), uploadCourseMaterial.single("material"), rtc.adminCreateCourse);
 router.post("/admin/courses/:id/approve", requireRole("admin"), rtc.adminApproveCourse);

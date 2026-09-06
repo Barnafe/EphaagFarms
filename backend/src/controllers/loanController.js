@@ -181,6 +181,77 @@ export async function adminVerifyBoostDeposit(req, res) {
   res.json({ deposit: mapDeposit(rows[0]) });
 }
 
+// --- Recommendation tickets (2026-09-06 spec) ---------------------------
+// A proactive, one-time gate — separate from recommendLoan() above, which
+// reviews an ALREADY-SUBMITTED pending application. This lets a Unit
+// Leader pre-authorize a specific farmer, before any application exists,
+// so that farmer's next applyForLoan() call skips the pending review step
+// entirely. See the migration comment on loan_recommendation_tickets for
+// the full design.
+
+export async function issueRecommendationTicket(req, res) {
+  const { farmerId, reason } = req.body;
+  if (!farmerId || !reason || !reason.trim()) {
+    return res.status(400).json({ error: "farmerId and reason are required" });
+  }
+
+  const { rows: farmerRows } = await pool.query(
+    `SELECT u.id, u.state, u.lga, u.ward, u.unit FROM users u
+     JOIN farmer_profiles fp ON fp.user_id = u.id WHERE u.id = $1`,
+    [farmerId]
+  );
+  const farmer = farmerRows[0];
+  if (!farmer) return res.status(404).json({ error: "Farmer not found" });
+
+  // Same jurisdiction rule as recommendLoan — admin bypasses (company-wide).
+  if (req.user.role_type !== "admin") {
+    const sameUnit =
+      farmer.state === req.farmerProfile.state &&
+      farmer.lga === req.farmerProfile.lga &&
+      farmer.ward === req.farmerProfile.ward &&
+      farmer.unit === req.farmerProfile.unit;
+    if (!sameUnit) {
+      return res.status(403).json({ error: "This farmer isn't in your jurisdiction" });
+    }
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO loan_recommendation_tickets (farmer_id, issued_by, reason)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [farmerId, req.user.id, reason.trim()]
+    );
+    res.status(201).json({ ticket: rows[0] });
+  } catch (err) {
+    if (err.code === "23505") {
+      return res.status(409).json({ error: "This farmer already has an unused recommendation ticket" });
+    }
+    console.error(err);
+    res.status(500).json({ error: "Could not issue recommendation ticket" });
+  }
+}
+
+export async function myIssuedTickets(req, res) {
+  const { rows } = await pool.query(
+    `SELECT t.*, u.name AS farmer_name FROM loan_recommendation_tickets t
+     JOIN users u ON u.id = t.farmer_id
+     WHERE t.issued_by = $1 ORDER BY t.created_at DESC`,
+    [req.user.id]
+  );
+  res.json({ tickets: rows });
+}
+
+export async function myRecommendationTicket(req, res) {
+  const { rows } = await pool.query(
+    `SELECT t.*, u.name AS issued_by_name FROM loan_recommendation_tickets t
+     JOIN users u ON u.id = t.issued_by
+     WHERE t.farmer_id = $1 AND t.used_at IS NULL
+     ORDER BY t.created_at DESC LIMIT 1`,
+    [req.user.id]
+  );
+  res.json({ ticket: rows[0] || null });
+}
+
 // --- Farmer actions ---------------------------------------------------
 
 export async function applyForLoan(req, res) {
@@ -258,12 +329,28 @@ export async function applyForLoan(req, res) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+
+    // Ticket check (2026-09-06 spec) — locked FOR UPDATE so two concurrent
+    // applications can't both claim the same ticket. An unused ticket
+    // means this application skips 'pending' entirely and starts life
+    // already 'recommended', with recommended_by set to whoever issued
+    // the ticket — the same status a normal application only reaches
+    // after a Unit Leader manually reviews it (see recommendLoan above).
+    const { rows: ticketRows } = await client.query(
+      `SELECT * FROM loan_recommendation_tickets
+       WHERE farmer_id = $1 AND used_at IS NULL
+       ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,
+      [req.user.id]
+    );
+    const ticket = ticketRows[0] || null;
+    const initialStatus = ticket ? "recommended" : "pending";
+
     const reference = generateReference(REF_PREFIX.loan);
     const { rows } = await client.query(
       `INSERT INTO loans
          (reference, farmer_id, loan_type, interest_rate, amount, requested_amount, repayment_months, reason,
-          deposit_required, deposit_paid_at, deposit_verified)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+          deposit_required, deposit_paid_at, deposit_verified, status, recommended_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
       [
         reference,
         req.user.id,
@@ -276,14 +363,36 @@ export async function applyForLoan(req, res) {
         depositRow ? Number(depositRow.deposit_amount) : null,
         depositRow ? depositRow.paid_at : null,
         !!depositRow, // already verified before the loan existed
+        initialStatus,
+        ticket ? ticket.issued_by : null,
       ]
     );
     const loan = rows[0];
     if (depositRow) {
       await client.query(`UPDATE boost_cash_deposits SET used_for_loan_id = $1 WHERE id = $2`, [loan.id, depositRow.id]);
     }
-    await logTransition(client, loan.id, null, "pending", req.user.id, "Application submitted");
+
+    if (ticket) {
+      await client.query(
+        `UPDATE loan_recommendation_tickets SET used_at = now(), used_loan_id = $1 WHERE id = $2`,
+        [loan.id, ticket.id]
+      );
+      await logTransition(
+        client,
+        loan.id,
+        null,
+        "recommended",
+        req.user.id,
+        `Application submitted — auto-recommended via Unit Leader ticket: ${ticket.reason}`
+      );
+    } else {
+      await logTransition(client, loan.id, null, "pending", req.user.id, "Application submitted");
+    }
+
     await client.query("COMMIT");
+    if (ticket) {
+      notifyFinance(loan).catch(() => {});
+    }
     res.status(201).json({ loan });
   } catch (err) {
     await client.query("ROLLBACK");

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, Inbox, Users, PlusCircle, History as HistoryIcon, User } from "lucide-react";
+import { LayoutDashboard, Inbox, Users, PlusCircle, History as HistoryIcon, FileCheck2, User } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { departmentRoleLabel } from "../../utils/departmentRole.js";
 import DashboardShell from "../../components/DashboardShell.jsx";
 import ActingAsBanner from "../../components/ActingAsBanner.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
+import DeptDashboardCards from "../../components/DeptDashboardCards.jsx";
+import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.jsx";
 import StockOverview from "./StockOverview.jsx";
 import ReceivingPanel from "./ReceivingPanel.jsx";
 import ProductionReceivingPanel from "./ProductionReceivingPanel.jsx";
@@ -40,6 +43,7 @@ const items = [
   { key: "allocation", label: "Allocation", icon: Users },
   { key: "restock", label: "Restock", icon: PlusCircle },
   { key: "history", label: "History", icon: HistoryIcon },
+  { key: "requests", label: "Requests", icon: FileCheck2 },
   { key: "profile", label: "Profile", icon: User },
 ];
 
@@ -153,7 +157,7 @@ export default function StoreDepartment() {
   if (!user) return null;
 
   return (
-    <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
+    <DashboardShell items={items} activeKey={tab} onSelect={setTab} exitTo="/admin">
       <ActingAsBanner />
 
       {error && (
@@ -171,6 +175,17 @@ export default function StoreDepartment() {
               Inventory on hand, low-stock alerts, and reorder levels.
             </p>
           </div>
+          <DeptDashboardCards
+            endpoint="/store/dashboard"
+            onNavigate={setTab}
+            buildCards={(d) => [
+              { label: "Low-stock items", value: d.lowStockItems, hint: "At or below reorder level" },
+              { label: "Total stock items", value: d.totalStockItems },
+              { label: "Awaiting receipt", value: d.ordersAwaitingReceipt, nav: "receiving" },
+              { label: "Awaiting allocation", value: d.ordersAwaitingAllocation, nav: "allocation" },
+              { label: "Pending restock requests", value: d.pendingRestockRequests, nav: "restock" },
+            ]}
+          />
           <StockOverview
             stock={stock}
             onRaiseRestockRequest={handleRaiseRestockRequest}
@@ -205,13 +220,15 @@ export default function StoreDepartment() {
         </div>
       )}
 
+      {tab === "requests" && <DepartmentRequestsPanel department="Store" />}
+
       {tab === "profile" && (
         <div className="max-w-3xl">
           <div className="mb-6">
             <p className="text-xs uppercase tracking-wide text-canopy-300">Store</p>
             <h1 className="text-xl font-medium text-white">Profile</h1>
           </div>
-          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: "Store HOD" }]} />
+          <AccountProfileCard user={user} extraFields={[{ label: "Role", value: departmentRoleLabel(user, "Store") }]} />
         </div>
       )}
     </DashboardShell>

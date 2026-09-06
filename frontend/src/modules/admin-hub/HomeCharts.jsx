@@ -119,3 +119,21 @@ export function CategoryDonut({ data, height = 200 }) {
     </div>
   );
 }
+
+// Small sparkline for a stat tile — just the shape of the trend, no axes
+// or gridlines, so it drops straight under a big number without competing
+// with it. `data` is a plain array of numbers (already computed by the
+// caller from real transaction data — see AdminHub.jsx).
+export function MiniTrendChart({ data, color = FLOW_GREEN, height = 36 }) {
+  const rows = (data || []).map((v, i) => ({ i, v }));
+  if (rows.length < 2) return null;
+  return (
+    <div className="mt-2" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={rows} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+          <Line type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}

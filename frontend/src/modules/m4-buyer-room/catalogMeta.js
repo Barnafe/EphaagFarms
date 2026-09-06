@@ -49,7 +49,7 @@ export const catalogMeta = {
   },
 };
 
-const FALLBACK_ICONS = { Grains: "🌾", Tubers: "🥔", Vegetables: "🥬", Other: "🧺" };
+const FALLBACK_ICONS = { Grains: "🌾", Tubers: "🥔", Vegetables: "🥬", Other: "🧺", Goat: "🐐", Chicken: "🐔", Cattle: "🐄", Sheep: "🐑", Pig: "🐖", Turkey: "🦃", "Other Livestock": "🐾" };
 
 export function mergeCatalog(prices) {
   return prices.map((p) => {
@@ -60,10 +60,14 @@ export function mergeCatalog(prices) {
     // ones. catalogMeta.js is still consulted for older/blank rows so
     // nothing that already looked good regresses.
     const category = p.category || meta?.category || "Other";
+    const itemType = p.item_type || "crop";
+    const ageDescription = p.age_description || null;
     return {
       id: meta?.id || p.crop.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       crop: p.crop,
       category,
+      itemType,
+      ageDescription,
       icon: p.icon || meta?.icon || FALLBACK_ICONS[category] || "🧺",
       // Real product photo, set by admin in the "Add Catalog" form — wins
       // over the emoji icon when present (see ProductCatalog.jsx /
@@ -71,7 +75,11 @@ export function mergeCatalog(prices) {
       // there's no photo yet, e.g. older catalog rows).
       imageUrl: p.image_url || null,
       description:
-        p.description || meta?.description || `Standard-priced ${p.crop.toLowerCase()}, sold by the ${p.unit}.`,
+        p.description ||
+        meta?.description ||
+        (itemType === "livestock"
+          ? `${p.crop} — ${ageDescription || "age not specified"}.`
+          : `Standard-priced ${p.crop.toLowerCase()}, sold by the ${p.unit}.`),
       unit: p.unit,
       price: Number(p.price),
       sizes: meta?.sizes || null,

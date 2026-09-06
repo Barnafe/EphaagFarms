@@ -1,18 +1,23 @@
 import { useState } from "react";
 
+// Keep in sync with DEPARTMENTS in backend/src/controllers/adminPositionsController.js.
 const DEPARTMENTS = [
-  "Transportation",
+  "Production",
   "Procurement",
+  "Transport",
+  "Store",
   "Finance",
   "Maintenance",
-  "Store",
-  "Production",
   "TRC",
   "Other",
 ];
 
-export default function NewRequestForm({ adminUsers, onSubmit }) {
-  const [department, setDepartment] = useState(DEPARTMENTS[0]);
+// lockDepartment: when this form is embedded inside a department's own
+// dashboard (see DepartmentRequestsPanel.jsx), the department raising the
+// request is already known from context — the field is shown read-only
+// instead of a picker, so it can't be misattributed to another department.
+export default function NewRequestForm({ adminUsers, onSubmit, defaultDepartment, lockDepartment = false }) {
+  const [department, setDepartment] = useState(defaultDepartment || DEPARTMENTS[0]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [approvers, setApprovers] = useState([]);
@@ -51,11 +56,15 @@ export default function NewRequestForm({ adminUsers, onSubmit }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label>Department raising this</label>
-          <select value={department} onChange={(e) => setDepartment(e.target.value)}>
-            {DEPARTMENTS.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
+          {lockDepartment ? (
+            <input value={department} disabled className="bg-soil-50 text-ink-600" />
+          ) : (
+            <select value={department} onChange={(e) => setDepartment(e.target.value)}>
+              {DEPARTMENTS.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          )}
         </div>
         <div>
           <label>Title</label>
