@@ -3,6 +3,7 @@ import { LayoutDashboard, Users, Landmark, FolderPlus, Flag } from "lucide-react
 import { apiFetch } from "../../api/client.js";
 import DashboardShell from "../../components/DashboardShell.jsx";
 import ActingAsBanner from "../../components/ActingAsBanner.jsx";
+import RecommendationTool from "../m2-farmer-room/RecommendationTool.jsx";
 import AttendanceMarker from "../m2-farmer-room/AttendanceMarker.jsx";
 import JurisdictionOverview from "../m2-farmer-room/JurisdictionOverview.jsx";
 import JurisdictionReport from "../m2-farmer-room/JurisdictionReport.jsx";
@@ -104,6 +105,7 @@ export default function UnitLeaderDepartment() {
 
       {tab === "jurisdiction" && !loading && (
         <div className="space-y-6">
+          <RecommendationTool farmers={jurisdictionFarmers} onIssued={loadAll} />
           <AttendanceMarker farmers={jurisdictionFarmers} onRecorded={loadAll} />
           <JurisdictionOverview farmers={jurisdictionFarmers} rank="Unit Leader" onView={setViewingFarmerId} />
           <JurisdictionReport />
