@@ -14,7 +14,6 @@ import ProductionReceivingPanel from "./ProductionReceivingPanel.jsx";
 import AllocationPanel from "./AllocationPanel.jsx";
 import RestockRequestPanel from "./RestockRequestPanel.jsx";
 import MovementHistory from "./MovementHistory.jsx";
-import SectionStack from "../../components/SectionStack.jsx";
 
 function mapStock(s) {
   return {
@@ -197,14 +196,10 @@ export default function StoreDepartment() {
       )}
 
       {tab === "receiving" && (
-        <SectionStack
-          className="max-w-3xl space-y-6"
-          label="Receive from"
-          sections={[
-            { key: "orders", label: "Sourced orders", badge: receiving.length, node: <ReceivingPanel orders={receiving} onReceive={handleReceive} /> },
-            { key: "production", label: "Own production (harvests)", badge: productionQueue.length, node: <ProductionReceivingPanel harvests={productionQueue} onReceive={handleReceiveProduction} /> },
-          ]}
-        />
+        <div className="max-w-3xl space-y-6">
+          <ReceivingPanel orders={receiving} onReceive={handleReceive} />
+          <ProductionReceivingPanel harvests={productionQueue} onReceive={handleReceiveProduction} />
+        </div>
       )}
 
       {tab === "allocation" && (

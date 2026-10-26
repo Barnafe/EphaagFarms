@@ -531,15 +531,3 @@ Full write-up: `docs/CHANGES_2026-10-21_phase4_learning.md`. Rules in short:
 
 ## Corps certificates (v28)
 TRC -> Corps now has Payments | Progress | **Batches** | **Members**. Batches: set a due date, then Mark batch complete to release certificates and email members. Members: filters and the NYSC .xlsx export. Public check page: `/verify-certificate`. Details: `docs/CHANGES_2026-10-21_phase4_batches_certificates.md`.
-
-## Pull-down "Jump to" lists (v33)
-
-Long screens that used to stack many panels/tables now show a pull-down list instead:
-- `frontend/src/components/SectionDropdown.jsx` — the select control itself (optional pending-count badge per option).
-- `frontend/src/components/SectionStack.jsx` — wraps a list of `{ key, label, badge?, hidden?, node }` sections; shows one at a time, with a "Show all sections" option. A single visible section renders with no dropdown.
-- `DeptSectionNav.jsx` (card-grid pickers: Accounting, Requests, Maintenance, Purchasing, Positions) now also shows a "Go to" dropdown once inside a section, so you can switch sections without going back to the grid.
-Used in: Finance (Loans, Investments, Savings), Loan Office, Farmer Room (Declare & List, Savings, Rank), Investor Room, Unit Leader jurisdiction, Store receiving, TRC (Training, Research, Consultancy, Corps progress).
-
-## Readability guard (v34)
-
-White-on-white text in pull-downs/inputs fixed globally at the end of `frontend/src/index.css`: form controls inside `.dash-scope` now default to dark text on white (zero-specificity, so controls with their own colour classes such as the dark "Jump to" dropdown are unaffected), select option lists are forced dark-on-white, and any `bg-white`/`bg-amber-50`/`bg-gray-50|100` surface gets dark text even without the `on-light` class.

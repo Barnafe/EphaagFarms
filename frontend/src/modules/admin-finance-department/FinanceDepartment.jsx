@@ -19,7 +19,6 @@ import LoanPipelinePanel from "./LoanPipelinePanel.jsx";
 import { ApplicationReviewPanel, PartnerStatusPanel, ROIPayoutPanel } from "./InvestmentPanels.jsx";
 import InsuranceApplyControl from "./InsuranceApplyControl.jsx";
 import AccountingWorkspace from "./accounting/AccountingWorkspace.jsx";
-import SectionStack from "../../components/SectionStack.jsx";
 
 function mapLoan(l) {
   return {
@@ -460,63 +459,26 @@ export default function FinanceDepartment() {
             Recommend and final-approval are normally a Unit Leader's and Federal's own rank-gated steps —
             admin can perform them too for now, company-wide, until those roles are staffed.
           </p>
-          <SectionStack
-            label="Loan stage"
-            sections={[
-              {
-                key: "recommend",
-                label: "Recommend (Unit Leader step)",
-                badge: pendingRecommendLoans.length,
-                node: (
-                  <LoanPipelinePanel
-                    title="Recommend (Unit Leader step)"
-                    blurb="Pending applications, company-wide — normally scoped to one unit leader's own jurisdiction."
-                    loans={pendingRecommendLoans}
-                    primaryLabel="Recommend"
-                    onPrimary={handleRecommendLoan}
-                    onReject={handleFinanceReject}
-                  />
-                ),
-              },
-              {
-                key: "verify",
-                label: "Finance review",
-                badge: financeReviewLoans.length,
-                node: <FinanceReviewPanel loans={financeReviewLoans} onVerify={handleFinanceVerify} onReject={handleFinanceReject} />,
-              },
-              {
-                key: "approve",
-                label: "Final approval (Federal step)",
-                badge: awaitingApprovalLoans.length,
-                node: (
-                  <LoanPipelinePanel
-                    title="Final approval (Federal step)"
-                    blurb="Finance-verified loans awaiting final sign-off before disbursement."
-                    loans={awaitingApprovalLoans}
-                    primaryLabel="Approve"
-                    onPrimary={handleApproveLoan}
-                    onReject={handleFinanceReject}
-                  />
-                ),
-              },
-              {
-                key: "boost",
-                label: "Boost deposits",
-                badge: pendingDeposits.length,
-                node: <BoostDepositReviewPanel deposits={pendingDeposits} onVerify={handleVerifyBoostDeposit} />,
-              },
-              {
-                key: "disburse",
-                label: "Disbursement",
-                node: <LoanDisbursementPanel loans={loans} onDisburse={handleDisburse} />,
-              },
-              {
-                key: "repayments",
-                label: "Repayment reconciliation",
-                node: <RepaymentReconciliationPanel repayments={repayments} onVerify={handleVerifyRepayment} />,
-              },
-            ]}
+          <LoanPipelinePanel
+            title="Recommend (Unit Leader step)"
+            blurb="Pending applications, company-wide — normally scoped to one unit leader's own jurisdiction."
+            loans={pendingRecommendLoans}
+            primaryLabel="Recommend"
+            onPrimary={handleRecommendLoan}
+            onReject={handleFinanceReject}
           />
+          <FinanceReviewPanel loans={financeReviewLoans} onVerify={handleFinanceVerify} onReject={handleFinanceReject} />
+          <LoanPipelinePanel
+            title="Final approval (Federal step)"
+            blurb="Finance-verified loans awaiting final sign-off before disbursement."
+            loans={awaitingApprovalLoans}
+            primaryLabel="Approve"
+            onPrimary={handleApproveLoan}
+            onReject={handleFinanceReject}
+          />
+          <BoostDepositReviewPanel deposits={pendingDeposits} onVerify={handleVerifyBoostDeposit} />
+          <LoanDisbursementPanel loans={loans} onDisburse={handleDisburse} />
+          <RepaymentReconciliationPanel repayments={repayments} onVerify={handleVerifyRepayment} />
         </div>
       )}
 
@@ -538,125 +500,81 @@ export default function FinanceDepartment() {
               <p className="text-sm text-red-700">{investmentError}</p>
             </div>
           )}
-          <SectionStack
-            label="Investment section"
-            sections={[
-              {
-                key: "applications",
-                label: "Applications",
-                badge: applications.length,
-                node: (
-                  <ApplicationReviewPanel
-                    applications={applications}
-                    onDecide={handleApplicationDecision}
-                    onDownloadAgreement={handleDownloadAgreement}
-                  />
-                ),
-              },
-              {
-                key: "partners",
-                label: "Partner-tier reviews",
-                node: <PartnerStatusPanel reviews={partnerReviews} onApprove={handlePartnerApprove} />,
-              },
-              {
-                key: "roi",
-                label: "ROI payouts",
-                node: <ROIPayoutPanel payouts={roiPayouts} onApprove={handleRoiApprove} />,
-              },
-              {
-                key: "reminders",
-                label: "Payment reminders",
-                node: (
-                <div className="card">
-                  <p className="text-sm text-ink-600">Payment due-date reminders</p>
-                  <p className="mt-1 text-xs text-ink-600">
-                    Runs automatically every day at 8am, emailing any investor whose next payment is due tomorrow.
-                    Trigger it manually here if you need to check right now.
-                  </p>
-                  <button type="button" className="btn-outline mt-3 text-xs" disabled={reminderRunning} onClick={handleRunReminderCheck}>
-                    {reminderRunning ? "Checking…" : "Run reminder check now"}
-                  </button>
-                  {reminderResult && (
-                    <p className="mt-2 text-xs text-canopy-800">
-                      Checked {reminderResult.checked} due payment{reminderResult.checked === 1 ? "" : "s"}, sent {reminderResult.sent} reminder{reminderResult.sent === 1 ? "" : "s"}.
-                    </p>
-                  )}
-                </div>
-                ),
-              },
-            ]}
+          <ApplicationReviewPanel
+            applications={applications}
+            onDecide={handleApplicationDecision}
+            onDownloadAgreement={handleDownloadAgreement}
           />
+          <PartnerStatusPanel reviews={partnerReviews} onApprove={handlePartnerApprove} />
+          <ROIPayoutPanel payouts={roiPayouts} onApprove={handleRoiApprove} />
+          <div className="card">
+            <p className="text-sm text-ink-600">Payment due-date reminders</p>
+            <p className="mt-1 text-xs text-ink-600">
+              Runs automatically every day at 8am, emailing any investor whose next payment is due tomorrow.
+              Trigger it manually here if you need to check right now.
+            </p>
+            <button type="button" className="btn-outline mt-3 text-xs" disabled={reminderRunning} onClick={handleRunReminderCheck}>
+              {reminderRunning ? "Checking…" : "Run reminder check now"}
+            </button>
+            {reminderResult && (
+              <p className="mt-2 text-xs text-canopy-800">
+                Checked {reminderResult.checked} due payment{reminderResult.checked === 1 ? "" : "s"}, sent {reminderResult.sent} reminder{reminderResult.sent === 1 ? "" : "s"}.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
       {tab === "savings" && (
         <div className="space-y-4">
-          <SectionStack
-            label="Savings section"
-            sections={[
-              {
-                key: "balances",
-                label: "Farmer savings balances",
-                node: (
-                <div className="card">
-                  <p className="text-sm text-ink-600">Farmer savings balances</p>
-                  {savingsError && <p className="mt-2 text-sm text-red-700">{savingsError}</p>}
-                  {savingsFarmers.length === 0 && <p className="mt-2 text-sm text-ink-600">Nothing to show yet.</p>}
-                  <div className="mt-3 space-y-2">
-                    {savingsFarmers.map((f) => (
-                      <div key={f.userId} className="rounded-card border border-soil-200 px-3 py-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-medium text-ink-900">{f.farmerName}</p>
-                            <p className="text-xs text-ink-600">
-                              Main: ₦{f.mainTotal.toLocaleString()} · Insurance: ₦{f.insuranceTotal.toLocaleString()}
-                            </p>
-                          </div>
-                          <InsuranceApplyControl farmer={f} onApply={handleApplyInsurance} />
-                        </div>
-                      </div>
-                    ))}
+          <div className="card">
+            <p className="text-sm text-ink-600">Farmer savings balances</p>
+            {savingsError && <p className="mt-2 text-sm text-red-700">{savingsError}</p>}
+            {savingsFarmers.length === 0 && <p className="mt-2 text-sm text-ink-600">Nothing to show yet.</p>}
+            <div className="mt-3 space-y-2">
+              {savingsFarmers.map((f) => (
+                <div key={f.userId} className="rounded-card border border-soil-200 px-3 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium text-ink-900">{f.farmerName}</p>
+                      <p className="text-xs text-ink-600">
+                        Main: ₦{f.mainTotal.toLocaleString()} · Insurance: ₦{f.insuranceTotal.toLocaleString()}
+                      </p>
+                    </div>
+                    <InsuranceApplyControl farmer={f} onApply={handleApplyInsurance} />
                   </div>
                 </div>
-                ),
-              },
-              {
-                key: "withdrawals",
-                label: "Withdrawal requests",
-                badge: savingsWithdrawals.filter((w) => w.status === "requested").length,
-                node: (
-                <div className="card">
-                  <p className="text-sm text-ink-600">Withdrawal requests</p>
-                  {savingsWithdrawals.filter((w) => w.status === "requested").length === 0 && (
-                    <p className="mt-2 text-sm text-ink-600">No pending requests.</p>
-                  )}
-                  <div className="mt-3 space-y-2">
-                    {savingsWithdrawals
-                      .filter((w) => w.status === "requested")
-                      .map((w) => (
-                        <div key={w.id} className="flex items-center justify-between rounded-card border border-soil-200 px-3 py-2">
-                          <div>
-                            <p className="text-sm text-ink-900">{w.farmerName}</p>
-                            <p className="text-xs text-ink-600">
-                              {w.accountType} · ₦{w.amount.toLocaleString()}
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            <button className="btn-outline" type="button" onClick={() => handleWithdrawalDecision(w.id, "declined")}>
-                              Decline
-                            </button>
-                            <button className="btn-primary" type="button" onClick={() => handleWithdrawalDecision(w.id, "paid")}>
-                              Mark paid
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+              ))}
+            </div>
+          </div>
+          <div className="card">
+            <p className="text-sm text-ink-600">Withdrawal requests</p>
+            {savingsWithdrawals.filter((w) => w.status === "requested").length === 0 && (
+              <p className="mt-2 text-sm text-ink-600">No pending requests.</p>
+            )}
+            <div className="mt-3 space-y-2">
+              {savingsWithdrawals
+                .filter((w) => w.status === "requested")
+                .map((w) => (
+                  <div key={w.id} className="flex items-center justify-between rounded-card border border-soil-200 px-3 py-2">
+                    <div>
+                      <p className="text-sm text-ink-900">{w.farmerName}</p>
+                      <p className="text-xs text-ink-600">
+                        {w.accountType} · ₦{w.amount.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="btn-outline" type="button" onClick={() => handleWithdrawalDecision(w.id, "declined")}>
+                        Decline
+                      </button>
+                      <button className="btn-primary" type="button" onClick={() => handleWithdrawalDecision(w.id, "paid")}>
+                        Mark paid
+                      </button>
+                    </div>
                   </div>
-                </div>
-                ),
-              },
-            ]}
-          />
+                ))}
+            </div>
+          </div>
         </div>
       )}
 
