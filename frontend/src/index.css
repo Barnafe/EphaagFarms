@@ -167,3 +167,61 @@ h1, h2, h3 {
 .dash-scope .on-light [class*="text-gray-400"] {
   color: #a97918 !important;
 }
+
+/* -------------------------------------------------------------------
+   Readability guard (v34) — light controls and light surfaces inside the
+   dark .dash-scope. Two real causes of "white text on a white box":
+
+   1. Form controls (select/input/textarea) outside a `.field` wrapper
+      inherit the dashboard's light default text color (Tailwind preflight
+      sets `color: inherit` on them) while the browser paints them with a
+      white background. These defaults are ZERO-specificity (:where) so any
+      control that sets its own text/background classes — e.g. the dark
+      "Jump to" dropdown — still wins.
+   2. Any white/very-light surface (bg-white etc.) that carries text-ink-* /
+      text-gray-* classes was being run through the dark-background
+      inversion rules above and turned cream. Those surfaces get dark text
+      back, without needing the `on-light` class on every one.
+   ------------------------------------------------------------------- */
+:where(.dash-scope) :is(input, select, textarea) {
+  color: #171310;
+  background-color: #ffffff;
+}
+
+:where(.dash-scope) :is(input, textarea)::placeholder {
+  color: #6b6258;
+  opacity: 1;
+}
+
+/* The pop-up list of a select is drawn by the browser; force a readable
+   pair so options never inherit light text onto a white list. */
+.dash-scope select option,
+.dash-scope select optgroup {
+  color: #171310;
+  background-color: #ffffff;
+}
+
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) {
+  color: #171310;
+}
+
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-ink-900"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-ink-800"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-ink-700"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-gray-900"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-gray-800"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-gray-700"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"])[class*="text-ink-900"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"])[class*="text-ink-800"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"])[class*="text-gray-900"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"])[class*="text-gray-800"] {
+  color: #171310 !important;
+}
+
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-ink-600"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-gray-600"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-gray-500"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"])[class*="text-ink-600"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"])[class*="text-gray-600"] {
+  color: #4a4036 !important;
+}

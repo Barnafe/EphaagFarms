@@ -11,6 +11,7 @@ import AgreementUpload from "./AgreementUpload.jsx";
 import PaymentLog from "./PaymentLog.jsx";
 import ROIBreakdown from "./ROIBreakdown.jsx";
 import ReferralCard from "./ReferralCard.jsx";
+import SectionStack from "../../components/SectionStack.jsx";
 
 const items = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -116,11 +117,23 @@ export default function InvestorRoom() {
               )}
 
               {application.status === "active" && (
-                <>
-                  <PaymentLog application={application} payments={payments} onLogPayment={handleLogPayment} />
-                  <ROIBreakdown records={roiRecords} />
-                  {referral && <ReferralCard referral={referral} threshold={threshold} />}
-                </>
+                <SectionStack
+                  label="Investment section"
+                  sections={[
+                    {
+                      key: "payments",
+                      label: "Payments",
+                      node: <PaymentLog application={application} payments={payments} onLogPayment={handleLogPayment} />,
+                    },
+                    { key: "roi", label: "ROI breakdown", node: <ROIBreakdown records={roiRecords} /> },
+                    {
+                      key: "referral",
+                      label: "Referral",
+                      hidden: !referral,
+                      node: <ReferralCard referral={referral} threshold={threshold} />,
+                    },
+                  ]}
+                />
               )}
             </>
           )}

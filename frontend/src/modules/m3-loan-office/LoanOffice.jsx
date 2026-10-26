@@ -8,6 +8,7 @@ import LoanStatusPanel from "./LoanStatusPanel.jsx";
 import RepaymentTracker from "./RepaymentTracker.jsx";
 import UnitLeaderReview from "./UnitLeaderReview.jsx";
 import FederalApproval from "./FederalApproval.jsx";
+import SectionStack from "../../components/SectionStack.jsx";
 
 // --- Backend → frontend shape mapping ------------------------------------
 
@@ -239,34 +240,63 @@ export default function LoanOffice() {
 
       {!loading && (
         <>
-          <LoanEligibility indices={eligibility} history={eligibilityHistory} onLoadHistory={handleLoadEligibilityHistory} ticket={ticket} />
-
-          {canApply && (
-            <>
-              <LoanApplicationForm
-                onSubmit={handleApply}
-                eligibleDeposits={eligibleDeposits}
-                mainSavingsBalance={mainSavingsBalance}
-                aidedTerms={aidedTerms}
-              />
-              <BoostDepositPanel deposits={deposits} onDeclare={handleDeclareDeposit} />
-            </>
-          )}
-
-          {loan.status !== "none" && <LoanStatusPanel loan={loan} />}
-
-
-          {loan.status === "active" && (
-            <RepaymentTracker loan={loan} onLogRepayment={handleLogRepayment} />
-          )}
-
-          {isUnitLeader && (
-            <UnitLeaderReview applications={pending} onRecommend={handleUnitLeaderDecision} />
-          )}
-
-          {isFederal && (
-            <FederalApproval applications={recommended} onDecide={handleFederalDecision} />
-          )}
+          <SectionStack
+            label="Loan section"
+            sections={[
+              {
+                key: "eligibility",
+                label: "My eligibility",
+                node: (
+                  <LoanEligibility indices={eligibility} history={eligibilityHistory} onLoadHistory={handleLoadEligibilityHistory} ticket={ticket} />
+                ),
+              },
+              {
+                key: "apply",
+                label: "Apply for a loan",
+                hidden: !canApply,
+                node: (
+                  <LoanApplicationForm
+                    onSubmit={handleApply}
+                    eligibleDeposits={eligibleDeposits}
+                    mainSavingsBalance={mainSavingsBalance}
+                    aidedTerms={aidedTerms}
+                  />
+                ),
+              },
+              {
+                key: "boost",
+                label: "Boost deposit",
+                hidden: !canApply,
+                node: <BoostDepositPanel deposits={deposits} onDeclare={handleDeclareDeposit} />,
+              },
+              {
+                key: "status",
+                label: "Loan status",
+                hidden: loan.status === "none",
+                node: <LoanStatusPanel loan={loan} />,
+              },
+              {
+                key: "repayments",
+                label: "Repayments",
+                hidden: loan.status !== "active",
+                node: <RepaymentTracker loan={loan} onLogRepayment={handleLogRepayment} />,
+              },
+              {
+                key: "unit-leader",
+                label: "Unit Leader review",
+                badge: pending.length,
+                hidden: !isUnitLeader,
+                node: <UnitLeaderReview applications={pending} onRecommend={handleUnitLeaderDecision} />,
+              },
+              {
+                key: "federal",
+                label: "Federal approval",
+                badge: recommended.length,
+                hidden: !isFederal,
+                node: <FederalApproval applications={recommended} onDecide={handleFederalDecision} />,
+              },
+            ]}
+          />
         </>
       )}
     </div>

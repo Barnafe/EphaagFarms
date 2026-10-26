@@ -10,6 +10,7 @@ import JurisdictionReport from "../m2-farmer-room/JurisdictionReport.jsx";
 import CreateUnitPanel from "../m2-farmer-room/CreateUnitPanel.jsx";
 import FarmerProfileReportModal from "../m2-farmer-room/FarmerProfileReportModal.jsx";
 import UnitLeaderReview from "../m3-loan-office/UnitLeaderReview.jsx";
+import SectionStack from "../../components/SectionStack.jsx";
 
 function mapJurisdictionFarmer(f) {
   return {
@@ -104,12 +105,15 @@ export default function UnitLeaderDepartment() {
       )}
 
       {tab === "jurisdiction" && !loading && (
-        <div className="space-y-6">
-          <RecommendationTool farmers={jurisdictionFarmers} onIssued={loadAll} />
-          <AttendanceMarker farmers={jurisdictionFarmers} onRecorded={loadAll} />
-          <JurisdictionOverview farmers={jurisdictionFarmers} rank="Unit Leader" onView={setViewingFarmerId} />
-          <JurisdictionReport />
-        </div>
+        <SectionStack
+          label="Jurisdiction section"
+          sections={[
+            { key: "overview", label: "Farmers in my jurisdiction", node: <JurisdictionOverview farmers={jurisdictionFarmers} rank="Unit Leader" onView={setViewingFarmerId} /> },
+            { key: "recommend", label: "Recommend a farmer for a loan", node: <RecommendationTool farmers={jurisdictionFarmers} onIssued={loadAll} /> },
+            { key: "attendance", label: "Mark attendance", node: <AttendanceMarker farmers={jurisdictionFarmers} onRecorded={loadAll} /> },
+            { key: "report", label: "Jurisdiction report", node: <JurisdictionReport /> },
+          ]}
+        />
       )}
 
       {tab === "loans" && !loading && (

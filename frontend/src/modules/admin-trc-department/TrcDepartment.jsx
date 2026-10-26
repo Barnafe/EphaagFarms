@@ -8,6 +8,7 @@ import ActingAsBanner from "../../components/ActingAsBanner.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import DeptDashboardCards from "../../components/DeptDashboardCards.jsx";
 import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.jsx";
+import SectionStack from "../../components/SectionStack.jsx";
 import CorpsCourseEditor from "./CorpsCourseEditor.jsx";
 import CorpsPayments from "./CorpsPayments.jsx";
 import CorpsProgress from "./CorpsProgress.jsx";
@@ -301,137 +302,153 @@ export default function TrcDepartment() {
             </p>
           </div>
 
-          <div className="card">
-            <p className="text-sm text-ink-600">Upload a training course</p>
-            <form onSubmit={handleSubmitCourse} className="field mt-3 space-y-2">
-              <div role="group" aria-label="Course audience" className="flex gap-2">
-                {[["general", "General (farmers)"], ["corps", "Corps (NYSC corps members)"]].map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={courseAudience === value}
-                    onClick={() => setCourseAudience(value)}
-                    className={`rounded-card border px-3 py-2 text-sm ${courseAudience === value ? "border-canopy-600 bg-canopy-600 text-white" : "border-soil-200 text-ink-900"}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <input value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} placeholder="Course title" />
-              <textarea
-                rows={2}
-                value={courseDescription}
-                onChange={(e) => setCourseDescription(e.target.value)}
-                placeholder="Description"
-              />
-              {courseAudience === "general" ? (
-                <>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <input
-                      value={onlineLink}
-                      onChange={(e) => setOnlineLink(e.target.value)}
-                      placeholder="Online hosting link (optional)"
-                    />
-                    <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+          <SectionStack
+            label="Training section"
+            sections={[
+              {
+                key: "upload",
+                label: "Upload a training course",
+                node: (
+              <div className="card">
+                <p className="text-sm text-ink-600">Upload a training course</p>
+                <form onSubmit={handleSubmitCourse} className="field mt-3 space-y-2">
+                  <div role="group" aria-label="Course audience" className="flex gap-2">
+                    {[["general", "General (farmers)"], ["corps", "Corps (NYSC corps members)"]].map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-pressed={courseAudience === value}
+                        onClick={() => setCourseAudience(value)}
+                        className={`rounded-card border px-3 py-2 text-sm ${courseAudience === value ? "border-canopy-600 bg-canopy-600 text-white" : "border-soil-200 text-ink-900"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
                   </div>
-                  <div>
-                    <label className="text-xs text-ink-600">Materials (optional — PDF, Word, PowerPoint, or image)</label>
-                    <input type="file" onChange={(e) => setMaterial(e.target.files?.[0] || null)} />
-                  </div>
-                </>
-              ) : (
-                <p className="text-xs text-ink-600">
-                  After creating a corps course you add its lessons (video, document or live session) and its quiz,
-                  then approve it.
-                </p>
-              )}
-              <button className="btn-primary" type="submit" disabled={submittingCourse}>
-                {submittingCourse ? "Saving…" : courseAudience === "corps" ? "Create corps course" : "Upload course"}
-              </button>
-            </form>
-          </div>
-
-          <div className="card">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm text-ink-600">All courses</p>
-              <div role="group" aria-label="Filter courses" className="flex gap-2 text-xs">
-                {[["all", "All"], ["general", "General"], ["corps", "Corps"]].map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={audienceFilter === value}
-                    onClick={() => setAudienceFilter(value)}
-                    className={`rounded-full border px-3 py-1 ${audienceFilter === value ? "border-canopy-600 bg-canopy-600 text-white" : "border-soil-200 text-ink-900"}`}
-                  >
-                    {label}
+                  <input value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} placeholder="Course title" />
+                  <textarea
+                    rows={2}
+                    value={courseDescription}
+                    onChange={(e) => setCourseDescription(e.target.value)}
+                    placeholder="Description"
+                  />
+                  {courseAudience === "general" ? (
+                    <>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <input
+                          value={onlineLink}
+                          onChange={(e) => setOnlineLink(e.target.value)}
+                          placeholder="Online hosting link (optional)"
+                        />
+                        <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-ink-600">Materials (optional — PDF, Word, PowerPoint, or image)</label>
+                        <input type="file" onChange={(e) => setMaterial(e.target.files?.[0] || null)} />
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs text-ink-600">
+                      After creating a corps course you add its lessons (video, document or live session) and its quiz,
+                      then approve it.
+                    </p>
+                  )}
+                  <button className="btn-primary" type="submit" disabled={submittingCourse}>
+                    {submittingCourse ? "Saving…" : courseAudience === "corps" ? "Create corps course" : "Upload course"}
                   </button>
-                ))}
+                </form>
               </div>
-            </div>
-            {courses.filter((c) => audienceFilter === "all" || c.audience === audienceFilter).length === 0 && (
-              <p className="mt-2 text-sm text-ink-600">Nothing uploaded yet.</p>
-            )}
-            <div className="mt-3 space-y-2">
-              {courses.filter((c) => audienceFilter === "all" || c.audience === audienceFilter).map((c) => (
-                <div key={c.id} className="rounded-card border border-soil-200 px-3 py-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-ink-900">
-                        {c.title}{" "}
-                        <span className="ml-1 rounded-full bg-canopy-50 px-2 py-0.5 text-xs font-medium text-canopy-800">
-                          {c.audience === "corps" ? "Corps" : "General"}
-                        </span>
-                      </p>
-                      {c.description && <p className="text-sm text-ink-600">{c.description}</p>}
-                      {c.audience === "corps" && (
-                        <p className="mt-1 text-xs text-ink-600">
-                          {c.lessonCount} {c.lessonCount === 1 ? "lesson" : "lessons"} · {c.questionCount} quiz{" "}
-                          {c.questionCount === 1 ? "question" : "questions"}
-                        </p>
-                      )}
-                      {c.scheduledAt && (
-                        <p className="mt-1 text-xs text-ink-600">
-                          Scheduled {new Date(c.scheduledAt).toLocaleString()}
-                        </p>
-                      )}
-                      {c.onlineLink && <p className="text-xs text-ink-600">Hosted at {c.onlineLink}</p>}
-                      {c.hasMaterials && (
-                        <button
-                          type="button"
-                          className="mt-1 text-xs text-canopy-800 underline"
-                          onClick={() => handleDownloadMaterial(c.id, c.title)}
-                        >
-                          Download materials
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-2">
-                      {c.audience === "corps" && (
-                        <button type="button" className="text-xs text-canopy-800 underline" onClick={() => setEditingCourse(c)}>
-                          Manage lessons &amp; quiz
-                        </button>
-                      )}
-                      {c.approved ? (
-                        <span className="rounded-full bg-canopy-50 px-3 py-1 text-xs font-medium text-canopy-800">
-                          Approved
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn-primary"
-                          disabled={c.audience === "corps" && (c.lessonCount < 1 || c.questionCount < 1)}
-                          title={c.audience === "corps" && (c.lessonCount < 1 || c.questionCount < 1) ? "Add a lesson and a quiz question first" : undefined}
-                          onClick={() => handleApproveCourse(c.id)}
-                        >
-                          Approve
-                        </button>
-                      )}
-                    </div>
+                ),
+              },
+              {
+                key: "all",
+                label: "All courses",
+                node: (
+              <div className="card">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-ink-600">All courses</p>
+                  <div role="group" aria-label="Filter courses" className="flex gap-2 text-xs">
+                    {[["all", "All"], ["general", "General"], ["corps", "Corps"]].map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-pressed={audienceFilter === value}
+                        onClick={() => setAudienceFilter(value)}
+                        className={`rounded-full border px-3 py-1 ${audienceFilter === value ? "border-canopy-600 bg-canopy-600 text-white" : "border-soil-200 text-ink-900"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
+                {courses.filter((c) => audienceFilter === "all" || c.audience === audienceFilter).length === 0 && (
+                  <p className="mt-2 text-sm text-ink-600">Nothing uploaded yet.</p>
+                )}
+                <div className="mt-3 space-y-2">
+                  {courses.filter((c) => audienceFilter === "all" || c.audience === audienceFilter).map((c) => (
+                    <div key={c.id} className="rounded-card border border-soil-200 px-3 py-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-ink-900">
+                            {c.title}{" "}
+                            <span className="ml-1 rounded-full bg-canopy-50 px-2 py-0.5 text-xs font-medium text-canopy-800">
+                              {c.audience === "corps" ? "Corps" : "General"}
+                            </span>
+                          </p>
+                          {c.description && <p className="text-sm text-ink-600">{c.description}</p>}
+                          {c.audience === "corps" && (
+                            <p className="mt-1 text-xs text-ink-600">
+                              {c.lessonCount} {c.lessonCount === 1 ? "lesson" : "lessons"} · {c.questionCount} quiz{" "}
+                              {c.questionCount === 1 ? "question" : "questions"}
+                            </p>
+                          )}
+                          {c.scheduledAt && (
+                            <p className="mt-1 text-xs text-ink-600">
+                              Scheduled {new Date(c.scheduledAt).toLocaleString()}
+                            </p>
+                          )}
+                          {c.onlineLink && <p className="text-xs text-ink-600">Hosted at {c.onlineLink}</p>}
+                          {c.hasMaterials && (
+                            <button
+                              type="button"
+                              className="mt-1 text-xs text-canopy-800 underline"
+                              onClick={() => handleDownloadMaterial(c.id, c.title)}
+                            >
+                              Download materials
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-2">
+                          {c.audience === "corps" && (
+                            <button type="button" className="text-xs text-canopy-800 underline" onClick={() => setEditingCourse(c)}>
+                              Manage lessons &amp; quiz
+                            </button>
+                          )}
+                          {c.approved ? (
+                            <span className="rounded-full bg-canopy-50 px-3 py-1 text-xs font-medium text-canopy-800">
+                              Approved
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn-primary"
+                              disabled={c.audience === "corps" && (c.lessonCount < 1 || c.questionCount < 1)}
+                              title={c.audience === "corps" && (c.lessonCount < 1 || c.questionCount < 1) ? "Add a lesson and a quiz question first" : undefined}
+                              onClick={() => handleApproveCourse(c.id)}
+                            >
+                              Approve
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+                ),
+              },
+            ]}
+          />
         </div>
       )}
 
@@ -457,45 +474,61 @@ export default function TrcDepartment() {
             <p className="mt-1 text-sm text-canopy-100">Company-authored, published immediately — no approval gate.</p>
           </div>
 
-          <div className="card">
-            <p className="text-sm text-ink-600">Publish a research item</p>
-            <form onSubmit={handleSubmitResearch} className="field mt-3 space-y-2">
-              <input value={researchTitle} onChange={(e) => setResearchTitle(e.target.value)} placeholder="Title" />
-              <textarea
-                rows={3}
-                value={researchSummary}
-                onChange={(e) => setResearchSummary(e.target.value)}
-                placeholder="Summary"
-              />
-              <button className="btn-primary" type="submit" disabled={submittingResearch}>
-                {submittingResearch ? "Publishing…" : "Publish"}
-              </button>
-            </form>
-          </div>
-
-          <div className="card">
-            <p className="text-sm text-ink-600">Published research</p>
-            {research.length === 0 && <p className="mt-2 text-sm text-ink-600">Nothing published yet.</p>}
-            <div className="mt-3 space-y-2">
-              {research.map((r) => (
-                <div key={r.id} className="rounded-card border border-soil-200 px-3 py-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-ink-900">{r.title}</p>
-                      {r.summary && <p className="text-sm text-ink-600">{r.summary}</p>}
+          <SectionStack
+            label="Research section"
+            sections={[
+              {
+                key: "publish",
+                label: "Publish a research item",
+                node: (
+              <div className="card">
+                <p className="text-sm text-ink-600">Publish a research item</p>
+                <form onSubmit={handleSubmitResearch} className="field mt-3 space-y-2">
+                  <input value={researchTitle} onChange={(e) => setResearchTitle(e.target.value)} placeholder="Title" />
+                  <textarea
+                    rows={3}
+                    value={researchSummary}
+                    onChange={(e) => setResearchSummary(e.target.value)}
+                    placeholder="Summary"
+                  />
+                  <button className="btn-primary" type="submit" disabled={submittingResearch}>
+                    {submittingResearch ? "Publishing…" : "Publish"}
+                  </button>
+                </form>
+              </div>
+                ),
+              },
+              {
+                key: "published",
+                label: "Published research",
+                node: (
+              <div className="card">
+                <p className="text-sm text-ink-600">Published research</p>
+                {research.length === 0 && <p className="mt-2 text-sm text-ink-600">Nothing published yet.</p>}
+                <div className="mt-3 space-y-2">
+                  {research.map((r) => (
+                    <div key={r.id} className="rounded-card border border-soil-200 px-3 py-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-ink-900">{r.title}</p>
+                          {r.summary && <p className="text-sm text-ink-600">{r.summary}</p>}
+                        </div>
+                        <button
+                          type="button"
+                          className="shrink-0 text-xs text-red-700 underline"
+                          onClick={() => handleDeleteResearch(r.id)}
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      className="shrink-0 text-xs text-red-700 underline"
-                      onClick={() => handleDeleteResearch(r.id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+                ),
+              },
+            ]}
+          />
         </div>
       )}
 
@@ -509,87 +542,108 @@ export default function TrcDepartment() {
             </p>
           </div>
 
-          <div className="card">
-            <p className="text-sm text-ink-600">Publish an offering</p>
-            <form onSubmit={handleSubmitOffering} className="field mt-3 space-y-2">
-              <input value={offeringTitle} onChange={(e) => setOfferingTitle(e.target.value)} placeholder="Title" />
-              <textarea
-                rows={2}
-                value={offeringDescription}
-                onChange={(e) => setOfferingDescription(e.target.value)}
-                placeholder="Description"
-              />
-              <button className="btn-primary" type="submit" disabled={submittingOffering}>
-                {submittingOffering ? "Publishing…" : "Publish offering"}
-              </button>
-            </form>
-          </div>
-
-          <div className="card">
-            <p className="text-sm text-ink-600">Offerings</p>
-            {offerings.length === 0 && <p className="mt-2 text-sm text-ink-600">Nothing published yet.</p>}
-            <div className="mt-3 space-y-2">
-              {offerings.map((o) => (
-                <div key={o.id} className="rounded-card border border-soil-200 px-3 py-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-ink-900">{o.title}</p>
-                      {o.description && <p className="text-sm text-ink-600">{o.description}</p>}
+          <SectionStack
+            label="Consultancy section"
+            sections={[
+              {
+                key: "publish",
+                label: "Publish an offering",
+                node: (
+              <div className="card">
+                <p className="text-sm text-ink-600">Publish an offering</p>
+                <form onSubmit={handleSubmitOffering} className="field mt-3 space-y-2">
+                  <input value={offeringTitle} onChange={(e) => setOfferingTitle(e.target.value)} placeholder="Title" />
+                  <textarea
+                    rows={2}
+                    value={offeringDescription}
+                    onChange={(e) => setOfferingDescription(e.target.value)}
+                    placeholder="Description"
+                  />
+                  <button className="btn-primary" type="submit" disabled={submittingOffering}>
+                    {submittingOffering ? "Publishing…" : "Publish offering"}
+                  </button>
+                </form>
+              </div>
+                ),
+              },
+              {
+                key: "offerings",
+                label: "Offerings",
+                node: (
+              <div className="card">
+                <p className="text-sm text-ink-600">Offerings</p>
+                {offerings.length === 0 && <p className="mt-2 text-sm text-ink-600">Nothing published yet.</p>}
+                <div className="mt-3 space-y-2">
+                  {offerings.map((o) => (
+                    <div key={o.id} className="rounded-card border border-soil-200 px-3 py-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-ink-900">{o.title}</p>
+                          {o.description && <p className="text-sm text-ink-600">{o.description}</p>}
+                        </div>
+                        <button
+                          type="button"
+                          className="shrink-0 text-xs text-red-700 underline"
+                          onClick={() => handleDeleteOffering(o.id)}
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      className="shrink-0 text-xs text-red-700 underline"
-                      onClick={() => handleDeleteOffering(o.id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="card">
-            <p className="text-sm text-ink-600">Requests</p>
-            {requests.length === 0 && <p className="mt-2 text-sm text-ink-600">No requests yet.</p>}
-            <div className="mt-3 space-y-2">
-              {requests.map((r) => (
-                <div key={r.id} className="rounded-card border border-soil-200 px-3 py-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-ink-900">
-                        {r.userName} — {r.offeringTitle}
-                      </p>
-                      {r.message && <p className="text-sm text-ink-600">{r.message}</p>}
-                      <p className="mt-1 text-xs text-ink-600">Status: {r.status}</p>
-                    </div>
-                    {r.status !== "completed" && (
-                      <div className="flex shrink-0 gap-2">
-                        {r.status === "pending" && (
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            onClick={() => handleUpdateRequestStatus(r.id, "scheduled")}
-                          >
-                            Mark scheduled
-                          </button>
-                        )}
-                        {r.status === "scheduled" && (
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            onClick={() => handleUpdateRequestStatus(r.id, "completed")}
-                          >
-                            Mark completed
-                          </button>
+              </div>
+                ),
+              },
+              {
+                key: "requests",
+                label: "Requests",
+                node: (
+              <div className="card">
+                <p className="text-sm text-ink-600">Requests</p>
+                {requests.length === 0 && <p className="mt-2 text-sm text-ink-600">No requests yet.</p>}
+                <div className="mt-3 space-y-2">
+                  {requests.map((r) => (
+                    <div key={r.id} className="rounded-card border border-soil-200 px-3 py-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-ink-900">
+                            {r.userName} — {r.offeringTitle}
+                          </p>
+                          {r.message && <p className="text-sm text-ink-600">{r.message}</p>}
+                          <p className="mt-1 text-xs text-ink-600">Status: {r.status}</p>
+                        </div>
+                        {r.status !== "completed" && (
+                          <div className="flex shrink-0 gap-2">
+                            {r.status === "pending" && (
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                onClick={() => handleUpdateRequestStatus(r.id, "scheduled")}
+                              >
+                                Mark scheduled
+                              </button>
+                            )}
+                            {r.status === "scheduled" && (
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                onClick={() => handleUpdateRequestStatus(r.id, "completed")}
+                              >
+                                Mark completed
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+                ),
+              },
+            ]}
+          />
         </div>
       )}
 
