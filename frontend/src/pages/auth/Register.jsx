@@ -5,6 +5,7 @@ import { apiUpload } from "../../api/client.js";
 import PasswordInput from "../../components/PasswordInput.jsx";
 import { NIGERIA_STATE_NAMES, lgasForState } from "../../data/nigeriaStatesLgas.js";
 import FarmerRegisterWizard from "./FarmerRegisterWizard.jsx";
+import CorperRegisterWizard from "./CorperRegisterWizard.jsx";
 
 // Transporter and Distributor are deliberately NOT self-service roles —
 // the Transport Department now owns dispatch and driver/distributor
@@ -13,6 +14,7 @@ import FarmerRegisterWizard from "./FarmerRegisterWizard.jsx";
 // simpler for the team while still not being a wide-open hole.
 const roleOptions = [
   { value: "farmer", label: "Farmer" },
+  { value: "corper", label: "Corp member (NYSC)" },
   { value: "buyer", label: "Buyer" },
   { value: "processor", label: "Processor" },
   { value: "investor", label: "Investor" },
@@ -127,6 +129,7 @@ export default function Register() {
       </div>
 
       {role === "farmer" && <FarmerRegisterWizard />}
+      {role === "corper" && <CorperRegisterWizard />}
 
       {role === "buyer" && (
         <div className="field mt-4">
@@ -141,7 +144,7 @@ export default function Register() {
         </div>
       )}
 
-      {role !== "farmer" && (
+      {role !== "farmer" && role !== "corper" && (
       <form onSubmit={handleSubmit} className="field mt-4 space-y-4">
         {role === "buyer" && buyerType === "organization" ? (
           <>
@@ -271,7 +274,7 @@ export default function Register() {
       </form>
       )}
 
-      {role !== "farmer" && (
+      {role !== "farmer" && role !== "corper" && (
         <p className="mt-4 text-sm text-ink-600">
           Already have an account? <Link to="/login/member" className="text-canopy-800">Log in</Link>
         </p>

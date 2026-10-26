@@ -56,7 +56,7 @@ export default function UnitLeaderReview({ applications, onRecommend }) {
               <div>
                 <p className="font-medium text-ink-900">{app.farmerName}</p>
                 <p className="text-xs text-ink-600">
-                  {{ aided: "Aided loan", boost_cash: "Boost Cash", business_fast_cash: "Business fast cash" }[app.loanType] || app.loanType} · ₦{app.amount.toLocaleString()}
+                  {{ aided: "LT1 · Progressive Savings Loan", boost_cash: "LT2 · Business Boost", business_fast_cash: "LT3 · Business Enlargement" }[app.loanType] || app.loanType} · ₦{app.amount.toLocaleString()}
                 </p>
                 <p className="text-xs text-ink-600">
                   Attendance {app.attendancePct}% · Courses {app.coursePct}%

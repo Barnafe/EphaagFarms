@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera } from "lucide-react";
-import { apiFetch, apiUpload, API_ORIGIN } from "../../api/client.js";
+import { apiFetch, apiUpload, assetUrl } from "../../api/client.js";
 
 const statusStyles = {
   submitted: "bg-harvest-100 text-harvest-800",
@@ -165,7 +165,7 @@ export default function RequestsPanel() {
               <div className="flex gap-3">
                 {r.photo_url && (
                   <img
-                    src={`${API_ORIGIN}/uploads/photos/${r.photo_url}`}
+                    src={assetUrl(r.photo_url)}
                     alt=""
                     className="h-14 w-14 shrink-0 rounded-card border border-soil-200 object-cover"
                   />

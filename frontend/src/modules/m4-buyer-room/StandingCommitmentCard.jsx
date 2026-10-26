@@ -41,8 +41,9 @@ export default function StandingCommitmentCard({ commitment, onCommit }) {
     <form onSubmit={handleSubmit} className="card field space-y-3">
       <p className="text-sm text-ink-600">Set up a standing commitment (1–2 years)</p>
       <p className="text-xs text-ink-600">
-        Prepay a lump sum now, then place orders against it over the committed period
-        instead of paying per order.
+        Prepay a lump sum through Paystack, then place orders against it over the committed period
+        instead of paying per order. A payment processing fee is added to what you pay at Paystack;
+        only the amount you commit is credited to your balance, and orders paid from it carry no fee.
       </p>
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -64,7 +65,7 @@ export default function StandingCommitmentCard({ commitment, onCommit }) {
         </div>
       </div>
       <button className="btn-primary" type="submit">
-        Commit funds
+        Pay with Paystack
       </button>
     </form>
   );

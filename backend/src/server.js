@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import cron from "node-cron";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -28,7 +27,18 @@ import financeDepartmentRoutes from "./routes/finance-department.js";
 import referralRoutes from "./routes/referrals.js";
 import unitRoutes from "./routes/units.js";
 import profileReportRoutes from "./routes/profile-reports.js";
-import { runDueDateReminders } from "./controllers/investmentController.js";
+import corperRoutes from "./routes/corpers.js";
+import certificateRoutes from "./routes/certificates.js";
+import messagingRoutes from "./routes/messaging.js";
+import filesRoutes from "./routes/files.js";
+import systemRoutes from "./routes/system.js";
+import securityRoutes from "./routes/security.js";
+import paymentsRoutes from "./routes/payments.js";
+import { securityHeaders, corsMiddleware } from "./middleware/security.js";
+import { certificateVerifyLimiter } from "./middleware/rateLimits.js";
+import { registerAllJobs } from "./jobs/index.js";
+import { startInternalScheduler, healthCheck } from "./jobs/runner.js";
+import { checkEnvironment, formatReport } from "./utils/preflight.js";
 
 const app = express();
 
@@ -66,19 +76,31 @@ process.on("uncaughtException", (err) => {
 // allowed at once. Same-origin requests (the production setup below,
 // where this server also serves the built frontend) send no Origin
 // header at all, so this check doesn't apply to them either way.
-const allowedOrigins = (process.env.FRONTEND_ORIGIN || "http://localhost:5173")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+// In production, print the configuration checklist at boot. Only a missing or weak JWT secret
+// stops the server (logins would be unsafe); everything else is reported and the app still starts.
+if (process.env.NODE_ENV === "production") {
+  const report = checkEnvironment(process.env);
+  const problems = report.filter((r) => r.level !== "ok");
+  if (problems.length) console.warn("[config] Production checklist:\n" + formatReport(problems));
+  if (report.some((r) => r.name === "JWT_SECRET" && r.level === "fail")) {
+    console.error("[config] JWT_SECRET is missing or too short. Refusing to start.");
+    process.exit(1);
+  }
+}
+
+app.use(securityHeaders());
+app.use(corsMiddleware());
+// SES bounce/complaint events arrive from Amazon SNS as text/plain JSON.
+app.use("/api/messaging/ses-events", express.text({ type: "*/*", limit: "256kb" }));
+// Keep the exact bytes of the Paystack webhook body — its HMAC signature is
+// computed over the raw payload, which a re-serialised JSON object can't match.
 app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-      callback(new Error("Not allowed by CORS"));
+  express.json({
+    verify: (req, res, buf) => {
+      if (req.originalUrl.startsWith("/api/corpers/paystack-webhook") || req.originalUrl.startsWith("/api/payments/paystack-webhook")) req.rawBody = buf;
     },
   })
 );
-app.use(express.json());
 
 // Profile photos and catalog/product photos only — agreement PDFs stay
 // behind the authenticated download route in investments.js, deliberately
@@ -86,8 +108,14 @@ app.use(express.json());
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use("/uploads/photos", express.static(path.join(__dirname, "..", "uploads", "photos")));
 app.use("/uploads/products", express.static(path.join(__dirname, "..", "uploads", "products")));
+// New public files (product/profile/maintenance photos) when the local-disk driver is active (dev only).
+app.use("/uploads/public", express.static(path.join(__dirname, "..", "uploads", "public")));
 
-app.get("/health", (req, res) => res.json({ ok: true }));
+// Public health address: is the database up and is the job runner alive?
+app.get("/health", async (req, res) => {
+  const h = await healthCheck();
+  res.status(h.ok ? 200 : 503).json(h);
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/loans", loanRoutes);
@@ -112,6 +140,13 @@ app.use("/api/finance-department", financeDepartmentRoutes);
 app.use("/api/referrals", referralRoutes);
 app.use("/api/units", unitRoutes);
 app.use("/api/profile-reports", profileReportRoutes);
+app.use("/api/corpers", corperRoutes);
+app.use("/api/certificates", certificateVerifyLimiter, certificateRoutes);
+app.use("/api/messaging", messagingRoutes);
+app.use("/api/files", filesRoutes);
+app.use("/api/system", systemRoutes);
+app.use("/api/security", securityRoutes);
+app.use("/api/payments", paymentsRoutes);
 
 // More routes land here module by module.
 
@@ -142,18 +177,30 @@ app.use((err, req, res, next) => {
   // controller-thrown validation error (400s/404s from maintenanceController,
   // investmentController, orderController, etc., all of which set `.status`
   // not `.statusCode`) was silently reported as a 500 to the client.
+  // multer's own limit errors (file too large, too many files…) are also
+  // the client's mistake.
+  if (err.name === "MulterError") {
+    return res.status(400).json({ error: err.code === "LIMIT_FILE_SIZE" ? "That file is too large" : err.message });
+  }
   const declaredStatus = err.status || err.statusCode;
-  const status = declaredStatus && declaredStatus < 500 ? declaredStatus : 500;
-  res.status(status).json({ error: status < 500 ? err.message || "Malformed request" : "Something went wrong" });
+  // A server-side condition the person should be told about (e.g. file storage
+  // not configured) can opt in with `expose: true` to keep its 5xx status and message.
+  const status = declaredStatus && (declaredStatus < 500 || err.expose) ? declaredStatus : 500;
+  res.status(status).json({
+    error: status < 500 || err.expose ? err.message || "Malformed request" : "Something went wrong",
+    // Stable machine-readable code (e.g. QUIZ_LOCKED) plus any extra data a
+    // screen needs. Only ever set by our own httpError() helpers.
+    ...(status < 500 && err.clientCode ? { code: err.clientCode } : {}),
+    ...(status < 500 && err.details ? { details: err.details } : {}),
+  });
 });
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => console.log(`Ephaag Farms API listening on port ${port}`));
 
-// Daily check for investment payments due tomorrow — sends a reminder
-// email the evening before. Runs at 08:00 server time; can also be
-// triggered manually via POST /api/investments/admin/run-reminder-check
-// (useful for testing without waiting a real day).
-cron.schedule("0 8 * * *", () => {
-  runDueDateReminders().catch((err) => console.error("Reminder job failed:", err));
-});
+// All scheduled work lives in one registry (src/jobs/index.js) and is logged in
+// job_runs. On an always-on host this internal timer runs whatever is due; on
+// a sleeping host an outside pinger calls /api/system/tick instead. Both are
+// safe together: every job takes a database lock and catches up when late.
+registerAllJobs();
+if (process.env.JOB_RUNNER !== "off") startInternalScheduler();

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ChevronDown, DoorOpen, LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useActingAs } from "../context/ActingAsContext.jsx";
-import { API_ORIGIN } from "../api/client.js";
+import { assetUrl, apiFetch } from "../api/client.js";
 import logo from "../assets/logo.png";
 
 function initials(name = "") {
@@ -52,6 +52,16 @@ export default function DashboardShell({ items, activeKey, onSelect, exitTo, chi
   function handleLogout() {
     logout();
     navigate("/");
+  }
+
+  // Ends this session and every other one on any device.
+  async function handleLogoutAll() {
+    try {
+      await apiFetch("/auth/logout-all", { method: "POST" });
+    } catch {
+      /* even if the call fails, still sign out here */
+    }
+    handleLogout();
   }
 
   function handleExit() {
@@ -161,7 +171,7 @@ export default function DashboardShell({ items, activeKey, onSelect, exitTo, chi
             >
               {user?.photoUrl || user?.photo_url ? (
                 <img
-                  src={`${API_ORIGIN}${user.photoUrl || user.photo_url}`}
+                  src={assetUrl(user.photoUrl || user.photo_url)}
                   alt=""
                   className="h-8 w-8 rounded-full object-cover"
                 />
@@ -190,6 +200,12 @@ export default function DashboardShell({ items, activeKey, onSelect, exitTo, chi
                   className="block w-full px-4 py-2 text-left text-sm text-ink-800 hover:bg-soil-50"
                 >
                   Log out
+                </button>
+                <button
+                  onClick={handleLogoutAll}
+                  className="block w-full px-4 py-2 text-left text-sm text-ink-800 hover:bg-soil-50"
+                >
+                  Sign out of all devices
                 </button>
               </div>
             )}

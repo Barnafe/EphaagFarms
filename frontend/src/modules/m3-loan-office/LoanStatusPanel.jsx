@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { apiFetch } from "../../api/client.js";
 
-const LOAN_TYPE_LABELS = {
-  aided: "Aided loan — no interest",
-  boost_cash: "Boost Cash",
-  business_fast_cash: "Business fast cash",
-};
+import { LOAN_TYPE_LABELS } from "../../data/financingBanner.js";
 
 const statusCopy = {
   none: { label: "No active application", tone: "text-ink-600" },
@@ -69,7 +65,7 @@ export default function LoanStatusPanel({ loan }) {
         <p className="mt-2 text-sm text-ink-600">
           {LOAN_TYPE_LABELS[loan.loanType] || loan.loanType}
           {loan.repaymentMonths ? ` · ${loan.repaymentMonths}mo repayment` : ""}{" "}
-          · ₦{loan.amount.toLocaleString()} total
+          · ₦{loan.amount.toLocaleString()} loan{loan.repayableTotal && loan.repayableTotal !== loan.amount ? ` · ₦${loan.repayableTotal.toLocaleString()} to repay` : ""}
         </p>
       )}
 

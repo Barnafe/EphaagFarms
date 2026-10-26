@@ -33,8 +33,17 @@ router.get("/me/ranking", requireRole("farmer"), farmers.myRanking);
 router.get("/me/jurisdiction-report", requireRole("farmer", "admin"), farmers.myJurisdictionReport);
 router.get("/company-growth", farmers.companyGrowth);
 
+router.get("/shares/terms", requireRole("farmer"), shares.shareTerms);
 router.get("/me/shares", requireRole("farmer"), shares.myShares);
-router.post("/me/shares", requireRole("farmer"), shares.buyShare);
+router.get("/me/shares/:id", requireRole("farmer"), shares.shareDetail);
+// Buying: checkout (creates a pending purchase) -> pay -> verify (the
+// system confirms the payment, creates one separate share per unit bought).
+// There is deliberately no direct "create a share" endpoint any more.
+router.post("/me/shares/checkout", requireRole("farmer"), shares.checkout);
+router.get("/shares/quote", requireRole("farmer"), shares.quote);
+router.post("/me/shares/purchases/:reference/verify", requireRole("farmer"), shares.verifyPurchase);
+router.post("/me/shares/purchases/:reference/pay", requireRole("farmer"), shares.payPurchase);
+router.post("/me/shares/purchases/:reference/cancel", requireRole("farmer"), shares.cancelPurchase);
 router.post("/me/shares/:id/withdraw-interest", requireRole("farmer"), shares.withdrawInterest);
 router.post("/me/shares/:id/withdraw-capital", requireRole("farmer"), shares.withdrawCapital);
 

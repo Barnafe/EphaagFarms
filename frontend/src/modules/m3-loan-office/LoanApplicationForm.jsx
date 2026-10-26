@@ -1,40 +1,39 @@
 import { useState } from "react";
+import {
+  AIDED_LEVELS,
+  BOOST_MONTHS,
+  FAST_CASH_MONTHS,
+  FAST_CASH_TIERS,
+  LOAN_TYPE_LABELS,
+  naira,
+} from "../../data/financingBanner.js";
 
-const LOAN_TYPES = [
-  { value: "aided", label: "Aided loan — no interest", months: [5, 8, 11] },
-  { value: "boost_cash", label: "Boost Cash — 25% upfront deposit, verified in advance", months: [5] },
-  { value: "business_fast_cash", label: "Business fast cash — 100% interest", months: [8] },
-];
-
+// Every figure on this form comes from the approved financing banner:
+//  LT1 Progressive Savings Loan — fixed per level (savings -> loan, months)
+//  LT2 Business Boost           — fixed loan per verified 25% deposit, 5 months
+//  LT3 Business Enlargement     — 100k / 200k / 300k, repay double, 8 months
+// The amount and repayment period are never typed in for LT1/LT2.
 export default function LoanApplicationForm({ onSubmit, eligibleDeposits = [], mainSavingsBalance = 0, aidedTerms }) {
   const [loanType, setLoanType] = useState("aided");
-  const [repaymentMonths, setRepaymentMonths] = useState(5);
-  const [amount, setAmount] = useState("");
+  const [fastAmount, setFastAmount] = useState(FAST_CASH_TIERS[0].loan);
   const [reason, setReason] = useState("");
   const [depositId, setDepositId] = useState(eligibleDeposits[0]?.id || "");
 
-  const current = LOAN_TYPES.find((t) => t.value === loanType);
-  const requestedAmount = Number(amount) || 0;
-  const overSavings = loanType === "aided" && requestedAmount > mainSavingsBalance;
-  const projectedLoanAmount = loanType === "aided" && requestedAmount > 0 && !overSavings ? requestedAmount * 2 : null;
+  const level = aidedTerms?.level ?? 1;
+  const lvl = AIDED_LEVELS[Math.min(level, AIDED_LEVELS.length) - 1];
+  const savingsShort = Math.max(lvl.savings - mainSavingsBalance, 0);
+  const fastTier = FAST_CASH_TIERS.find((t) => t.loan === Number(fastAmount)) || FAST_CASH_TIERS[0];
 
-  function handleTypeChange(value) {
-    setLoanType(value);
-    const t = LOAN_TYPES.find((x) => x.value === value);
-    setRepaymentMonths(t.months[0]);
-  }
+  const blocked =
+    (loanType === "aided" && savingsShort > 0) ||
+    (loanType === "boost_cash" && eligibleDeposits.length === 0);
 
   function handleSubmit(e) {
     e.preventDefault();
-    if (loanType === "boost_cash") {
-      if (!depositId) return;
-      onSubmit({ loanType, depositId, repaymentMonths, reason });
-    } else {
-      if (!amount) return;
-      if (loanType === "aided" && overSavings) return;
-      onSubmit({ loanType, amount: Number(amount), repaymentMonths, reason });
-      setAmount("");
-    }
+    if (blocked) return;
+    if (loanType === "aided") onSubmit({ loanType, reason });
+    else if (loanType === "boost_cash") onSubmit({ loanType, depositId: depositId || eligibleDeposits[0]?.id, reason });
+    else onSubmit({ loanType, amount: Number(fastAmount), reason });
     setReason("");
   }
 
@@ -44,81 +43,81 @@ export default function LoanApplicationForm({ onSubmit, eligibleDeposits = [], m
 
       <div>
         <label>Loan type</label>
-        <select value={loanType} onChange={(e) => handleTypeChange(e.target.value)}>
-          {LOAN_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>{t.label}</option>
-          ))}
+        <select value={loanType} onChange={(e) => setLoanType(e.target.value)}>
+          <option value="aided">{LOAN_TYPE_LABELS.aided} — 0% interest</option>
+          <option value="boost_cash">{LOAN_TYPE_LABELS.boost_cash} — 25% deposit</option>
+          <option value="business_fast_cash">{LOAN_TYPE_LABELS.business_fast_cash} — 100% interest</option>
         </select>
       </div>
 
       {loanType === "aided" && (
-        <p className="text-xs text-ink-600">
-          Repayment: {aidedTerms?.forcedRepaymentMonths ?? 5} months, fixed — this is your{" "}
-          {aidedTerms?.borrowNumber === 1 ? "1st" : aidedTerms?.borrowNumber === 2 ? "2nd" : `${aidedTerms?.borrowNumber ?? 1}th`}{" "}
-          Aided loan, so the duration isn't a choice.
-        </p>
-      )}
-      {loanType !== "aided" && current.months.length > 1 && (
-        <div>
-          <label>Repayment duration</label>
-          <select value={repaymentMonths} onChange={(e) => setRepaymentMonths(Number(e.target.value))}>
-            {current.months.map((m) => (
-              <option key={m} value={m}>{m} months</option>
-            ))}
-          </select>
+        <div className="space-y-2 text-xs">
+          <div className="rounded-card bg-soil-50 p-3 text-ink-900">
+            <p className="font-medium">Your level: {lvl.level} of {AIDED_LEVELS.length}</p>
+            <p className="mt-1">
+              Savings needed {naira(lvl.savings)} → you receive {naira(lvl.loan)}, repaid over {lvl.months} months
+              (no interest).
+            </p>
+            <p className="mt-1 text-ink-600">Your main savings balance: {naira(mainSavingsBalance)}</p>
+            {savingsShort > 0 ? (
+              <p className="mt-1 text-red-700">Save {naira(savingsShort)} more to apply for this level.</p>
+            ) : (
+              <p className="mt-1 text-canopy-800">You qualify for the {naira(lvl.loan)} loan.</p>
+            )}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead className="text-ink-600">
+                <tr><th className="pr-2 font-medium">Level</th><th className="pr-2 font-medium">Savings</th><th className="pr-2 font-medium">Loan</th><th className="font-medium">Months</th></tr>
+              </thead>
+              <tbody>
+                {AIDED_LEVELS.map((l) => (
+                  <tr key={l.level} className={l.level === lvl.level ? "font-medium text-canopy-800" : "text-ink-600"}>
+                    <td className="pr-2">{l.level}</td><td className="pr-2">{naira(l.savings)}</td><td className="pr-2">{naira(l.loan)}</td><td>{l.months}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-ink-600">You move up a level each time you fully repay a loan.</p>
         </div>
-      )}
-      {loanType !== "aided" && current.months.length === 1 && (
-        <p className="text-xs text-ink-600">Repayment: {current.months[0]} months, fixed for this loan type.</p>
       )}
 
       {loanType === "boost_cash" && (
-        <div>
+        <div className="text-xs">
+          <p className="text-ink-600">Repayment: {BOOST_MONTHS} months, fixed. Your 25% deposit is paid up front.</p>
           {eligibleDeposits.length === 0 ? (
-            <p className="text-sm text-harvest-600">
-              You don't have an eligible Boost Cash deposit yet — declare and get one verified below first
-              (it takes at least a month after verification before it's usable).
+            <p className="mt-2 text-sm text-harvest-600">
+              You don't have an eligible Business Boost deposit yet — declare one below and get it verified first
+              (it needs to mature before it's usable).
             </p>
           ) : (
-            <>
-              <label>Use verified deposit</label>
+            <div className="mt-2">
+              <label className="text-sm">Use verified deposit</label>
               <select value={depositId} onChange={(e) => setDepositId(e.target.value)}>
                 {eligibleDeposits.map((d) => (
                   <option key={d.id} value={d.id}>
-                    ₦{d.intendedLoanAmount.toLocaleString()} loan (₦{d.depositAmount.toLocaleString()} deposit paid)
+                    {naira(d.intendedLoanAmount)} loan ({naira(d.depositAmount)} deposit paid)
                   </option>
                 ))}
               </select>
-            </>
+            </div>
           )}
         </div>
       )}
 
-      {loanType !== "boost_cash" && (
-        <div>
-          <label>{loanType === "aided" ? "Amount requested (₦) — from your savings" : "Amount requested (₦)"}</label>
-          <input
-            type="number"
-            min="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="e.g. 200000"
-          />
-          {loanType === "aided" && (
-            <div className="mt-1 text-xs">
-              <p className="text-ink-600">Your main savings balance: ₦{mainSavingsBalance.toLocaleString()}</p>
-              {overSavings && (
-                <p className="text-red-700">
-                  You can't request more than your savings balance (₦{mainSavingsBalance.toLocaleString()}).
-                </p>
-              )}
-              {projectedLoanAmount != null && (
-                <p className="text-canopy-800">
-                  You'll receive ₦{projectedLoanAmount.toLocaleString()} — automatically double your requested amount.
-                </p>
-              )}
-            </div>
-          )}
+      {loanType === "business_fast_cash" && (
+        <div className="text-xs">
+          <label className="text-sm">Loan amount</label>
+          <select value={fastAmount} onChange={(e) => setFastAmount(Number(e.target.value))}>
+            {FAST_CASH_TIERS.map((t) => (
+              <option key={t.loan} value={t.loan}>{naira(t.loan)}</option>
+            ))}
+          </select>
+          <p className="mt-2 text-ink-600">
+            100% interest: you repay {naira(fastTier.repay)} over {FAST_CASH_MONTHS} months. For faithful
+            participants only.
+          </p>
         </div>
       )}
 
@@ -132,11 +131,7 @@ export default function LoanApplicationForm({ onSubmit, eligibleDeposits = [], m
         />
       </div>
 
-      <button
-        className="btn-primary"
-        type="submit"
-        disabled={(loanType === "boost_cash" && eligibleDeposits.length === 0) || (loanType === "aided" && overSavings)}
-      >
+      <button className="btn-primary" type="submit" disabled={blocked}>
         Submit application
       </button>
     </form>

@@ -394,6 +394,10 @@ export default function AdminHub() {
                   <Mail size={20} className="text-canopy-300" />
                   <span className="text-xs text-white">Contact messages</span>
                 </Link>
+                <Link to="/admin/system" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
+                  <Mail size={20} className="text-canopy-300" />
+                  <span className="text-xs text-white">System: jobs, messages, security</span>
+                </Link>
               </div>
             </div>
 

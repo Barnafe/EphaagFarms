@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { apiUpload, API_ORIGIN } from "../api/client.js";
+import { apiUpload, assetUrl } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
 function initials(name = "") {
@@ -44,7 +44,7 @@ export default function ProfilePhotoUploader() {
     <div className="flex items-center gap-4">
       {photoUrl ? (
         <img
-          src={`${API_ORIGIN}${photoUrl}`}
+          src={assetUrl(photoUrl)}
           alt="Your passport"
           className="h-20 w-20 rounded-full border border-white/20 object-cover"
         />

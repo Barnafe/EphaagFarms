@@ -1,0 +1,91 @@
+name: checks
+on:
+  push:
+  pull_request:
+
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install requests
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - run: npm ci
+      - name: Syntax check every backend file
+        run: find backend/src backend/test backend/scripts -name '*.js' -o -name '*.mjs' | xargs -n1 node --check
+      - name: Frontend build
+        run: npm run build
+      - name: CSS gotcha 1 (bare utility selectors)
+        run: "! grep -nE '^\\.(border|text|bg)-(soil|ink|canopy|harvest|clay)-' frontend/src/index.css"
+      - name: CSS gotcha 2 (stray comment closers)
+        run: |
+          python3 - <<'PY'
+          import re,sys
+          css=open('frontend/src/index.css').read()
+          # every "*/" must close a comment that was opened
+          depth=0; i=0
+          while i < len(css):
+              if css.startswith('/*',i) and depth==0: depth=1; i+=2; continue
+              if css.startswith('*/',i):
+                  if depth==0: print('stray */ at',i); sys.exit(1)
+                  depth=0; i+=2; continue
+              i+=1
+          PY
+      - name: All API tests (fresh database, stand-in services)
+        run: npm test -w backend
+        env:
+          PG_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      - name: Vulnerability scan (high and critical block the merge)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Keep failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: test-logs, path: "/tmp/*.log", if-no-files-found: ignore }
+
+  browser:
+    # Playwright journeys (see e2e/). Real today: sign-in, buyer checkout with the
+    # stand-in Paystack, duplicate warning, refused payment (desktop and phone size).
+    # Journeys for later phases are test.fixme until those phases exist.
+    # Not a required check until you have seen it pass once on GitHub.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - run: PGPASSWORD=postgres psql -h localhost -U postgres -c 'CREATE DATABASE ephaag_e2e'
+      - run: cd e2e && npm ci && npx playwright install --with-deps chromium
+      - run: cd e2e && npx playwright test
+        env: { CI: "true" }
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: playwright-report, path: "e2e/playwright-report e2e/test-results" }

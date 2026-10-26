@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   phone TEXT,
   password_hash TEXT NOT NULL,
   role_type TEXT NOT NULL CHECK (role_type IN
-    ('farmer','buyer','processor','transporter','distributor','investor','admin')),
+    ('farmer','buyer','processor','transporter','distributor','investor','admin','corper')),
   sex TEXT CHECK (sex IN ('male', 'female')),
   photo_url TEXT,
   email_verified BOOLEAN NOT NULL DEFAULT FALSE,
@@ -693,6 +693,10 @@ ALTER TABLE investment_applications DROP CONSTRAINT IF EXISTS investment_applica
 ALTER TABLE investment_applications ADD CONSTRAINT investment_applications_status_check
   CHECK (status IN ('submitted','agreement_pending','agreement_review','active','rejected'));
 
+-- 2026-10-20: investment_applications has UUID ids, so "ORDER BY id DESC"
+-- (used everywhere to mean "most recent application") was really random
+-- ordering. A real timestamp makes "most recent" mean most recent.
+ALTER TABLE investment_applications ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE investment_payments ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE investment_payments ALTER COLUMN status SET DEFAULT 'due';
 ALTER TABLE investment_payments DROP CONSTRAINT IF EXISTS investment_payments_status_check;
@@ -1781,3 +1785,311 @@ CREATE TABLE IF NOT EXISTS profile_reports (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_profile_reports_status ON profile_reports(status);
+
+-- ---------------------------------------------------------------------
+-- 2026-10-20: Farmers' shares rebuilt to the approved financing banner.
+-- A purchase (checkout -> pay -> verify) is recorded here first; the shares
+-- themselves are only created once the payment is verified, one separate
+-- farmer_shares row per share bought (purchase_id links them back).
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS share_purchases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  farmer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  quantity INT NOT NULL CHECK (quantity >= 1),
+  unit_price NUMERIC(12,2) NOT NULL,
+  total NUMERIC(14,2) NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','failed','expired')),
+  provider TEXT NOT NULL,
+  provider_reference TEXT,
+  authorization_url TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  paid_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_share_purchases_farmer ON share_purchases (farmer_id, status);
+ALTER TABLE farmer_shares ADD COLUMN IF NOT EXISTS purchase_id UUID REFERENCES share_purchases(id);
+
+-- ---------------------------------------------------------------------
+-- 21. Corps member (NYSC) training portal — phase 1: role + profile
+-- (2026-10-20 spec). NYSC corps members get their own role_type
+-- ('corper') and their own profile table. Training content, the access
+-- fee, quizzes, batches and certificates are separate later phases and
+-- are deliberately NOT part of this block.
+-- ---------------------------------------------------------------------
+
+-- Self-healing for databases created before 'corper' existed: widen the
+-- role check on users (the CREATE TABLE above already includes it for
+-- fresh databases).
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_type_check;
+ALTER TABLE users ADD CONSTRAINT users_role_type_check CHECK (role_type IN
+  ('farmer','buyer','processor','transporter','distributor','investor','admin','corper'));
+
+CREATE TABLE IF NOT EXISTS corper_profiles (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  -- NYSC details. service_year + batch + stream identify the batch a
+  -- member belongs to (e.g. 2026 / B / II) without free-text typos.
+  call_up_number TEXT,
+  state_code TEXT,
+  service_year INT,
+  batch TEXT CHECK (batch IN ('A','B','C')),
+  stream TEXT CHECK (stream IN ('I','II')),
+  state_of_deployment TEXT,
+  lga_of_deployment TEXT,
+  ppa TEXT,
+  discipline TEXT,
+  orientation_camp TEXT,
+  cds_group TEXT,
+  -- Personal
+  date_of_birth DATE,
+  address TEXT,
+  state_of_origin TEXT,
+  -- Education, skills and work
+  education_level TEXT,
+  institution TEXT,
+  course_of_study TEXT,
+  graduation_year INT,
+  skill_level TEXT,
+  employment_status TEXT,
+  linkedin_url TEXT,
+  english_proficiency TEXT,
+  other_languages TEXT,
+  -- Training goals
+  learning_style TEXT,
+  learning_mode TEXT,
+  project_based BOOLEAN,
+  motivation TEXT,
+  goals TEXT,
+  topics_of_interest TEXT,
+  -- Documents and consent
+  consent_terms BOOLEAN NOT NULL DEFAULT FALSE,
+  consent_terms_at TIMESTAMPTZ,
+  consent_data BOOLEAN NOT NULL DEFAULT FALSE,
+  consent_media BOOLEAN NOT NULL DEFAULT FALSE,
+  alumni_interest BOOLEAN,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- One account per NYSC state code (case-insensitive).
+CREATE UNIQUE INDEX IF NOT EXISTS corper_profiles_state_code_uniq
+  ON corper_profiles (UPPER(state_code)) WHERE state_code IS NOT NULL;
+CREATE INDEX IF NOT EXISTS corper_profiles_batch_idx
+  ON corper_profiles (service_year, batch, stream);
+
+-- ---------------------------------------------------------------------
+-- 22. Corps training content — phase 2 (2026-10-21 spec).
+-- Training in the TRC admin department now has two audiences: 'general'
+-- (the existing free farmer "Seminar" courses — every row that existed
+-- before this block is general) and 'corps' (NYSC corps member training,
+-- separate and paid-for in a later phase). Corps courses are made of
+-- ordered lessons (video link / uploaded document / live session) and one
+-- multiple-choice quiz (a set of questions with options).
+-- ---------------------------------------------------------------------
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS audience TEXT NOT NULL DEFAULT 'general';
+ALTER TABLE courses DROP CONSTRAINT IF EXISTS courses_audience_check;
+ALTER TABLE courses ADD CONSTRAINT courses_audience_check CHECK (audience IN ('general','corps'));
+CREATE INDEX IF NOT EXISTS courses_audience_idx ON courses (audience, approved);
+
+CREATE TABLE IF NOT EXISTS course_lessons (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  position INT NOT NULL,
+  title TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('video','document','live')),
+  url TEXT,                -- video link, or live-session link
+  file_name TEXT,          -- stored file (uploads/materials) for 'document'
+  original_name TEXT,      -- file name as uploaded, shown to people
+  scheduled_at TIMESTAMPTZ,-- when a 'live' session happens
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS course_lessons_course_idx ON course_lessons (course_id, position);
+
+CREATE TABLE IF NOT EXISTS course_quiz_questions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  position INT NOT NULL,
+  prompt TEXT NOT NULL,
+  explanation TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS course_quiz_questions_course_idx ON course_quiz_questions (course_id, position);
+
+CREATE TABLE IF NOT EXISTS course_quiz_options (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  question_id UUID NOT NULL REFERENCES course_quiz_questions(id) ON DELETE CASCADE,
+  position INT NOT NULL,
+  text TEXT NOT NULL,
+  is_correct BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS course_quiz_options_question_idx ON course_quiz_options (question_id, position);
+
+
+-- ---------------------------------------------------------------------
+-- 23. Corps access-fee payments — phase 3 (2026-10-21 spec).
+-- A corps member pays a one-time access fee before any corps course opens.
+-- The fee itself lives in finance_settings (system_configuration /
+-- corper_access_fee, value {"amount": N}) so Finance sees it and admin can
+-- change it any time; each payment snapshots the amount when it is created.
+-- provider: 'manual' = an admin confirms it by hand; 'paystack' = confirmed
+-- by verifying the transaction with Paystack (callback, webhook or admin).
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS corper_payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reference TEXT UNIQUE NOT NULL,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount NUMERIC(14,2) NOT NULL CHECK (amount > 0),
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','paid','failed','cancelled','refunded')),
+  provider TEXT NOT NULL DEFAULT 'manual' CHECK (provider IN ('manual','paystack')),
+  provider_reference TEXT,
+  authorization_url TEXT,
+  confirmed_by UUID REFERENCES users(id),
+  confirmed_at TIMESTAMPTZ,
+  failed_reason TEXT,
+  refund_reason TEXT,
+  refunded_by UUID REFERENCES users(id),
+  refunded_at TIMESTAMPTZ,
+  finance_income_id UUID REFERENCES finance_income(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- A member can have only ONE pending payment at a time and only ONE paid
+-- payment at a time (a refunded one stops counting, so they can pay again).
+CREATE UNIQUE INDEX IF NOT EXISTS corper_payments_one_pending
+  ON corper_payments (user_id) WHERE status = 'pending';
+CREATE UNIQUE INDEX IF NOT EXISTS corper_payments_one_paid
+  ON corper_payments (user_id) WHERE status = 'paid';
+CREATE INDEX IF NOT EXISTS corper_payments_status_idx ON corper_payments (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS corper_payments_user_idx ON corper_payments (user_id, created_at DESC);
+
+
+-- ---------------------------------------------------------------------
+-- 24. Corps learning — phase 4 (2026-10-21 spec).
+-- A paid corps member works through a course's lessons, takes its quiz and
+-- the dashboard percentage rises (courses completed / live corps courses).
+--
+-- History is deliberately NOT tied to the editable content by foreign keys:
+-- an admin may later edit or delete a lesson or a question, and what a
+-- member already did must stay exactly as it was. So lesson_id / question_id
+-- / option_id below are plain UUIDs (no FK), and every attempt keeps a copy
+-- of the question text, the chosen answer and the correct answer.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS corper_lesson_progress (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  lesson_id UUID NOT NULL,            -- no FK on purpose (survives lesson deletion)
+  lesson_title TEXT,                  -- snapshot when completed
+  completed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, lesson_id)
+);
+CREATE INDEX IF NOT EXISTS corper_lesson_progress_user_course_idx
+  ON corper_lesson_progress (user_id, course_id);
+
+CREATE TABLE IF NOT EXISTS corper_course_progress (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  attempts INT NOT NULL DEFAULT 0,
+  best_score INT,                     -- 0-100, best of all attempts
+  last_score INT,                     -- 0-100, most recent attempt
+  completed_at TIMESTAMPTZ,           -- set once, never cleared
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, course_id)
+);
+CREATE INDEX IF NOT EXISTS corper_course_progress_course_idx
+  ON corper_course_progress (course_id, completed_at);
+
+CREATE TABLE IF NOT EXISTS corper_quiz_attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  attempt_no INT NOT NULL,
+  score INT NOT NULL CHECK (score BETWEEN 0 AND 100),
+  correct_count INT NOT NULL,
+  total_questions INT NOT NULL,
+  client_token TEXT,                  -- makes a double-clicked Submit harmless
+  submitted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, course_id, attempt_no)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS corper_quiz_attempts_token_uniq
+  ON corper_quiz_attempts (user_id, course_id, client_token) WHERE client_token IS NOT NULL;
+CREATE INDEX IF NOT EXISTS corper_quiz_attempts_user_course_idx
+  ON corper_quiz_attempts (user_id, course_id, attempt_no DESC);
+
+CREATE TABLE IF NOT EXISTS corper_quiz_answers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  attempt_id UUID NOT NULL REFERENCES corper_quiz_attempts(id) ON DELETE CASCADE,
+  display_position INT NOT NULL,      -- the order the member saw the questions in
+  question_id UUID,                   -- no FK on purpose
+  prompt TEXT NOT NULL,               -- question text at the time
+  explanation TEXT,
+  chosen_option_id UUID,              -- no FK on purpose
+  chosen_text TEXT NOT NULL,
+  correct_text TEXT NOT NULL,
+  is_correct BOOLEAN NOT NULL
+);
+CREATE INDEX IF NOT EXISTS corper_quiz_answers_attempt_idx
+  ON corper_quiz_answers (attempt_id, display_position);
+
+-- 25. Corps batches, certificates and NYSC export (the "Phase 4" spec, built on v27 learning)
+-- (2026-10-21 spec).
+--   * (learning progress itself is section 24 above)
+--   * corp_batches: one row per (service year, batch letter, stream) with a
+--     due date and who/when marked it complete
+--   * corper_certificates: one per member, created hidden when the member
+--     finishes every course and has paid; shown when the batch is closed
+--   * corp_batch_events: audit log of every close / re-open
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS corp_batches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  service_year INT NOT NULL,
+  batch TEXT NOT NULL CHECK (batch IN ('A','B','C')),
+  stream TEXT NOT NULL CHECK (stream IN ('I','II')),
+  due_date DATE,
+  completed BOOLEAN NOT NULL DEFAULT FALSE,
+  completed_by UUID REFERENCES users(id),
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (service_year, batch, stream)
+);
+
+CREATE SEQUENCE IF NOT EXISTS corper_certificate_seq START 1;
+
+CREATE TABLE IF NOT EXISTS corper_certificates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  number TEXT NOT NULL UNIQUE,
+  verification_code TEXT NOT NULL UNIQUE,
+  -- Snapshot of what is printed, so a later profile edit never silently
+  -- changes an issued certificate (a name fix is an explicit reissue).
+  holder_name TEXT NOT NULL,
+  state_code TEXT,
+  service_year INT,
+  batch TEXT,
+  stream TEXT,
+  issued_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  visible BOOLEAN NOT NULL DEFAULT FALSE,
+  visible_at TIMESTAMPTZ,
+  revision INT NOT NULL DEFAULT 1,
+  reissued_at TIMESTAMPTZ,
+  -- Email tracking: pending | sent | failed | not_configured | no_email
+  notify_status TEXT NOT NULL DEFAULT 'pending',
+  notify_attempts INT NOT NULL DEFAULT 0,
+  notify_error TEXT,
+  notified_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS corper_certificates_visible_idx ON corper_certificates (visible, notify_status);
+
+CREATE TABLE IF NOT EXISTS corp_batch_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  batch_id UUID NOT NULL REFERENCES corp_batches(id) ON DELETE CASCADE,
+  action TEXT NOT NULL CHECK (action IN ('due_date_set','marked_complete','unmarked','emails_resent','certificate_reissued')),
+  note TEXT,
+  actor_id UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS corp_batch_events_idx ON corp_batch_events (batch_id, created_at DESC);

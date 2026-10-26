@@ -38,7 +38,7 @@ def register(role, extra=None, code=None):
         "state": "Benue", "lga": "Gboko",
     }
     if role == "farmer":
-        body.update({"ward": "A", "unit": "A", "crops": "Maize"})
+        body.update({"ward": "A", "unit": "A", "crops": "Maize,Cassava"})
     if role == "buyer":
         body.update({"buyerType": "individual", "address": "12 Test Close, Lagos"})
     if role == "admin" and code:
@@ -48,11 +48,13 @@ def register(role, extra=None, code=None):
     return requests.post(f"{BASE}/auth/register", json=body)
 
 
-setup_code = None
-with open(os.path.join(os.path.dirname(__file__), ".env")) as f:
-    for line in f:
-        if line.startswith("ADMIN_SETUP_CODE="):
-            setup_code = line.strip().split("=", 1)[1]
+setup_code = os.environ.get("ADMIN_SETUP_CODE")
+env_file = os.path.join(os.path.dirname(__file__), ".env")
+if not setup_code and os.path.exists(env_file):
+    with open(env_file) as f:
+        for line in f:
+            if not setup_code and line.startswith("ADMIN_SETUP_CODE="):
+                setup_code = line.strip().split("=", 1)[1]
 
 r = register("admin", code=setup_code)
 check("procurement hod admin register", r.status_code == 201, r.text[:300])
@@ -100,6 +102,13 @@ r = requests.get(f"{BASE}/store/inventory", headers=distributor_h)
 check("distributor blocked from /store/inventory", r.status_code == 403, r.text[:200])
 
 
+def fund_buyer_balance():
+    import subprocess
+    subprocess.run(["psql", os.environ["PGURL"], "-c",
+        f"UPDATE buyer_profiles SET standing_commitment_total = 100000000, standing_commitment_balance = 100000000 WHERE user_id = '{buyer['user']['id']}'"],
+        check=True, capture_output=True)
+
+
 def push_order_to_processing(crop, order_qty, farmer_qty, delivery="Lagos, Lagos State"):
     """Farmer declares/lists -> buyer orders -> payment confirmed -> procurement
     sources + assigns processor -> processor advances job to complete.
@@ -113,16 +122,20 @@ def push_order_to_processing(crop, order_qty, farmer_qty, delivery="Lagos, Lagos
     check(f"farmer lists {farmer_qty} bags {crop}", r.status_code == 201, r.text[:300])
     product = r.json()["product"]
 
+    # Orders paid upfront now need a real Paystack payment (this suite runs on a server with no
+    # gateway), so the buyer pays from a standing balance that is funded directly in the database.
+    fund_buyer_balance()
     r = requests.post(f"{BASE}/orders", headers=buyer_h, json={
         "items": [{"crop": crop, "quantity": order_qty, "unit": "bag"}],
         "deliveryLocation": delivery,
+        # the order form requires two contact numbers (test drift fixed 2026-10-21)
+        "contactPhone1": "08030000001", "contactPhone2": "08030000002", "contactEmail": "buyer@store.test", "paidVia": "balance",
     })
     check(f"buyer places order for {order_qty} bags {crop}", r.status_code == 201, r.text[:300])
     order = r.json()["order"]
     order_id = order["id"]
 
-    r = requests.post(f"{BASE}/orders/{order_id}/confirm-payment", headers=main_h)
-    check("admin confirms payment", r.status_code == 200, r.text[:300])
+    check("balance order is already payment-confirmed (no manual step)", order["status"] == "payment_confirmed", str(order.get("status")))
 
     r = requests.post(f"{BASE}/procurement/orders/{order_id}/source", headers=main_h, json={
         "sourcing": [{"farmerId": farmer["user"]["id"], "productId": product["id"], "quantity": order_qty}],

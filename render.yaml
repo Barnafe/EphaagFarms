@@ -1,53 +1,56 @@
+# Render Blueprint: one web service serves the API (/api/*) and the built frontend.
+# New -> Blueprint -> pick this repo. Every variable marked "sync: false" is yours to fill in
+# (DEPLOYMENT.md explains where each value comes from). Run `npm run preflight` with the same
+# values on your machine first: it lists anything missing or unsafe before you go live.
 services:
   - type: web
     name: ephaag-farms
     runtime: node
-    plan: free
-    # One service serves both the API (/api/*) and the built frontend
-    # (everything else) — see backend/src/server.js. No second static
-    # site needed, which keeps this on Render's free tier as one dyno.
+    plan: free            # sleeps when idle: see JOB_TICK_SECRET below. Move to a paid plan before launch.
     buildCommand: npm install && npm run build
-    # start also runs the (idempotent, safe-to-repeat) migration first,
-    # so schema changes apply automatically on every deploy with nothing
-    # extra to remember to run by hand.
+    # Runs the (idempotent, additive) migrations, then starts the server.
     startCommand: npm run start
     healthCheckPath: /health
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DB_SSL
-        value: "true"
-      # Paste the Neon connection string here (Neon dashboard → your
-      # project → Connection Details → "Pooled connection" is fine).
-      # Keep the ?sslmode=require Neon includes by default.
-      - key: DATABASE_URL
-        sync: false
-      # Render can generate this for you the first time you deploy —
-      # leave it, don't reuse the same secret across environments.
-      - key: JWT_SECRET
-        generateValue: true
-      - key: JWT_EXPIRES_IN
-        value: 7d
-      # After your first deploy, Render gives you a URL like
-      # https://ephaag-farms.onrender.com — paste that back in here
-      # and redeploy. Used only for the password-reset email link;
-      # the app itself is same-origin so this isn't needed for CORS.
-      - key: FRONTEND_ORIGIN
-        sync: false
-      # Required to register a new Admin account from the public
-      # Register page. Set this to something private before sharing
-      # the live URL with anyone.
-      - key: ADMIN_SETUP_CODE
-        sync: false
-      # Optional — without these, emails are logged, not sent (fine
-      # for now while you're just previewing internally).
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
-      - key: FROM_EMAIL
-        sync: false
+      - { key: NODE_VERSION, value: "22" }
+      - { key: NODE_ENV, value: production }
+      - { key: DB_SSL, value: "true" }
+
+      # --- core ---
+      - { key: DATABASE_URL, sync: false }          # Neon pooled connection string
+      - { key: JWT_SECRET, generateValue: true }     # Render generates a long random value
+      - { key: JWT_EXPIRES_IN, value: 7d }
+      - { key: FRONTEND_ORIGIN, sync: false }        # your site, e.g. https://ephaag-farms.onrender.com (set after the first deploy)
+      - { key: ADMIN_SETUP_CODE, sync: false }       # private code needed to register an Admin from the Register page
+
+      # --- file storage: Cloudflare R2 (required in production) ---
+      - { key: R2_ACCOUNT_ID, sync: false }
+      - { key: R2_ACCESS_KEY_ID, sync: false }
+      - { key: R2_SECRET_ACCESS_KEY, sync: false }
+      - { key: R2_PUBLIC_BUCKET, sync: false }
+      - { key: R2_PRIVATE_BUCKET, sync: false }
+      - { key: R2_PUBLIC_BASE_URL, sync: false }     # public address of the public bucket
+
+      # --- email: Amazon SES ---
+      - { key: EMAIL_DRIVER, value: ses }
+      - { key: SES_REGION, sync: false }
+      - { key: AWS_ACCESS_KEY_ID, sync: false }
+      - { key: AWS_SECRET_ACCESS_KEY, sync: false }
+      - { key: FROM_EMAIL, sync: false }             # e.g. EPHAAG Farms <no-reply@yourdomain>
+      - { key: FARMER_PLACEHOLDER_EMAIL_DOMAIN, sync: false }   # a domain you control, for farmers with no email
+
+      # --- SMS (Nigerian provider with a registered sender name) ---
+      - { key: SMS_API_KEY, sync: false }
+      - { key: SMS_SENDER_ID, sync: false }
+      - { key: ALERT_SMS_PHONE, sync: false }        # who is texted when a job or webhook fails
+
+      # --- payments ---
+      - { key: PAYSTACK_SECRET_KEY, sync: false }    # sk_test_... to rehearse, sk_live_... to go live
+
+      # --- scheduled jobs on a sleeping host ---
+      # Point a free pinger at  GET https://<your-site>/api/system/tick  every 5 minutes with the
+      # header  x-tick-secret: <this value>. Not needed on an always-on host.
+      - { key: JOB_TICK_SECRET, generateValue: true }
+
+      # --- security ---
+      - { key: CSP_MODE, value: report-only }        # switch to "enforce" after a quiet week (see DEPLOYMENT.md)

@@ -1,0 +1,13 @@
+{
+  "_help": "Wording and signatories printed on every corps certificate. Edit this file and restart the server. To add the NYSC logo, save it as backend/assets/certificate/nysc-logo.png. For each signatory, save the signature image (PNG, transparent background) next to this file and put its file name in 'signature'. Leave 'name' empty to print only a signature line and the title.",
+  "organisation": "EPHAAG Farms",
+  "heading": "Certificate of Completion",
+  "subheading": "NYSC Agricultural Training Programme",
+  "intro": "This is to certify that",
+  "body": "has successfully completed the EPHAAG Farms training programme for National Youth Service Corps members.",
+  "footerNote": "Scan the QR code, or enter the code at the address shown, to confirm this certificate is genuine.",
+  "signatories": [
+    { "name": "", "title": "Chief Executive Officer, EPHAAG Farms", "signature": "" },
+    { "name": "", "title": "NYSC Representative", "signature": "" }
+  ]
+}

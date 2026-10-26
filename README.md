@@ -87,3 +87,9 @@ See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for step-by-step instructions to
 put this live on Render (free tier) with a Neon Postgres database —
 useful for watching the app run for real instead of in a terminal while
 you keep building.
+
+## v29: foundations (step 1 of the gap-closing plan)
+New: login protection, email/SMS queue (Amazon SES + SMS adapter), scheduled-job runner, permanent file storage (Cloudflare R2), one-command test suite and CI. Read `docs/FOUNDATIONS-CHANGES.md` for what changed and `docs/TESTING.md` for how to test. New environment variables are listed at the bottom of `backend/.env.example`. Run `npm install` again (new packages: bcrypt, helmet, express-rate-limit, AWS SDK, file-type).
+
+## v32: Phase 2 (farmer shares payment) and deployment setup
+Farmer share purchases now go through Paystack and the shared payment ledger (`docs/PHASE2-FARMER-SHARES.md`). Deployment is set up end to end: `DEPLOYMENT.md` (step by step, with a go-live checklist), `render.yaml` (every variable), a `Dockerfile` for other hosts, and `npm run preflight`, which checks your configuration before you go live and is also printed when the server boots in production.

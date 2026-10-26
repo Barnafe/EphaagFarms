@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PackagePlus, ImagePlus, Pencil, Trash2, X } from "lucide-react";
-import { apiFetch, apiUpload, API_ORIGIN } from "../../api/client.js";
+import { apiFetch, apiUpload, assetUrl } from "../../api/client.js";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 
 const CROP_CATEGORIES = ["Grains", "Tubers", "Vegetables", "Other"];
@@ -594,7 +594,7 @@ export default function AddCatalogPage() {
                           <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-card bg-soil-50 text-lg">
                             {p.image_url ? (
                               <img
-                                src={`${API_ORIGIN}${p.image_url}`}
+                                src={assetUrl(p.image_url, "products")}
                                 alt=""
                                 className="h-full w-full object-cover"
                               />

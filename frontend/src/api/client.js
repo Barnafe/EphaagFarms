@@ -12,6 +12,34 @@ export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+// Photos and other public files: new uploads come back as a full URL (R2) or a
+// /uploads/public/... path; older rows hold a bare file name in a legacy folder.
+export function assetUrl(value, legacyDir = "photos") {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("/")) return `${API_ORIGIN}${value}`;
+  return `${API_ORIGIN}/uploads/${legacyDir}/${value}`;
+}
+
+// Authorization plus, while an admin is "logging in as" a department, the
+// header that lets the server log those actions and refuse money-moving ones.
+export function authHeaders() {
+  const headers = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const acting = sessionStorage.getItem("ephaag_acting_as");
+  if (acting) headers["X-Acting-As"] = acting;
+  return headers;
+}
+
+// The server ended this session (password changed, signed out everywhere, locked).
+function handleSessionEnded(data) {
+  if (data?.code === "SESSION_ENDED") {
+    setToken(null);
+    if (!/^\/(login|register)/.test(window.location.pathname)) window.location.assign("/login/member");
+  }
+}
+
 export function setToken(token) {
   if (token) localStorage.setItem(TOKEN_KEY, token);
   else localStorage.removeItem(TOKEN_KEY);
@@ -19,10 +47,7 @@ export function setToken(token) {
 
 export async function apiFetch(path, { method = "GET", body, auth = true } = {}) {
   const headers = { "Content-Type": "application/json" };
-  if (auth) {
-    const token = getToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
+  if (auth) Object.assign(headers, authHeaders());
 
   let res;
   try {
@@ -40,6 +65,7 @@ export async function apiFetch(path, { method = "GET", body, auth = true } = {})
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
+    if (auth) handleSessionEnded(data);
     const err = new Error(data.error || `Request failed (${res.status})`);
     Object.assign(err, data); // e.g. { unverified: true, userId } from /auth/login
     throw err;
@@ -50,14 +76,12 @@ export async function apiFetch(path, { method = "GET", body, auth = true } = {})
 
 // For multipart file uploads — no Content-Type header, the browser sets
 // the multipart boundary itself when the body is a FormData instance.
-export async function apiUpload(path, formData) {
-  const headers = {};
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+export async function apiUpload(path, formData, { method = "POST" } = {}) {
+  const headers = authHeaders();
 
   let res;
   try {
-    res = await fetch(`${BASE_URL}${path}`, { method: "POST", headers, body: formData });
+    res = await fetch(`${BASE_URL}${path}`, { method, headers, body: formData });
   } catch {
     throw new Error(
       "Can't reach the backend. Is it running? (npm run dev from the project root starts both.)"
@@ -66,6 +90,7 @@ export async function apiUpload(path, formData) {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    handleSessionEnded(data);
     throw new Error(data.error || `Request failed (${res.status})`);
   }
   return data;
@@ -75,9 +100,7 @@ export async function apiUpload(path, formData) {
 // fetches as a blob and triggers a browser download, since a plain <a
 // href> can't carry the Authorization header.
 export async function apiDownload(path, filename) {
-  const headers = {};
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const headers = authHeaders();
 
   const res = await fetch(`${BASE_URL}${path}`, { headers });
   if (!res.ok) {

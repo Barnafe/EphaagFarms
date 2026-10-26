@@ -14,7 +14,14 @@ export default function PlanApplicationForm({ onSubmit }) {
   function handleSubmit(e) {
     e.preventDefault();
     if (!amount || Number(amount) < minAmount || !agreed) return;
-    onSubmit({ planType, amount: Number(amount), durationYears, paymentMode });
+    // paymentMode only means something for a monthly plan; a bulk plan is one
+    // payment, so a stale choice from the monthly view must not be sent.
+    onSubmit({
+      planType,
+      amount: Number(amount),
+      durationYears,
+      ...(planType === "monthly" ? { paymentMode } : {}),
+    });
   }
 
   return (

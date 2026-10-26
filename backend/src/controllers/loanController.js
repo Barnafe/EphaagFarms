@@ -4,13 +4,22 @@ import { sendMail } from "../utils/email.js";
 import { getIndicesSnapshot, getIndicesHistory, computeAndStoreIndices } from "../utils/indicesEngine.js";
 import { getBalances as getSavingsBalances } from "./savingsController.js";
 
-// --- Loan types & terms (2026-08-09 spec, Boost Cash sequencing corrected
-// 2026-08-11, Aided loan sequencing + savings-tied amount corrected
-// 2026-08-29) — see [[ephaag-farms-farmer-room-specs]] memory.
+// --- Loan types & terms — the approved financing banner is the single
+// source of truth (2026-10-20: "the banner is the official and agreed
+// prices"). Everything below mirrors it exactly; see [[ephaag-finance-banner]].
+//
+// LT1 "Progressive Savings Loan" (loan_type 'aided'): 0% interest, six
+//   fixed levels. The farmer's main savings must reach the level's savings
+//   figure, the loan is a FIXED amount per level (2x savings in levels 1-3,
+//   3x in levels 4-6) and the repayment period is fixed per level.
+// LT2 "Business Boost" (loan_type 'boost_cash'): 25% deposit, four fixed
+//   deposit -> loan pairs, 5-month repayment, 1-90 day maturity period.
+// LT3 "Business Enlargement" (loan_type 'business_fast_cash'): 100%
+//   interest (repay x2), 8-month repayment, loans of 100k / 200k / 300k.
 const LOAN_TERMS = {
   aided: {
     interestRate: 0,
-    allowedRepaymentMonths: [5, 8, 11],
+    allowedRepaymentMonths: [5, 8, 10, 12],
   },
   boost_cash: {
     interestRate: 25, // the 25% upfront deposit functions as the fixed interest
@@ -22,36 +31,79 @@ const LOAN_TERMS = {
   },
 };
 
-// --- Aided loan: sequential fixed duration by borrow count (2026-08-29) --
-// "1st time borrowing... 5 months flat... 2nd time... 8 months flat...
-// after repaying back all the two without default, the 3rd time loan will
-// now be 11 months" — the farmer no longer picks a duration for `aided`,
-// the server computes it. A prior aided loan counts toward the sequence
-// once it's disbursed AND fully repaid (sum of verified repayments >= the
-// loan amount) — an open/still-repaying or defaulted one does not advance
-// the sequence. Stays at 11 months for the 4th and any later aided loan,
-// since the spec only names three tiers.
-const AIDED_MONTHS_BY_BORROW_COUNT = [5, 8, 11];
+export const AIDED_LEVELS = [
+  { level: 1, savings: 10000, loan: 20000, months: 5 },
+  { level: 2, savings: 20000, loan: 40000, months: 8 },
+  { level: 3, savings: 30000, loan: 60000, months: 10 },
+  { level: 4, savings: 40000, loan: 120000, months: 12 },
+  { level: 5, savings: 50000, loan: 150000, months: 12 },
+  { level: 6, savings: 60000, loan: 180000, months: 12 },
+];
 
+// LT2: loan -> required 25% deposit (deposit is always exactly 25%).
+export const BOOST_CASH_LOAN_AMOUNTS = [50000, 100000, 200000, 300000];
+// LT3: allowed loan amounts (repay double).
+export const FAST_CASH_LOAN_AMOUNTS = [100000, 200000, 300000];
+
+const fmtN = (n) => `₦${Number(n).toLocaleString()}`;
+
+// Total the farmer must repay: the loan itself, plus the interest for
+// loans that charge it on repayment. Only LT3 does (100% -> x2); LT2's
+// 25% is paid up front as the deposit, and LT1 is interest-free.
+export function repayableTotal(loan) {
+  const amount = Number(loan.amount);
+  if (loan.loan_type === "business_fast_cash") {
+    return amount * (1 + Number(loan.interest_rate ?? 100) / 100);
+  }
+  return amount;
+}
+
+// --- LT1 progression ----------------------------------------------------
+// A farmer climbs one level each time a previous LT1 loan is disbursed AND
+// fully repaid (verified repayments >= the amount owed). An open or
+// defaulted loan does not advance the sequence. After level 6 the farmer
+// stays on level 6 — the banner defines no level 7.
 async function aidedTermsFor(farmerId) {
   const { rows } = await pool.query(
-    `SELECT l.id, l.amount, COALESCE(SUM(r.amount) FILTER (WHERE r.verified), 0) AS repaid
+    `SELECT l.id, l.amount, l.loan_type, l.interest_rate,
+            COALESCE(SUM(r.amount) FILTER (WHERE r.verified), 0) AS repaid
      FROM loans l LEFT JOIN loan_repayments r ON r.loan_id = l.id
      WHERE l.farmer_id = $1 AND l.loan_type = 'aided' AND l.status = 'disbursed'
-     GROUP BY l.id, l.amount`,
+     GROUP BY l.id, l.amount, l.loan_type, l.interest_rate`,
     [farmerId]
   );
-  const completedCount = rows.filter((r) => Number(r.repaid) >= Number(r.amount)).length;
-  const tierIndex = Math.min(completedCount, AIDED_MONTHS_BY_BORROW_COUNT.length - 1);
+  const completedCount = rows.filter((r) => Number(r.repaid) >= repayableTotal(r)).length;
+  const lvl = AIDED_LEVELS[Math.min(completedCount, AIDED_LEVELS.length - 1)];
   return {
-    borrowNumber: completedCount + 1, // 1st-time, 2nd-time, 3rd-time...
-    forcedRepaymentMonths: AIDED_MONTHS_BY_BORROW_COUNT[tierIndex],
+    level: lvl.level,
+    borrowNumber: lvl.level, // kept for older clients
+    requiredSavings: lvl.savings,
+    loanAmount: lvl.loan,
+    forcedRepaymentMonths: lvl.months,
+    multiplier: lvl.loan / lvl.savings,
+    atTopLevel: completedCount >= AIDED_LEVELS.length - 1,
+    levels: AIDED_LEVELS,
   };
 }
 
 export async function myAidedLoanTerms(req, res) {
   const terms = await aidedTermsFor(req.user.id);
   res.json(terms);
+}
+
+// A farmer can't open a second loan of the same type while one is still
+// running — otherwise two LT1 applications could both be sized at "level 1"
+// against the same savings, or an LT3 loan stacked on an unpaid LT3 loan.
+async function openLoanOfType(farmerId, loanType) {
+  const { rows } = await pool.query(
+    `SELECT l.id, l.reference, l.status, l.amount, l.loan_type, l.interest_rate,
+            COALESCE(SUM(r.amount) FILTER (WHERE r.verified), 0) AS repaid
+     FROM loans l LEFT JOIN loan_repayments r ON r.loan_id = l.id
+     WHERE l.farmer_id = $1 AND l.loan_type = $2 AND l.status <> 'rejected'
+     GROUP BY l.id, l.reference, l.status, l.amount, l.loan_type, l.interest_rate`,
+    [farmerId, loanType]
+  );
+  return rows.find((r) => r.status !== "disbursed" || Number(r.repaid) < repayableTotal(r)) || null;
 }
 
 const BOOST_CASH_DEPOSIT_PCT = 25;
@@ -124,7 +176,11 @@ async function notifyFarmerDecision(loan, decision) {
 export async function declareBoostDeposit(req, res) {
   const { intendedLoanAmount } = req.body;
   const amt = Number(intendedLoanAmount);
-  if (!amt || amt <= 0) return res.status(400).json({ error: "intendedLoanAmount is required" });
+  if (!BOOST_CASH_LOAN_AMOUNTS.includes(amt)) {
+    return res.status(400).json({
+      error: `Business Boost loans are ${BOOST_CASH_LOAN_AMOUNTS.map(fmtN).join(", ")} (with a 25% deposit of ${BOOST_CASH_LOAN_AMOUNTS.map((x) => fmtN(x / 4)).join(", ")} respectively)`,
+    });
+  }
 
   const depositAmount = Math.round(amt * (BOOST_CASH_DEPOSIT_PCT / 100));
   const { rows } = await pool.query(
@@ -255,46 +311,48 @@ export async function myRecommendationTicket(req, res) {
 // --- Farmer actions ---------------------------------------------------
 
 export async function applyForLoan(req, res) {
-  const { loan_type, amount, repayment_months, reason, depositId } = req.body;
+  const { loan_type, reason, depositId } = req.body;
   if (!loan_type) return res.status(400).json({ error: "loan_type is required" });
   const terms = LOAN_TERMS[loan_type];
   if (!terms) {
     return res.status(400).json({ error: "loan_type must be 'aided', 'boost_cash', or 'business_fast_cash'" });
   }
 
-  let loanAmount = Number(amount);
-  let depositRow = null;
-  let forcedMonths = null;
-
-  // --- Aided loan: savings-tied amount + forced sequential duration ------
-  // (A) requested amount can't exceed the farmer's current MAIN savings
-  // balance — declined automatically, showing the savings total, if it
-  // does. (B) if it's within balance, the actual loan disbursed is 2x the
-  // requested amount (save 10k, request 10k -> loan is 20k). This is
-  // Claude's placement of the 2026-08-29 "Loan amount" rule onto `aided`
-  // specifically (it was written directly under the Aided-loan changes in
-  // the request, and Boost Cash/Business fast cash already have their own
-  // distinct amount mechanics) — flagged to the user, not explicitly
-  // confirmed to be aided-only.
-  if (loan_type === "aided") {
-    if (!loanAmount || loanAmount <= 0) {
-      return res.status(400).json({ error: "amount is required" });
-    }
-    const { mainBalance } = await getSavingsBalances(req.user.id);
-    if (loanAmount > mainBalance) {
-      return res.status(400).json({
-        error: `You can't request more than your main savings balance of ₦${mainBalance.toLocaleString()}. Lower your requested amount to proceed.`,
-        mainBalance,
-      });
-    }
-    loanAmount = loanAmount * 2;
-    const terms = await aidedTermsFor(req.user.id);
-    forcedMonths = terms.forcedRepaymentMonths;
+  // No second loan of the same type while one is still running.
+  const open = await openLoanOfType(req.user.id, loan_type);
+  if (open) {
+    return res.status(409).json({
+      error: `You already have an open loan of this type (${open.reference}). Finish repaying it before applying again.`,
+    });
   }
 
-  if (loan_type === "boost_cash") {
+  let loanAmount;
+  let requestedAmount = null;
+  let depositRow = null;
+  let months;
+
+  if (loan_type === "aided") {
+    // LT1 Progressive Savings Loan — everything is dictated by the farmer's
+    // current level on the banner. Whatever amount/duration the client
+    // sends is ignored: the level fixes the savings needed, the loan
+    // amount and the repayment period.
+    const lvl = await aidedTermsFor(req.user.id);
+    const { mainBalance } = await getSavingsBalances(req.user.id);
+    if (mainBalance < lvl.requiredSavings) {
+      return res.status(400).json({
+        error: `Level ${lvl.level} needs main savings of at least ${fmtN(lvl.requiredSavings)} (you have ${fmtN(mainBalance)}). Save ${fmtN(lvl.requiredSavings - mainBalance)} more to apply for your ${fmtN(lvl.loanAmount)} loan.`,
+        mainBalance,
+        requiredSavings: lvl.requiredSavings,
+      });
+    }
+    loanAmount = lvl.loanAmount;
+    requestedAmount = lvl.requiredSavings;
+    months = lvl.forcedRepaymentMonths;
+  } else if (loan_type === "boost_cash") {
+    // LT2 Business Boost — loan size comes from the verified 25% deposit
+    // (deposits themselves can only be declared at the banner's amounts).
     if (!depositId) {
-      return res.status(400).json({ error: "Boost Cash requires an eligible, verified deposit — declare and verify one first" });
+      return res.status(400).json({ error: "Business Boost requires an eligible, verified deposit — declare and verify one first" });
     }
     const { rows } = await pool.query(
       `SELECT * FROM boost_cash_deposits WHERE id = $1 AND farmer_id = $2`,
@@ -313,17 +371,16 @@ export async function applyForLoan(req, res) {
       });
     }
     loanAmount = mapped.intendedLoanAmount;
-  } else if (!loanAmount) {
-    return res.status(400).json({ error: "amount is required" });
-  }
-
-  // Aided's duration is never a farmer choice — it's forced by borrow
-  // sequence (computed above), ignoring whatever the client sent.
-  const months = loan_type === "aided" ? forcedMonths : Number(repayment_months) || terms.allowedRepaymentMonths[0];
-  if (loan_type !== "aided" && !terms.allowedRepaymentMonths.includes(months)) {
-    return res.status(400).json({
-      error: `${loan_type} repayment duration must be one of: ${terms.allowedRepaymentMonths.join(", ")} months`,
-    });
+    months = terms.allowedRepaymentMonths[0];
+  } else {
+    // LT3 Business Enlargement — fixed loan sizes, fixed 8-month term.
+    loanAmount = Number(req.body.amount);
+    if (!FAST_CASH_LOAN_AMOUNTS.includes(loanAmount)) {
+      return res.status(400).json({
+        error: `Business Enlargement loans are ${FAST_CASH_LOAN_AMOUNTS.map(fmtN).join(", ")} — pick one of those amounts`,
+      });
+    }
+    months = terms.allowedRepaymentMonths[0];
   }
 
   const client = await pool.connect();
@@ -357,7 +414,7 @@ export async function applyForLoan(req, res) {
         loan_type,
         terms.interestRate,
         loanAmount,
-        loan_type === "aided" ? Number(amount) : null,
+        requestedAmount,
         months,
         reason || null,
         depositRow ? Number(depositRow.deposit_amount) : null,
@@ -408,7 +465,7 @@ export async function myLoans(req, res) {
     "SELECT * FROM loans WHERE farmer_id = $1 ORDER BY created_at DESC",
     [req.user.id]
   );
-  res.json({ loans: rows });
+  res.json({ loans: rows.map((l) => ({ ...l, repayable_total: repayableTotal(l) })) });
 }
 
 export async function myLoanHistory(req, res) {
@@ -441,23 +498,59 @@ export async function myLoanRepayments(req, res) {
 
 export async function logRepayment(req, res) {
   const { loanId } = req.params;
-  const { amount, method } = req.body;
-  if (!amount) return res.status(400).json({ error: "amount is required" });
-
-  const loan = await pool.query("SELECT * FROM loans WHERE id = $1 AND farmer_id = $2", [
-    loanId,
-    req.user.id,
-  ]);
-  if (!loan.rows[0]) return res.status(404).json({ error: "Loan not found" });
-  if (loan.rows[0].status !== "disbursed") {
-    return res.status(400).json({ error: "This loan isn't active yet" });
+  const { method } = req.body;
+  const amount = Number(req.body.amount);
+  // Before the 2026-10-20 payment audit this only checked "is it truthy":
+  // a NEGATIVE amount was accepted (and once verified it LOWERED the
+  // farmer's repaid total), "abc" came back as a 500, and a farmer could
+  // log more than the loan was worth.
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ error: "amount must be a number greater than zero" });
   }
 
-  const { rows } = await pool.query(
-    `INSERT INTO loan_repayments (loan_id, amount, method) VALUES ($1, $2, $3) RETURNING *`,
-    [loanId, amount, method || null]
-  );
-  res.status(201).json({ repayment: rows[0] });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const loan = await client.query("SELECT * FROM loans WHERE id = $1 AND farmer_id = $2 FOR UPDATE", [
+      loanId,
+      req.user.id,
+    ]);
+    if (!loan.rows[0]) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Loan not found" });
+    }
+    if (loan.rows[0].status !== "disbursed") {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "This loan isn't active yet" });
+    }
+
+    const owed = repayableTotal(loan.rows[0]);
+    const { rows: sumRows } = await client.query(
+      `SELECT COALESCE(SUM(amount), 0) AS logged FROM loan_repayments WHERE loan_id = $1`,
+      [loanId]
+    );
+    const outstanding = owed - Number(sumRows[0].logged);
+    if (outstanding <= 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "This loan has already been fully repaid" });
+    }
+    if (amount > outstanding) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: `That's more than the ${fmtN(outstanding)} still outstanding on this loan` });
+    }
+
+    const { rows } = await client.query(
+      `INSERT INTO loan_repayments (loan_id, amount, method) VALUES ($1, $2, $3) RETURNING *`,
+      [loanId, amount, method || null]
+    );
+    await client.query("COMMIT");
+    res.status(201).json({ repayment: rows[0] });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // --- Unit Leader actions ----------------------------------------------

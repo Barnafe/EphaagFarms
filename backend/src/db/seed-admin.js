@@ -1,4 +1,4 @@
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import "dotenv/config";
 import { pool } from "./pool.js";
 
@@ -15,7 +15,7 @@ async function seedAdmin() {
   const email = getArg("--email", "admin@ephaagfarms.com");
   const password = getArg("--password", "change-this-password");
 
-  const password_hash = await bcrypt.hash(password, 10);
+  const password_hash = await bcrypt.hash(password, 12);
 
   const { rows } = await pool.query(
     `INSERT INTO users (name, email, password_hash, role_type, email_verified)

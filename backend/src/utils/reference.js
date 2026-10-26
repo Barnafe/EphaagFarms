@@ -33,4 +33,5 @@ export const REF_PREFIX = {
   financePayment: "FPMT",
   financeTransaction: "TXN",
   reconciliation: "REC",
+  corperPayment: "CPAY",
 };

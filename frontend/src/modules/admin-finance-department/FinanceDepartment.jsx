@@ -9,7 +9,7 @@ import ActingAsBanner from "../../components/ActingAsBanner.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import DeptDashboardCards from "../../components/DeptDashboardCards.jsx";
 import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.jsx";
-import PaymentConfirmationPanel from "./PaymentConfirmationPanel.jsx";
+import PaymentsWorkspace from "./PaymentsWorkspace.jsx";
 import LoanDisbursementPanel from "./LoanDisbursementPanel.jsx";
 import FinanceReviewPanel from "./FinanceReviewPanel.jsx";
 import BoostDepositReviewPanel from "./BoostDepositReviewPanel.jsx";
@@ -444,7 +444,7 @@ export default function FinanceDepartment() {
               <p className="text-sm text-red-700">{paymentError}</p>
             </div>
           )}
-          <PaymentConfirmationPanel orders={payments} onConfirm={handleConfirmPayment} />
+          <PaymentsWorkspace orders={payments} onConfirm={handleConfirmPayment} />
         </div>
       )}
 

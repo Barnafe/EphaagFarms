@@ -22,7 +22,7 @@ export async function dashboardSummary(req, res) {
     pool.query(`SELECT COUNT(*)::int AS count FROM orders WHERE status = 'paid'`),
     pool.query(`SELECT status, COUNT(*)::int AS count FROM loans GROUP BY status`),
     pool.query(`SELECT COUNT(*)::int AS count FROM payments WHERE payee_type = 'farmer' AND status = 'unpaid'`),
-    pool.query(`SELECT COUNT(*)::int AS count FROM investment_applications WHERE status = 'pending'`),
+    pool.query(`SELECT COUNT(*)::int AS count FROM investment_applications WHERE status = 'submitted'`),
   ]);
 
   res.json({
@@ -112,7 +112,7 @@ export async function createPrice(req, res) {
     return res.status(409).json({ error: "That product is already in the catalog — edit it instead" });
   }
 
-  const imageUrl = req.file ? `/uploads/products/${req.file.filename}` : null;
+  const imageUrl = req.file ? req.file.publicUrl : null;
 
   const { rows } = await pool.query(
     `INSERT INTO standard_prices
@@ -143,7 +143,7 @@ export async function createPrice(req, res) {
 export async function uploadPriceImage(req, res) {
   const { id } = req.params;
   if (!req.file) return res.status(400).json({ error: "No image uploaded" });
-  const imageUrl = `/uploads/products/${req.file.filename}`;
+  const imageUrl = req.file.publicUrl;
   const { rows } = await pool.query(
     `UPDATE standard_prices SET image_url = $1 WHERE id = $2
      RETURNING id, crop, unit, buy_price, sell_price, category, description, icon, image_url,
@@ -276,10 +276,17 @@ export async function listFarmerPayments(req, res) {
 
 export async function markPaymentPaid(req, res) {
   const { id } = req.params;
+  // Only an UNPAID settlement can be marked paid — previously this
+  // overwrote any row unconditionally, so a double click (or a second
+  // admin) could "pay" the same settlement twice with nothing to show it.
   const { rows } = await pool.query(
-    `UPDATE payments SET status = 'paid' WHERE id = $1 AND payee_type = 'farmer' RETURNING *`,
+    `UPDATE payments SET status = 'paid' WHERE id = $1 AND payee_type = 'farmer' AND status = 'unpaid' RETURNING *`,
     [id]
   );
-  if (!rows[0]) return res.status(404).json({ error: "Payment not found" });
+  if (!rows[0]) {
+    const { rows: exists } = await pool.query(`SELECT status FROM payments WHERE id = $1 AND payee_type = 'farmer'`, [id]);
+    if (!exists[0]) return res.status(404).json({ error: "Payment not found" });
+    return res.status(409).json({ error: "This settlement has already been paid" });
+  }
   res.json({ payment: rows[0] });
 }

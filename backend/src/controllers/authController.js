@@ -1,16 +1,27 @@
-import bcrypt from "bcryptjs";
+import { coerceSection } from "../utils/corperProfile.js";
+import bcrypt from "bcrypt";
 import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
 import { pool } from "../db/pool.js";
 import { generateReference } from "../utils/reference.js";
 import { attachProfile } from "../utils/profileLoader.js";
 import { sendMail } from "../utils/email.js";
+import { renderTemplate } from "../services/messageTemplates.js";
+import { notifyUser } from "../services/messaging.js";
+import { logSecurityEvent } from "../utils/securityLog.js";
+
+const BCRYPT_ROUNDS = 12;
+const MAX_FAILED_LOGINS = 5;
+const LOCK_MINUTES = 15;
+// Compared against when the account does not exist, so a wrong password and an
+// unknown account take the same time and say the same thing.
+const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", BCRYPT_ROUNDS);
 
 const RESET_TTL_MINUTES = 30;
 
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, role_type: user.role_type, name: user.name },
+    { id: user.id, role_type: user.role_type, name: user.name, tv: user.token_version ?? 0 },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
   );
@@ -80,11 +91,39 @@ export async function register(req, res) {
     }
   }
 
+  // Corps members (NYSC): email is mandatory (certificate-ready emails go
+  // there), and the NYSC identity fields + terms acceptance must be valid
+  // up front. Validated BEFORE any insert so a bad form never half-creates
+  // an account.
+  let corperCols = null;
+  if (role_type === "corper") {
+    if (!email) return res.status(400).json({ error: "Email is required for corps members" });
+    if (!phone) return res.status(400).json({ error: "Phone number is required for corps members" });
+    const nysc = coerceSection("nysc", extra, {
+      requireKeys: ["callUpNumber", "stateCode", "serviceYear", "batch", "stream", "stateOfDeployment", "ppa", "discipline"],
+    });
+    if (nysc.error) return res.status(400).json({ error: nysc.error });
+    const consent = coerceSection("documents", extra, { requireKeys: ["consentTerms", "consentData"] });
+    if (consent.error) return res.status(400).json({ error: consent.error });
+    corperCols = { ...nysc.cols, ...consent.cols, consent_terms_at: new Date().toISOString() };
+    const { rows: codeClash } = await pool.query(
+      "SELECT 1 FROM corper_profiles WHERE UPPER(state_code) = $1",
+      [corperCols.state_code]
+    );
+    if (codeClash[0]) {
+      return res.status(409).json({ error: "That state code is already registered" });
+    }
+  }
+
+  // Hash BEFORE taking a database connection: hashing is slow, and holding a
+  // connection (inside a transaction) while waiting on it starves the pool.
+  const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
   const client = await pool.connect();
+  let released = false;
+  const releaseClient = () => { if (!released) { released = true; client.release(); } };
   try {
     await client.query("BEGIN");
-
-    const password_hash = await bcrypt.hash(password, 10);
 
     const { rows } = await client.query(
       `INSERT INTO users (name, email, phone, password_hash, role_type, sex, state, lga, ward, unit, email_verified)
@@ -198,6 +237,13 @@ export async function register(req, res) {
           extra.buyerType === "organization" ? null : extra.address || null,
         ]
       );
+    } else if (role_type === "corper") {
+      const names = Object.keys(corperCols);
+      const placeholders = names.map((_, i) => `$${i + 2}`);
+      await client.query(
+        `INSERT INTO corper_profiles (user_id, ${names.join(", ")}) VALUES ($1, ${placeholders.join(", ")})`,
+        [user.id, ...names.map((c) => corperCols[c])]
+      );
     } else if (role_type === "investor") {
       const referralCode = generateReference("REF");
       await client.query(
@@ -221,54 +267,114 @@ export async function register(req, res) {
     }
 
     await client.query("COMMIT");
+    // Give the connection back NOW: attachProfile() below needs one of its own,
+    // and with every connection held by a registration in flight the server
+    // would deadlock under load (found by the load test; present in v28).
+    releaseClient();
 
     // Non-blocking, purely a nice-to-have — registration never depends on
     // this succeeding.
     if (user.email) {
-      sendMail({
-        to: user.email,
-        subject: "Welcome to EPHAAG Farms",
-        html: `<p>Hi ${user.name},</p><p>Your EPHAAG Farms account has been created — you're all set.</p>`,
-      });
+      const welcome = renderTemplate("welcome", { name: user.name });
+      sendMail({ to: user.email, subject: welcome.subject, html: welcome.html, text: welcome.text, raw: true, template: "welcome", userId: user.id });
     }
 
     const fullUser = await attachProfile(user);
     res.status(201).json({ user: fullUser, token: signToken(user) });
   } catch (err) {
-    await client.query("ROLLBACK");
+    await client.query("ROLLBACK").catch(() => {});
     if (err.code === "23505") {
       return res.status(409).json({ error: "An account with that email already exists" });
     }
     console.error(err);
     res.status(500).json({ error: "Registration failed" });
   } finally {
-    client.release();
+    releaseClient();
   }
 }
 
 export async function login(req, res) {
   // Field is still named `email` on the wire for backward compatibility,
-  // but it now accepts either an email or a phone number — many farmers
-  // register with only a phone number, so they need to be able to log in
-  // with it too.
+  // but it accepts either an email or a phone number.
   const { email: identifier, password } = req.body;
   if (!identifier || !password) {
     return res.status(400).json({ error: "email/phone and password are required" });
   }
+  const ident = String(identifier).trim();
+  const GENERIC = { error: "Invalid email or password" };
 
-  const { rows } = await pool.query(
-    "SELECT * FROM users WHERE email = $1 OR phone = $1",
-    [identifier]
-  );
+  const { rows } = await pool.query("SELECT * FROM users WHERE email = $1 OR phone = $1", [ident]);
   const user = rows[0];
-  if (!user) return res.status(401).json({ error: "Invalid email or password" });
+  if (!user) {
+    await bcrypt.compare(String(password), DUMMY_HASH);
+    await logSecurityEvent("login_failed", { req, detail: { identifier: ident.toLowerCase(), reason: "unknown_account" } });
+    return res.status(401).json(GENERIC);
+  }
 
-  const valid = await bcrypt.compare(password, user.password_hash);
-  if (!valid) return res.status(401).json({ error: "Invalid email or password" });
+  if (user.locked_until && new Date(user.locked_until) > new Date()) {
+    const minutes = Math.max(1, Math.ceil((new Date(user.locked_until) - Date.now()) / 60000));
+    await logSecurityEvent("login_blocked_locked", { userId: user.id, req });
+    return res.status(429).json({
+      error: `Too many failed attempts. Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+      code: "ACCOUNT_LOCKED", retryAfterMinutes: minutes,
+    });
+  }
+
+  const valid = await bcrypt.compare(String(password), user.password_hash);
+  if (!valid) {
+    // Atomic count, so parallel guesses cannot slip past the limit.
+    const { rows: upd } = await pool.query(
+      `UPDATE users SET failed_login_count = failed_login_count + 1 WHERE id = $1 RETURNING failed_login_count`, [user.id]);
+    await logSecurityEvent("login_failed", { userId: user.id, req, detail: { reason: "wrong_password", count: upd[0].failed_login_count } });
+    if (upd[0].failed_login_count >= MAX_FAILED_LOGINS) {
+      await pool.query(
+        `UPDATE users SET locked_until = now() + ($2 || ' minutes')::interval, failed_login_count = 0 WHERE id = $1`,
+        [user.id, String(LOCK_MINUTES)]);
+      await logSecurityEvent("account_locked", { userId: user.id, req, detail: { minutes: LOCK_MINUTES } });
+      notifyUser(user.id, "account_locked", { minutes: LOCK_MINUTES }).catch((e) => console.error("[auth] lock notice failed:", e.message));
+    }
+    return res.status(401).json(GENERIC);
+  }
+
+  // Success: clear the counters, and quietly upgrade an older, weaker hash.
+  let upgradedHash = null;
+  if (bcrypt.getRounds(user.password_hash) < BCRYPT_ROUNDS) upgradedHash = await bcrypt.hash(String(password), BCRYPT_ROUNDS);
+  await pool.query(
+    `UPDATE users SET failed_login_count = 0, locked_until = NULL, password_hash = COALESCE($2, password_hash) WHERE id = $1`,
+    [user.id, upgradedHash]);
+  await logSecurityEvent("login_success", { userId: user.id, req });
 
   const { password_hash, ...safeUser } = user;
   const fullUser = await attachProfile(safeUser);
   res.json({ user: fullUser, token: signToken(user) });
+}
+
+// POST /auth/logout-all — "Sign out of all devices". Every older token stops
+// working at once, this device's included.
+export async function logoutAll(req, res) {
+  await pool.query("UPDATE users SET token_version = token_version + 1 WHERE id = $1", [req.user.id]);
+  await logSecurityEvent("sessions_revoked", { userId: req.user.id, req, detail: { by: "self" } });
+  res.json({ ok: true });
+}
+
+// POST /auth/change-password — needs the current password; ends all other sessions
+// and hands back a fresh token for this one.
+export async function changePassword(req, res) {
+  if (req.actingAs) return res.status(403).json({ error: "Not allowed while acting as a department" });
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: "currentPassword and newPassword are required" });
+  if (String(newPassword).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+  const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [req.user.id]);
+  const user = rows[0];
+  if (!user || !(await bcrypt.compare(String(currentPassword), user.password_hash))) {
+    await logSecurityEvent("password_change_failed", { userId: req.user.id, req });
+    return res.status(400).json({ error: "Your current password is not correct" });
+  }
+  const hash = await bcrypt.hash(String(newPassword), BCRYPT_ROUNDS);
+  const { rows: upd } = await pool.query(
+    `UPDATE users SET password_hash = $2, token_version = token_version + 1 WHERE id = $1 RETURNING *`, [user.id, hash]);
+  await logSecurityEvent("password_changed", { userId: user.id, req });
+  res.json({ ok: true, token: signToken(upd[0]) });
 }
 
 // Public (no auth — registration hasn't created a token yet). Lets the
@@ -323,14 +429,8 @@ export async function forgotPassword(req, res) {
     const primaryOrigin = (process.env.FRONTEND_ORIGIN || "http://localhost:5173").split(",")[0].trim();
     const resetUrl = `${primaryOrigin}/reset-password?token=${rawToken}&uid=${user.id}`;
     if (process.env.OTP_DEBUG_LOG === "true") console.log(`[otp-debug] reset url: ${resetUrl}`);
-    sendMail({
-      to: user.email,
-      subject: "Reset your EPHAAG Farms password",
-      html: `<p>Hi ${user.name},</p>
-        <p>Click the link below to set a new password. This link expires in ${RESET_TTL_MINUTES} minutes.</p>
-        <p><a href="${resetUrl}">${resetUrl}</a></p>
-        <p>If you didn't request this, you can ignore this email — your password won't change.</p>`,
-    });
+    const reset = renderTemplate("password_reset", { name: user.name, minutes: RESET_TTL_MINUTES, url: resetUrl });
+    sendMail({ to: user.email, subject: reset.subject, html: reset.html, text: reset.text, raw: true, template: "password_reset", userId: user.id });
   }
 
   res.json({ message: "If an account exists for that email, a reset link has been sent." });
@@ -359,8 +459,12 @@ export async function resetPassword(req, res) {
     return res.status(400).json({ error: "This reset link has expired — request a new one" });
   }
 
-  const password_hash = await bcrypt.hash(newPassword, 10);
-  await pool.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [password_hash, uid]);
+  const password_hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  await pool.query(
+    `UPDATE users SET password_hash = $1, token_version = token_version + 1, failed_login_count = 0, locked_until = NULL WHERE id = $2`,
+    [password_hash, uid]
+  );
+  await logSecurityEvent("password_reset", { userId: uid, req });
   await pool.query(`UPDATE password_resets SET consumed_at = now() WHERE id = $1`, [record.id]);
 
   res.json({ message: "Password updated — you can now log in with your new password." });
@@ -372,7 +476,7 @@ export async function resetPassword(req, res) {
 export async function uploadProfilePhoto(req, res) {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
-  const photoUrl = `/uploads/photos/${req.file.filename}`;
+  const photoUrl = req.file.publicUrl;
   await pool.query(`UPDATE users SET photo_url = $1 WHERE id = $2`, [photoUrl, req.user.id]);
   res.json({ photoUrl });
 }

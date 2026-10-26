@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, GraduationCap, BookOpen, Handshake, FileCheck2, User } from "lucide-react";
+import { LayoutDashboard, GraduationCap, BookOpen, Handshake, FileCheck2, User, Users } from "lucide-react";
 import { apiFetch, apiUpload, apiDownload } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { departmentRoleLabel } from "../../utils/departmentRole.js";
@@ -8,6 +8,11 @@ import ActingAsBanner from "../../components/ActingAsBanner.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import DeptDashboardCards from "../../components/DeptDashboardCards.jsx";
 import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.jsx";
+import CorpsCourseEditor from "./CorpsCourseEditor.jsx";
+import CorpsPayments from "./CorpsPayments.jsx";
+import CorpsProgress from "./CorpsProgress.jsx";
+import CorpsBatches from "./CorpsBatches.jsx";
+import CorpsMembers from "./CorpsMembers.jsx";
 
 // TRC — Training, Research & Consultancy. Restored 2026-09-05 to its
 // full three-part scope after a 2026-09-02 round had narrowed the whole
@@ -20,6 +25,7 @@ import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.js
 const items = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "training", label: "Training", icon: GraduationCap },
+  { key: "corps", label: "Corps", icon: Users, description: "NYSC corps member access-fee payments, the fee itself, and member progress." },
   { key: "research", label: "Research", icon: BookOpen },
   { key: "consultancy", label: "Consultancy", icon: Handshake },
   {
@@ -36,6 +42,7 @@ export default function TrcDepartment() {
   const user = session?.user;
 
   const [tab, setTab] = useState("dashboard");
+  const [corpsView, setCorpsView] = useState("payments");
   const [error, setError] = useState(null);
 
   // Training
@@ -46,6 +53,11 @@ export default function TrcDepartment() {
   const [onlineLink, setOnlineLink] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [material, setMaterial] = useState(null);
+  // Training has two audiences: "general" (farmers' free Seminar tab) and
+  // "corps" (NYSC corps members). The admin picks one when creating a course.
+  const [courseAudience, setCourseAudience] = useState("general");
+  const [audienceFilter, setAudienceFilter] = useState("all");
+  const [editingCourse, setEditingCourse] = useState(null);
 
   // Research
   const [research, setResearch] = useState([]);
@@ -107,18 +119,22 @@ export default function TrcDepartment() {
     try {
       const formData = new FormData();
       formData.append("title", courseTitle);
+      formData.append("audience", courseAudience);
       if (courseDescription) formData.append("description", courseDescription);
       if (onlineLink) formData.append("onlineLink", onlineLink);
       if (scheduledAt) formData.append("scheduledAt", scheduledAt);
       if (material) formData.append("material", material);
 
-      await apiUpload("/rtc/admin/courses", formData);
+      const { course: created } = await apiUpload("/rtc/admin/courses", formData);
       setCourseTitle("");
       setCourseDescription("");
       setOnlineLink("");
       setScheduledAt("");
       setMaterial(null);
       await loadCourses();
+      // A corps course is empty until lessons + a quiz are added, so go
+      // straight to its editor.
+      if (created?.audience === "corps") setEditingCourse(created);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -128,7 +144,16 @@ export default function TrcDepartment() {
 
   async function handleApproveCourse(id) {
     try {
-      await apiFetch(`/rtc/admin/courses/${id}/approve`, { method: "POST" });
+      try {
+        await apiFetch(`/rtc/admin/courses/${id}/approve`, { method: "POST" });
+      } catch (err) {
+        // Going live adds to every member's total, so anyone with progress
+        // sees their percentage drop. The server asks us to confirm first.
+        if (err.code !== "APPROVAL_IMPACT") throw err;
+        const ok = window.confirm(`${err.message}\n\nApprove this course anyway?`);
+        if (!ok) return;
+        await apiFetch(`/rtc/admin/courses/${id}/approve`, { method: "POST", body: { confirmImpact: true } });
+      }
       await loadCourses();
     } catch (err) {
       setError(err.message);
@@ -229,15 +254,19 @@ export default function TrcDepartment() {
             <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
             <h1 className="text-xl font-medium text-white">TRC — Training, Research & Consultancy</h1>
             <p className="mt-1 text-sm text-canopy-100">
-              Free to members. Use the sidebar to open Training, Research, or Consultancy.
+              Farmer courses are free; corps members pay a one-time access fee (see Corps). Use the sidebar to open Training, Research, or Consultancy.
             </p>
           </div>
           <DeptDashboardCards
             endpoint="/rtc/admin/dashboard"
             onNavigate={setTab}
             buildCards={(d) => [
-              { label: "Approved courses", value: d.approvedCourses, nav: "training" },
-              { label: "Draft courses", value: d.draftCourses, hint: "Awaiting approval", nav: "training" },
+              { label: "Approved courses", value: d.approvedCourses, hint: "General (farmers)", nav: "training" },
+              { label: "Draft courses", value: d.draftCourses, hint: "General — awaiting approval", nav: "training" },
+              { label: "Corps courses live", value: d.corpsApprovedCourses, hint: "NYSC corps members", nav: "training" },
+              { label: "Corps drafts", value: d.corpsDraftCourses, hint: "Awaiting lessons, quiz or approval", nav: "training" },
+              { label: "Corps payments to confirm", value: d.corpsPaymentsPending, hint: "Access fees awaiting confirmation", nav: "corps" },
+              { label: "Corps members paid", value: d.corpsPaidMembers, hint: "Training unlocked", nav: "corps" },
               { label: "Published research", value: d.publishedResearch, nav: "research" },
               {
                 label: "Pending consultancy requests",
@@ -249,20 +278,45 @@ export default function TrcDepartment() {
         </div>
       )}
 
-      {tab === "training" && (
+      {tab === "training" && editingCourse && (
+        <CorpsCourseEditor
+          course={editingCourse}
+          onBack={() => {
+            setEditingCourse(null);
+            loadCourses();
+          }}
+          onChanged={loadCourses}
+        />
+      )}
+
+      {tab === "training" && !editingCourse && (
         <div className="max-w-4xl space-y-6">
           <div>
             <p className="text-xs uppercase tracking-wide text-canopy-300">TRC — Training</p>
             <h1 className="text-xl font-medium text-white">Training courses</h1>
             <p className="mt-1 text-sm text-canopy-100">
-              Upload, attach materials, and approve — this is also exactly what appears in a farmer's
-              "Seminar" tab once approved.
+              Choose who a course is for. <strong>General</strong> courses are free for farmers and appear in
+              their "Seminar" tab once approved. <strong>Corps</strong> courses are NYSC corps member training,
+              built from lessons and a quiz, and never appear to farmers.
             </p>
           </div>
 
           <div className="card">
             <p className="text-sm text-ink-600">Upload a training course</p>
             <form onSubmit={handleSubmitCourse} className="field mt-3 space-y-2">
+              <div role="group" aria-label="Course audience" className="flex gap-2">
+                {[["general", "General (farmers)"], ["corps", "Corps (NYSC corps members)"]].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={courseAudience === value}
+                    onClick={() => setCourseAudience(value)}
+                    className={`rounded-card border px-3 py-2 text-sm ${courseAudience === value ? "border-canopy-600 bg-canopy-600 text-white" : "border-soil-200 text-ink-900"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <input value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} placeholder="Course title" />
               <textarea
                 rows={2}
@@ -270,34 +324,71 @@ export default function TrcDepartment() {
                 onChange={(e) => setCourseDescription(e.target.value)}
                 placeholder="Description"
               />
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <input
-                  value={onlineLink}
-                  onChange={(e) => setOnlineLink(e.target.value)}
-                  placeholder="Online hosting link (optional)"
-                />
-                <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
-              </div>
-              <div>
-                <label className="text-xs text-ink-600">Materials (optional — PDF, Word, PowerPoint, or image)</label>
-                <input type="file" onChange={(e) => setMaterial(e.target.files?.[0] || null)} />
-              </div>
+              {courseAudience === "general" ? (
+                <>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <input
+                      value={onlineLink}
+                      onChange={(e) => setOnlineLink(e.target.value)}
+                      placeholder="Online hosting link (optional)"
+                    />
+                    <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-ink-600">Materials (optional — PDF, Word, PowerPoint, or image)</label>
+                    <input type="file" onChange={(e) => setMaterial(e.target.files?.[0] || null)} />
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-ink-600">
+                  After creating a corps course you add its lessons (video, document or live session) and its quiz,
+                  then approve it.
+                </p>
+              )}
               <button className="btn-primary" type="submit" disabled={submittingCourse}>
-                {submittingCourse ? "Uploading…" : "Upload course"}
+                {submittingCourse ? "Saving…" : courseAudience === "corps" ? "Create corps course" : "Upload course"}
               </button>
             </form>
           </div>
 
           <div className="card">
-            <p className="text-sm text-ink-600">All courses</p>
-            {courses.length === 0 && <p className="mt-2 text-sm text-ink-600">Nothing uploaded yet.</p>}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-ink-600">All courses</p>
+              <div role="group" aria-label="Filter courses" className="flex gap-2 text-xs">
+                {[["all", "All"], ["general", "General"], ["corps", "Corps"]].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={audienceFilter === value}
+                    onClick={() => setAudienceFilter(value)}
+                    className={`rounded-full border px-3 py-1 ${audienceFilter === value ? "border-canopy-600 bg-canopy-600 text-white" : "border-soil-200 text-ink-900"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {courses.filter((c) => audienceFilter === "all" || c.audience === audienceFilter).length === 0 && (
+              <p className="mt-2 text-sm text-ink-600">Nothing uploaded yet.</p>
+            )}
             <div className="mt-3 space-y-2">
-              {courses.map((c) => (
+              {courses.filter((c) => audienceFilter === "all" || c.audience === audienceFilter).map((c) => (
                 <div key={c.id} className="rounded-card border border-soil-200 px-3 py-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium text-ink-900">{c.title}</p>
+                      <p className="font-medium text-ink-900">
+                        {c.title}{" "}
+                        <span className="ml-1 rounded-full bg-canopy-50 px-2 py-0.5 text-xs font-medium text-canopy-800">
+                          {c.audience === "corps" ? "Corps" : "General"}
+                        </span>
+                      </p>
                       {c.description && <p className="text-sm text-ink-600">{c.description}</p>}
+                      {c.audience === "corps" && (
+                        <p className="mt-1 text-xs text-ink-600">
+                          {c.lessonCount} {c.lessonCount === 1 ? "lesson" : "lessons"} · {c.questionCount} quiz{" "}
+                          {c.questionCount === 1 ? "question" : "questions"}
+                        </p>
+                      )}
                       {c.scheduledAt && (
                         <p className="mt-1 text-xs text-ink-600">
                           Scheduled {new Date(c.scheduledAt).toLocaleString()}
@@ -314,20 +405,47 @@ export default function TrcDepartment() {
                         </button>
                       )}
                     </div>
-                    {c.approved ? (
-                      <span className="rounded-full bg-canopy-50 px-3 py-1 text-xs font-medium text-canopy-800">
-                        Approved
-                      </span>
-                    ) : (
-                      <button type="button" className="btn-primary shrink-0" onClick={() => handleApproveCourse(c.id)}>
-                        Approve
-                      </button>
-                    )}
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      {c.audience === "corps" && (
+                        <button type="button" className="text-xs text-canopy-800 underline" onClick={() => setEditingCourse(c)}>
+                          Manage lessons &amp; quiz
+                        </button>
+                      )}
+                      {c.approved ? (
+                        <span className="rounded-full bg-canopy-50 px-3 py-1 text-xs font-medium text-canopy-800">
+                          Approved
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          disabled={c.audience === "corps" && (c.lessonCount < 1 || c.questionCount < 1)}
+                          title={c.audience === "corps" && (c.lessonCount < 1 || c.questionCount < 1) ? "Add a lesson and a quiz question first" : undefined}
+                          onClick={() => handleApproveCourse(c.id)}
+                        >
+                          Approve
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {tab === "corps" && (
+        <div className="max-w-6xl space-y-6">
+          <div className="flex flex-wrap gap-2 text-sm" role="tablist" aria-label="Corps sections">
+            {[["payments", "Payments"], ["progress", "Progress"], ["batches", "Batches"], ["members", "Members"]].map(([key, label]) => (
+              <button key={key} type="button" role="tab" aria-selected={corpsView === key} onClick={() => setCorpsView(key)}
+                className={`rounded-card border px-3 py-2 ${corpsView === key ? "border-canopy-600 bg-canopy-600 text-white" : "border-soil-200 text-ink-900 bg-white"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {corpsView === "payments" ? <CorpsPayments /> : corpsView === "progress" ? <CorpsProgress /> : corpsView === "batches" ? <CorpsBatches /> : <CorpsMembers />}
         </div>
       )}
 

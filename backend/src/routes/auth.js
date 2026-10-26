@@ -7,18 +7,23 @@ import {
   resetPassword,
   uploadProfilePhoto,
   referralLookup,
+  logoutAll,
+  changePassword,
 } from "../controllers/authController.js";
 import { requireAuth } from "../middleware/auth.js";
 import { uploadPhoto } from "../middleware/upload.js";
+import { loginLimiter, registerLimiter, forgotPasswordLimiter, resetPasswordLimiter } from "../middleware/rateLimits.js";
 
 const router = Router();
 
-router.post("/register", register);
+router.post("/register", registerLimiter, register);
 router.get("/referral-lookup", referralLookup);
-router.post("/login", login);
+router.post("/login", loginLimiter, login);
 router.get("/me", requireAuth, me);
-router.post("/forgot-password", forgotPassword);
-router.post("/reset-password", resetPassword);
+router.post("/forgot-password", forgotPasswordLimiter, forgotPassword);
+router.post("/reset-password", resetPasswordLimiter, resetPassword);
+router.post("/logout-all", requireAuth, logoutAll);
+router.post("/change-password", requireAuth, changePassword);
 router.post("/me/photo", requireAuth, uploadPhoto.single("photo"), uploadProfilePhoto);
 
 export default router;

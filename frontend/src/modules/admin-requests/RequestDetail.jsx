@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getToken, BASE_URL, API_ORIGIN } from "../../api/client.js";
+import { BASE_URL, assetUrl, authHeaders } from "../../api/client.js";
 
 const STEP_TONE = {
   pending: "bg-harvest-50 text-harvest-600",
@@ -10,7 +10,7 @@ const STEP_TONE = {
 
 async function openAttachment(requestId) {
   const res = await fetch(`${BASE_URL}/requests/${requestId}/attachment`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: authHeaders(),
   });
   if (!res.ok) return;
   const blob = await res.blob();
@@ -58,9 +58,9 @@ export default function RequestDetail({ request, currentUserId, onBack, onDecide
         {request.maintenance_photo_url && (
           <div className="mt-2">
             <p className="text-xs text-ink-600">Proof photo</p>
-            <a href={`${API_ORIGIN}/uploads/photos/${request.maintenance_photo_url}`} target="_blank" rel="noreferrer">
+            <a href={assetUrl(request.maintenance_photo_url)} target="_blank" rel="noreferrer">
               <img
-                src={`${API_ORIGIN}/uploads/photos/${request.maintenance_photo_url}`}
+                src={assetUrl(request.maintenance_photo_url)}
                 alt="Reported equipment"
                 className="mt-1 h-40 w-40 rounded-card border border-soil-200 object-cover"
               />

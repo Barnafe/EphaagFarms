@@ -4,17 +4,20 @@ export default function RepaymentTracker({ loan, onLogRepayment }) {
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("Bank transfer");
 
+  const owed = loan.repayableTotal || loan.amount; // includes LT3's 100% interest
   const totalRepaid = loan.repayments.reduce((sum, r) => sum + r.amount, 0);
-  const pctRepaid = Math.round((totalRepaid / loan.amount) * 100);
+  const outstanding = Math.max(owed - totalRepaid, 0);
+  const pctRepaid = Math.round((totalRepaid / owed) * 100);
   const isFree = pctRepaid >= 70;
 
   function handleSubmit(e) {
     e.preventDefault();
-    if (!amount) return;
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n <= 0 || n > outstanding) return;
     onLogRepayment({
       id: `r${Date.now()}`,
       date: new Date().toISOString().slice(0, 10),
-      amount: Number(amount),
+      amount: n,
       method,
     });
     setAmount("");
@@ -31,7 +34,7 @@ export default function RepaymentTracker({ loan, onLogRepayment }) {
           />
         </div>
         <p className="mt-1 text-xs text-ink-600">
-          ₦{totalRepaid.toLocaleString()} of ₦{loan.amount.toLocaleString()} repaid ({pctRepaid}%)
+          ₦{totalRepaid.toLocaleString()} of ₦{owed.toLocaleString()} repaid ({pctRepaid}%)
           — {isFree ? "70% threshold met, free to sell" : "70% needed to sell freely"}
         </p>
       </div>
@@ -53,7 +56,8 @@ export default function RepaymentTracker({ loan, onLogRepayment }) {
           <label>Log a repayment (₦)</label>
           <input
             type="number"
-            min="0"
+            min="1"
+            max={outstanding}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="e.g. 45000"

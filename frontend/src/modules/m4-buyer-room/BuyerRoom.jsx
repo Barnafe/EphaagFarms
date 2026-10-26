@@ -10,8 +10,9 @@ import ProductDetailPanel from "./ProductDetailPanel.jsx";
 import CartBar from "./CartBar.jsx";
 import CartReview from "./CartReview.jsx";
 import CheckoutForm from "./CheckoutForm.jsx";
-import PaymentPlaceholder from "./PaymentPlaceholder.jsx";
+import PaymentStep from "./PaymentStep.jsx";
 import OrderConfirmation from "./OrderConfirmation.jsx";
+import DuplicateOrderNotice from "./DuplicateOrderNotice.jsx";
 import OrderHistory from "./OrderHistory.jsx";
 import { mergeCatalog } from "./catalogMeta.js";
 
@@ -39,6 +40,11 @@ function mapOrder(o) {
     deliveryLocation: o.delivery_location,
     status: o.status,
     date: (o.created_at || "").slice(0, 10),
+    expiresAt: o.expires_at || null,
+    canPay: !!o.can_pay,
+    canCancel: !!o.can_cancel,
+    hasReceipt: !!o.has_receipt,
+    waitingForTransfer: !!o.waiting_for_transfer,
   };
 }
 
@@ -65,6 +71,8 @@ export default function BuyerRoom() {
   const [checkoutDetails, setCheckoutDetails] = useState(null);
   const [lastOrder, setLastOrder] = useState(null);
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [duplicate, setDuplicate] = useState(null);
+  const [notice, setNotice] = useState(null);
 
   const commitment = mapCommitment(user);
 
@@ -113,11 +121,12 @@ export default function BuyerRoom() {
     setView("payment");
   }
 
-  async function handlePlaceOrder() {
+  async function handlePlaceOrder(confirmDuplicate = false) {
     if (!checkoutDetails) return;
     setPlacingOrder(true);
+    setDuplicate(null);
     try {
-      const { order } = await apiFetch("/orders", {
+      const { order, payment } = await apiFetch("/orders", {
         method: "POST",
         body: {
           items: cart.map(({ crop, quantity, size }) => ({ crop, quantity, size })),
@@ -126,26 +135,60 @@ export default function BuyerRoom() {
           contactPhone2: checkoutDetails.contactPhone2,
           contactEmail: checkoutDetails.contactEmail,
           paidVia: checkoutDetails.paidVia,
+          ...(confirmDuplicate === true ? { confirmDuplicate: true } : {}),
         },
       });
       setCart([]);
       setCheckoutDetails(null);
+      if (payment?.authorizationUrl) {
+        // Off to Paystack's secure page. The order is saved as "awaiting payment" and
+        // only becomes confirmed once Paystack tells us the money arrived.
+        window.location.href = payment.authorizationUrl;
+        return;
+      }
       setLastOrder(mapOrder(order));
       setView("confirmation");
       await Promise.all([loadAll(), refreshSession()]);
     } catch (err) {
-      setError(err.message);
+      if (err.code === "DUPLICATE_ORDER") {
+        // Same items, same amount: show it on screen and let the buyer decide.
+        setDuplicate({ kind: err.kind, ...err.duplicate });
+      } else {
+        setError(err.message);
+      }
     } finally {
       setPlacingOrder(false);
     }
   }
 
+  async function handlePayOrder(id) {
+    try {
+      const r = await apiFetch(`/orders/${id}/pay`, { method: "POST" });
+      if (r.alreadyPaid) { setNotice(r.message || "This order has already been paid."); await loadAll(); return; }
+      if (r.payment?.authorizationUrl) { window.location.href = r.payment.authorizationUrl; return; }
+      await loadAll();
+    } catch (err) { setError(err.message); }
+  }
+
+  async function handleCancelOrder(id) {
+    try { await apiFetch(`/orders/${id}/cancel`, { method: "POST" }); await loadAll(); }
+    catch (err) { setError(err.message); await loadAll(); }
+  }
+
+  async function handleReceipt(id) {
+    try { return (await apiFetch(`/orders/${id}/receipt`)).receipt; }
+    catch (err) { setError(err.message); return null; }
+  }
+
   async function handleCommit({ totalCommitted, durationYears }) {
     try {
-      await apiFetch("/orders/commitment", {
+      // Nothing is credited here: Paystack takes the payment first, and the balance
+      // is added only after it is verified.
+      const { payment } = await apiFetch("/orders/commitment", {
         method: "POST",
         body: { amount: totalCommitted, years: durationYears },
       });
+      if (payment?.authorizationUrl) { window.location.href = payment.authorizationUrl; return; }
       await refreshSession();
     } catch (err) {
       setError(err.message);
@@ -168,6 +211,15 @@ export default function BuyerRoom() {
       {error && (
         <div className="card mb-6 border-red-200 bg-red-50">
           <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+
+      {notice && (
+        <div className="card mb-6 border-canopy-200 bg-canopy-50">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm text-canopy-800">{notice}</p>
+            <button type="button" className="text-xs text-canopy-800 underline" onClick={() => setNotice(null)}>Dismiss</button>
+          </div>
         </div>
       )}
 
@@ -215,11 +267,23 @@ export default function BuyerRoom() {
               )}
 
               {view === "payment" && checkoutDetails && (
-                <PaymentPlaceholder
+                <PaymentStep
                   total={cart.reduce((sum, line) => sum + line.lineTotal, 0)}
+                  paidVia={checkoutDetails.paidVia}
                   submitting={placingOrder}
-                  onConfirm={handlePlaceOrder}
-                  onBack={() => setView("checkout")}
+                  onConfirm={() => handlePlaceOrder()}
+                  onBack={() => { setDuplicate(null); setView("checkout"); }}
+                />
+              )}
+
+              {view === "payment" && duplicate && (
+                <DuplicateOrderNotice
+                  duplicate={duplicate}
+                  kind={duplicate.kind}
+                  busy={placingOrder}
+                  onCancel={() => { setDuplicate(null); setView("catalog"); }}
+                  onPayExisting={async () => { const id = duplicate.id; setDuplicate(null); await handlePayOrder(id); }}
+                  onProceed={() => handlePlaceOrder(true)}
                 />
               )}
 
@@ -237,7 +301,7 @@ export default function BuyerRoom() {
             </div>
           )}
 
-          {tab === "history" && <OrderHistory orders={orders} />}
+          {tab === "history" && <OrderHistory orders={orders} onPay={handlePayOrder} onCancel={handleCancelOrder} onReceipt={handleReceipt} />}
 
           {tab === "profile" && <BuyerProfileCard user={user} onSave={handleSaveProfile} />}
         </>

@@ -52,7 +52,9 @@ export default function FarmerRoom() {
   const rank = user?.rank || "Member";
   const isLeader = RANKS_ABOVE_MEMBER.includes(rank);
 
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useState(() =>
+    new URLSearchParams(window.location.search).has("sharePayment") ? "savings" : "dashboard"
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [loanStatus, setLoanStatus] = useState({ hasLoan: false, amount: 0, repaidAmount: 0 });

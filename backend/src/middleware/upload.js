@@ -1,203 +1,66 @@
 import multer from "multer";
 import path from "node:path";
-import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import { saveFile, deleteFile, publicUrl, CATEGORIES } from "../services/storage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const AGREEMENTS_DIR = path.join(__dirname, "..", "..", "uploads", "agreements");
+const UPLOADS = path.join(__dirname, "..", "..", "uploads");
 
-fs.mkdirSync(AGREEMENTS_DIR, { recursive: true });
+// Folders that held files before the storage layer existed. Old database rows
+// still point at them; new uploads never write here (see services/storage.js).
+export const AGREEMENTS_DIR = path.join(UPLOADS, "agreements");
+export const PHOTOS_DIR = path.join(UPLOADS, "photos");
+export const SHEETS_DIR = path.join(UPLOADS, "sheets");
+export const REPORT_PROOFS_DIR = path.join(UPLOADS, "report-proofs");
+export const REQUEST_ATTACHMENTS_DIR = path.join(UPLOADS, "request-attachments");
+export const MATERIALS_DIR = path.join(UPLOADS, "materials");
+export const PRODUCT_IMAGES_DIR = path.join(UPLOADS, "products");
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, AGREEMENTS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".pdf";
-    cb(null, `${req.params.id}-${Date.now()}${ext}`);
-  },
-});
-
-function fileFilter(req, file, cb) {
-  if (file.mimetype !== "application/pdf") {
-    return cb(new Error("Only PDF files are accepted"));
+// multer storage engine that hands the bytes to the storage layer (R2 in
+// production, local disk in development). After upload:
+//   req.file.filename   = the stored file's id (what controllers keep in their column)
+//   req.file.stored     = the full stored_files row
+//   req.file.publicUrl  = ready-to-use URL for public categories, otherwise null
+class StoredFileEngine {
+  constructor(category) { this.category = category; }
+  _handleFile(req, file, cb) {
+    const chunks = [];
+    file.stream.on("data", (c) => chunks.push(c));
+    file.stream.on("error", cb);
+    file.stream.on("end", async () => {
+      try {
+        const row = await saveFile({
+          buffer: Buffer.concat(chunks),
+          originalName: file.originalname,
+          category: this.category,
+          uploadedBy: req.user?.id || null,
+          purpose: req.params?.id ? `ref:${req.params.id}` : null,
+        });
+        cb(null, {
+          filename: row.id, stored: row, size: row.size_bytes, mimetype: row.mime_type,
+          publicUrl: row.visibility === "public" ? publicUrl(row) : null,
+        });
+      } catch (err) { cb(err); }
+    });
   }
-  cb(null, true);
+  _removeFile(req, file, cb) {
+    deleteFile(file.stored?.id).then(() => cb(null), cb);
+  }
 }
 
-export const uploadAgreement = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-});
+const uploader = (category) =>
+  multer({ storage: new StoredFileEngine(category), limits: { fileSize: CATEGORIES[category].maxBytes, files: 1 } });
 
-// Profile photo / passport upload — separate directory, image-only, served
-// back out statically (see server.js) so <img src> can point straight at it.
-export const PHOTOS_DIR = path.join(__dirname, "..", "..", "uploads", "photos");
-fs.mkdirSync(PHOTOS_DIR, { recursive: true });
-
-const photoStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, PHOTOS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".jpg";
-    cb(null, `${req.user.id}-${Date.now()}${ext}`);
-  },
-});
-
-function photoFileFilter(req, file, cb) {
-  if (!["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
-    return cb(new Error("Only JPG, PNG, or WEBP images are accepted"));
-  }
-  cb(null, true);
-}
-
-export const uploadPhoto = multer({
-  storage: photoStorage,
-  fileFilter: photoFileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-});
-
-// Scanned seminar attendance sheets — uploaded by a Unit Leader (or above)
-// alongside the per-farmer checklist. Accepts PDF or a photo of the sheet.
-export const SHEETS_DIR = path.join(__dirname, "..", "..", "uploads", "sheets");
-fs.mkdirSync(SHEETS_DIR, { recursive: true });
-
-const sheetStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, SHEETS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".pdf";
-    cb(null, `${req.user.id}-${Date.now()}${ext}`);
-  },
-});
-
-function sheetFileFilter(req, file, cb) {
-  if (!["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
-    return cb(new Error("Only PDF, JPG, PNG, or WEBP files are accepted"));
-  }
-  cb(null, true);
-}
-
-export const uploadSheet = multer({
-  storage: sheetStorage,
-  fileFilter: sheetFileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-});
-
-// Optional proof image attached to a Unit Leader's profile report — image
-// only, own directory, served statically like photos/products (see
-// server.js) since these are reviewed by admin, not publicly sensitive.
-export const REPORT_PROOFS_DIR = path.join(__dirname, "..", "..", "uploads", "report-proofs");
-fs.mkdirSync(REPORT_PROOFS_DIR, { recursive: true });
-
-const reportProofStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, REPORT_PROOFS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".jpg";
-    cb(null, `${req.user.id}-${Date.now()}${ext}`);
-  },
-});
-
-function reportProofFileFilter(req, file, cb) {
-  if (!["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
-    return cb(new Error("Only JPG, PNG, or WEBP images are accepted"));
-  }
-  cb(null, true);
-}
-
-export const uploadReportProof = multer({
-  storage: reportProofStorage,
-  fileFilter: reportProofFileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-});
-
-// Cross-department request attachments — optional, per the requester's
-// choice. PDF or common image types, same size cap as other document
-// uploads in this app.
-export const REQUEST_ATTACHMENTS_DIR = path.join(__dirname, "..", "..", "uploads", "request-attachments");
-fs.mkdirSync(REQUEST_ATTACHMENTS_DIR, { recursive: true });
-
-const requestAttachmentStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, REQUEST_ATTACHMENTS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".pdf";
-    cb(null, `${req.user.id}-${Date.now()}${ext}`);
-  },
-});
-
-function requestAttachmentFileFilter(req, file, cb) {
-  if (!["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
-    return cb(new Error("Only PDF, JPG, PNG, or WEBP files are accepted"));
-  }
-  cb(null, true);
-}
-
-export const uploadRequestAttachment = multer({
-  storage: requestAttachmentStorage,
-  fileFilter: requestAttachmentFileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-});
-
-// Training course materials (TRC) — optional file an admin attaches
-// when uploading a course (slides, notes, handouts). Wider file types
-// than the other uploads here since course materials are commonly
-// slideshows/docs, not just PDFs or images.
-export const MATERIALS_DIR = path.join(__dirname, "..", "..", "uploads", "materials");
-fs.mkdirSync(MATERIALS_DIR, { recursive: true });
-
-const materialStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, MATERIALS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || "";
-    cb(null, `${req.user.id}-${Date.now()}${ext}`);
-  },
-});
-
-const MATERIAL_MIME_TYPES = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-];
-
-function materialFileFilter(req, file, cb) {
-  if (!MATERIAL_MIME_TYPES.includes(file.mimetype)) {
-    return cb(new Error("Only PDF, Word, PowerPoint, or image files are accepted"));
-  }
-  cb(null, true);
-}
-
-export const uploadCourseMaterial = multer({
-  storage: materialStorage,
-  fileFilter: materialFileFilter,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB — slide decks run bigger than other uploads here
-});
-
-// Catalog/product photos — admin snaps or uploads a real image of the item
-// from the "Add Catalog" form (replaces the old emoji-icon-only input),
-// served back out statically the same way profile photos are (see
-// server.js) so <img src> can point straight at it.
-export const PRODUCT_IMAGES_DIR = path.join(__dirname, "..", "..", "uploads", "products");
-fs.mkdirSync(PRODUCT_IMAGES_DIR, { recursive: true });
-
-const productImageStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, PRODUCT_IMAGES_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || ".jpg";
-    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
-  },
-});
-
-function productImageFileFilter(req, file, cb) {
-  if (!["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
-    return cb(new Error("Only JPG, PNG, or WEBP images are accepted"));
-  }
-  cb(null, true);
-}
-
-export const uploadProductImage = multer({
-  storage: productImageStorage,
-  fileFilter: productImageFileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-});
+export const uploadAgreement = uploader("agreement");
+export const uploadPhoto = uploader("profile_photo");
+export const uploadMaintenancePhoto = uploader("maintenance_photo");
+export const uploadSheet = uploader("attendance_sheet");
+export const uploadReportProof = uploader("report_proof");
+export const uploadRequestAttachment = uploader("request_attachment");
+export const uploadCourseMaterial = uploader("lesson_document");
+export const uploadProductImage = uploader("product_image");
+// New in this foundation step, used by later phases.
+export const uploadPurchasingFile = uploader("purchasing");
+export const uploadDeliveryPhoto = uploader("delivery_photo");
+export const uploadCertificateAsset = uploader("certificate_asset");
+export const uploadIdDocument = uploader("id_document");

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
-import { API_ORIGIN } from "../../api/client.js";
+import { assetUrl } from "../../api/client.js";
 
 // Shopping-site-style product grid (Jumia/Temu-like): search + category
 // pills up top, then a card grid. Each card shows the item's photo (or an
@@ -75,7 +75,7 @@ export default function ProductCatalog({ items, onSelect }) {
             <div className="flex h-24 items-center justify-center overflow-hidden bg-gradient-to-br from-canopy-50 to-soil-50 text-5xl transition group-hover:scale-105">
               {item.imageUrl ? (
                 <img
-                  src={`${API_ORIGIN}${item.imageUrl}`}
+                  src={assetUrl(item.imageUrl, "products")}
                   alt={item.crop}
                   className="h-full w-full object-cover"
                 />

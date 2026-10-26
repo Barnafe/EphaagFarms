@@ -1,7 +1,7 @@
 export default function BoostDepositReviewPanel({ deposits, onVerify }) {
   return (
     <div className="card">
-      <p className="text-sm text-ink-600">Boost Cash deposits awaiting verification</p>
+      <p className="text-sm text-ink-600">Business Boost (LT2) deposits awaiting verification</p>
       <div className="mt-3 space-y-2">
         {deposits.length === 0 && <p className="text-sm text-ink-600">Nothing pending.</p>}
         {deposits.map((d) => (

@@ -5,13 +5,32 @@ function httpError(message, status = 400) {
   return Object.assign(new Error(message), { status });
 }
 
+// Money amounts from a request body: must be a finite number > 0. Used by
+// every endpoint below that moves or records money. Before the
+// 2026-10-20 payment audit most of them only checked "is it truthy", so a
+// NEGATIVE amount was accepted — e.g. a negative "withdrawal" credited the
+// account — and a non-numeric string reached the database as a 500.
+function positiveAmount(raw, label = "amount") {
+  const n = Number(raw);
+  if (raw === undefined || raw === null || raw === "" || !Number.isFinite(n) || n <= 0) {
+    throw httpError(`${label} must be a number greater than zero`);
+  }
+  return n;
+}
+
 // Posts a ledger row and keeps finance_accounts.current_balance in sync.
 // Runs inside the caller's own client/transaction when one is passed
 // (transfers need that — two account balances must move together);
 // otherwise runs its own single-statement writes against the pool,
 // matching the rest of this codebase's convention of only reaching for
 // an explicit BEGIN/COMMIT when more than one write must be atomic.
+//
+// Sign rules: expense, payment and transfer all take money OUT of
+// `accountId`; income puts it in. (Transfers used to fall into the
+// "else" branch and CREDIT the source account as well as the
+// destination, so every transfer created money out of thin air.)
 async function postTransaction(runner, { txnType, amount, accountId, transferToAccountId, department, description, relatedTable, relatedId, recordedBy }) {
+  amount = Number(amount);
   const reference = generateReference(REF_PREFIX.financeTransaction);
   const { rows } = await runner.query(
     `INSERT INTO finance_transactions
@@ -21,13 +40,23 @@ async function postTransaction(runner, { txnType, amount, accountId, transferToA
   );
 
   if (accountId) {
-    const delta = txnType === "expense" || txnType === "payment" ? -amount : amount;
+    const outflow = txnType === "expense" || txnType === "payment" || txnType === "transfer";
+    const delta = outflow ? -amount : amount;
     await runner.query(`UPDATE finance_accounts SET current_balance = current_balance + $1 WHERE id = $2`, [delta, accountId]);
   }
   if (txnType === "transfer" && transferToAccountId) {
     await runner.query(`UPDATE finance_accounts SET current_balance = current_balance + $1 WHERE id = $2`, [amount, transferToAccountId]);
   }
   return rows[0];
+}
+
+// Locks an account row and refuses if it can't cover `amount`.
+async function assertFunds(client, accountId, amount) {
+  const { rows } = await client.query(`SELECT current_balance FROM finance_accounts WHERE id = $1 FOR UPDATE`, [accountId]);
+  if (!rows[0]) throw httpError("Account not found", 404);
+  if (Number(rows[0].current_balance) < amount) {
+    throw httpError(`Insufficient balance — the account holds ₦${Number(rows[0].current_balance).toLocaleString()}`);
+  }
 }
 
 // =======================================================================
@@ -407,8 +436,8 @@ export async function listIncome(req, res) {
 }
 
 export async function createIncome(req, res) {
-  const { source, category, amount, description, receivedFrom, accountId, receivedAt } = req.body;
-  if (!amount) throw httpError("amount is required");
+  const { source, category, description, receivedFrom, accountId, receivedAt } = req.body;
+  const amount = positiveAmount(req.body.amount);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -449,8 +478,9 @@ export async function listExpenses(req, res) {
 }
 
 export async function createExpense(req, res) {
-  const { category, department, description, amount, employeeId, budgetId, requestId, accountId, expenseDate, receiptPath } = req.body;
-  if (!description || !amount) throw httpError("description and amount are required");
+  const { category, department, description, employeeId, budgetId, requestId, accountId, expenseDate, receiptPath } = req.body;
+  if (!description) throw httpError("description is required");
+  const amount = positiveAmount(req.body.amount);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -506,8 +536,9 @@ export async function listPayables(req, res) {
 }
 
 export async function createPayable(req, res) {
-  const { payeeType, payeeName, invoiceNumber, amount, department, dueDate, notes } = req.body;
-  if (!payeeName || !amount) throw httpError("payeeName and amount are required");
+  const { payeeType, payeeName, invoiceNumber, department, dueDate, notes } = req.body;
+  if (!payeeName) throw httpError("payeeName is required");
+  const amount = positiveAmount(req.body.amount);
   const reference = generateReference(REF_PREFIX.payable);
   const { rows } = await pool.query(
     `INSERT INTO finance_payables (reference, payee_type, payee_name, invoice_number, amount, department, due_date, notes, status, created_by)
@@ -519,17 +550,32 @@ export async function createPayable(req, res) {
 
 export async function recordPayableSettlement(req, res) {
   const { id } = req.params;
-  const { amount } = req.body;
-  if (!amount) throw httpError("amount is required");
-  const { rows: existing } = await pool.query(`SELECT * FROM finance_payables WHERE id = $1`, [id]);
-  if (!existing[0]) throw httpError("Payable not found", 404);
-  const newPaid = Number(existing[0].amount_paid) + Number(amount);
-  const status = payableStatus(Number(existing[0].amount), newPaid, existing[0].due_date);
-  const { rows } = await pool.query(
-    `UPDATE finance_payables SET amount_paid = $1, status = $2 WHERE id = $3 RETURNING *`,
-    [newPaid, status, id]
-  );
-  res.json({ payable: rows[0] });
+  const amount = positiveAmount(req.body.amount);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Row locked so two settlements recorded at the same moment can't
+    // both read the same amount_paid and overwrite each other.
+    const { rows: existing } = await client.query(`SELECT * FROM finance_payables WHERE id = $1 FOR UPDATE`, [id]);
+    if (!existing[0]) throw httpError("Payable not found", 404);
+    const outstanding = Number(existing[0].amount) - Number(existing[0].amount_paid);
+    if (amount > outstanding) {
+      throw httpError(`That's more than the ₦${outstanding.toLocaleString()} still outstanding on this payable`);
+    }
+    const newPaid = Number(existing[0].amount_paid) + amount;
+    const status = payableStatus(Number(existing[0].amount), newPaid, existing[0].due_date);
+    const { rows } = await client.query(
+      `UPDATE finance_payables SET amount_paid = $1, status = $2 WHERE id = $3 RETURNING *`,
+      [newPaid, status, id]
+    );
+    await client.query("COMMIT");
+    res.json({ payable: rows[0] });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // =======================================================================
@@ -553,8 +599,9 @@ export async function listReceivables(req, res) {
 }
 
 export async function createReceivable(req, res) {
-  const { customerName, invoiceNumber, amount, dueDate, notes } = req.body;
-  if (!customerName || !amount) throw httpError("customerName and amount are required");
+  const { customerName, invoiceNumber, dueDate, notes } = req.body;
+  if (!customerName) throw httpError("customerName is required");
+  const amount = positiveAmount(req.body.amount);
   const reference = generateReference(REF_PREFIX.receivable);
   const { rows } = await pool.query(
     `INSERT INTO finance_receivables (reference, customer_name, invoice_number, amount, due_date, notes, status, created_by)
@@ -566,13 +613,17 @@ export async function createReceivable(req, res) {
 
 export async function recordReceivablePayment(req, res) {
   const { id } = req.params;
-  const { amount, accountId } = req.body;
-  if (!amount) throw httpError("amount is required");
+  const { accountId } = req.body;
+  const amount = positiveAmount(req.body.amount);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const { rows: existing } = await client.query(`SELECT * FROM finance_receivables WHERE id = $1 FOR UPDATE`, [id]);
     if (!existing[0]) throw httpError("Receivable not found", 404);
+    const owed = Number(existing[0].amount) - Number(existing[0].amount_received);
+    if (amount > owed) {
+      throw httpError(`That's more than the ₦${owed.toLocaleString()} still owed on this receivable`);
+    }
     const newReceived = Number(existing[0].amount_received) + Number(amount);
     const status = receivableStatus(Number(existing[0].amount), newReceived, existing[0].due_date);
     const { rows } = await client.query(
@@ -609,8 +660,8 @@ export async function listPayments(req, res) {
 }
 
 export async function createPayment(req, res) {
-  const { paymentType, payableId, receivableId, requestId, amount, method, accountId, scheduledDate } = req.body;
-  if (!amount) throw httpError("amount is required");
+  const { paymentType, payableId, receivableId, requestId, method, accountId, scheduledDate } = req.body;
+  const amount = positiveAmount(req.body.amount);
   const reference = generateReference(REF_PREFIX.financePayment);
   const { rows } = await pool.query(
     `INSERT INTO finance_payments (reference, payment_type, payable_id, receivable_id, request_id, amount, method, account_id, scheduled_date, created_by)
@@ -633,6 +684,17 @@ export async function updatePaymentStatus(req, res) {
     const { rows: existing } = await client.query(`SELECT * FROM finance_payments WHERE id = $1 FOR UPDATE`, [id]);
     const payment = existing[0];
     if (!payment) throw httpError("Payment not found", 404);
+
+    // A payment that's already completed/cancelled is final. Without this
+    // guard, setting "completed" a second time posted a SECOND ledger
+    // transaction (deducting the account again) and added the amount to
+    // the payable's amount_paid again — paying the same bill twice.
+    if (["completed", "cancelled"].includes(payment.status)) {
+      throw httpError(`This payment is already ${payment.status} and can't be changed`, 409);
+    }
+    if (status === "completed" && payment.account_id) {
+      await assertFunds(client, payment.account_id, Number(payment.amount));
+    }
 
     const { rows } = await client.query(
       `UPDATE finance_payments SET status = $1, processed_at = CASE WHEN $1 = 'completed' THEN now() ELSE processed_at END WHERE id = $2 RETURNING *`,
@@ -689,8 +751,8 @@ export async function createAccount(req, res) {
 
 export async function depositToAccount(req, res) {
   const { id } = req.params;
-  const { amount, description } = req.body;
-  if (!amount) throw httpError("amount is required");
+  const { description } = req.body;
+  const amount = positiveAmount(req.body.amount);
   const txn = await postTransaction(pool, {
     txnType: "income", amount, accountId: id, description: description || "Deposit", recordedBy: req.user.id,
   });
@@ -699,21 +761,36 @@ export async function depositToAccount(req, res) {
 
 export async function withdrawFromAccount(req, res) {
   const { id } = req.params;
-  const { amount, description } = req.body;
-  if (!amount) throw httpError("amount is required");
-  const txn = await postTransaction(pool, {
-    txnType: "expense", amount, accountId: id, description: description || "Withdrawal", recordedBy: req.user.id,
-  });
-  res.status(201).json({ transaction: txn });
-}
-
-export async function transferBetweenAccounts(req, res) {
-  const { fromAccountId, toAccountId, amount, description } = req.body;
-  if (!fromAccountId || !toAccountId || !amount) throw httpError("fromAccountId, toAccountId and amount are required");
-  if (fromAccountId === toAccountId) throw httpError("fromAccountId and toAccountId must differ");
+  const { description } = req.body;
+  const amount = positiveAmount(req.body.amount);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    await assertFunds(client, id, amount);
+    const txn = await postTransaction(client, {
+      txnType: "expense", amount, accountId: id, description: description || "Withdrawal", recordedBy: req.user.id,
+    });
+    await client.query("COMMIT");
+    res.status(201).json({ transaction: txn });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function transferBetweenAccounts(req, res) {
+  const { fromAccountId, toAccountId, description } = req.body;
+  if (!fromAccountId || !toAccountId) throw httpError("fromAccountId and toAccountId are required");
+  if (fromAccountId === toAccountId) throw httpError("fromAccountId and toAccountId must differ");
+  const amount = positiveAmount(req.body.amount);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows: dest } = await client.query(`SELECT id FROM finance_accounts WHERE id = $1`, [toAccountId]);
+    if (!dest[0]) throw httpError("Destination account not found", 404);
+    await assertFunds(client, fromAccountId, amount);
     const txn = await postTransaction(client, {
       txnType: "transfer", amount, accountId: fromAccountId, transferToAccountId: toAccountId,
       description: description || "Inter-account transfer", recordedBy: req.user.id,

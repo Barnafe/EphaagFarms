@@ -3,6 +3,7 @@ import path from "node:path";
 import { generateReference, REF_PREFIX } from "../utils/reference.js";
 import { sendMail } from "../utils/email.js";
 import { REQUEST_ATTACHMENTS_DIR } from "../middleware/upload.js";
+import { sendFileRef } from "../utils/fileRefs.js";
 
 // Generic cross-department approval workflow (2026-08-12 spec). Any admin
 // user can raise a request against any department, build a chain of
@@ -93,6 +94,7 @@ export async function createRequest(req, res) {
       [request.id, order]
     );
     await client.query("COMMIT");
+    client.release(); // hand the connection back before the follow-up queries
 
     const { rows: firstStepRows } = await pool.query(
       `SELECT * FROM request_approval_steps WHERE request_id = $1 AND step_order = 1`,
@@ -247,6 +249,7 @@ export async function decideStep(req, res) {
       }
     }
     await client.query("COMMIT");
+    client.release(); // hand the connection back before the follow-up queries
 
     if (requestStatus === "pending") {
       const nextStep = steps.find((s) => s.step_order === currentStep.step_order + 1);
@@ -287,6 +290,5 @@ export async function listAdminUsers(req, res) {
 export async function downloadAttachment(req, res) {
   const { rows } = await pool.query(`SELECT attachment_url FROM department_requests WHERE id = $1`, [req.params.id]);
   if (!rows[0]?.attachment_url) return res.status(404).json({ error: "No attachment on this request" });
-  const filePath = path.join(REQUEST_ATTACHMENTS_DIR, rows[0].attachment_url);
-  res.sendFile(filePath);
+  await sendFileRef(res, rows[0].attachment_url, { legacyDir: REQUEST_ATTACHMENTS_DIR });
 }

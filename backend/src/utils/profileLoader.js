@@ -1,4 +1,5 @@
 import { pool } from "../db/pool.js";
+import { mapCorperProfile, computeCompletion } from "./corperProfile.js";
 
 // Loads the role-specific profile row for a user and merges it onto the
 // base user object, so every endpoint that returns a user (register, login,
@@ -72,6 +73,16 @@ export async function attachProfile(user) {
       referralCode: p?.referral_code ?? null,
       referredByCode: p?.referred_by_code ?? null,
       partnerStatus: p?.partner_status ?? "none",
+    };
+  }
+
+  if (user.role_type === "corper") {
+    const { rows } = await pool.query(`SELECT * FROM corper_profiles WHERE user_id = $1`, [user.id]);
+    const profile = mapCorperProfile(rows[0]);
+    return {
+      ...user,
+      corper: profile,
+      profileCompletion: computeCompletion(profile, !!user.photo_url),
     };
   }
 

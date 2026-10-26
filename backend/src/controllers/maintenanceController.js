@@ -302,7 +302,7 @@ export async function listRequests(req, res) {
 export async function createRequest(req, res) {
   const { assetId, title, description, location, priority } = req.body;
   if (!title) throw httpError("title is required");
-  const photoUrl = req.file ? req.file.filename : null;
+  const photoUrl = req.file ? req.file.publicUrl : null;
 
   const client = await pool.connect();
   try {
@@ -340,6 +340,7 @@ export async function createRequest(req, res) {
     );
 
     await client.query("COMMIT");
+    client.release(); // hand the connection back before the follow-up queries
 
     const { rows: admins } = await pool.query(`SELECT email FROM users WHERE role_type = 'admin' AND email IS NOT NULL`);
     for (const { email } of admins) {
@@ -678,7 +679,7 @@ export async function maintenanceHistory(req, res) {
      LEFT JOIN maintenance_contractors c ON c.id = w.assigned_contractor_id
      LEFT JOIN maintenance_expenses e ON e.work_order_id = w.id
      WHERE w.status = 'completed'
-     GROUP BY w.id, a.name, t.name, c.name, c.company_name
+     GROUP BY w.id, a.name, t.name, c.company_name
      ORDER BY w.completed_at DESC`
   );
   res.json({ history: await attachWorkOrderExtras(orders) });

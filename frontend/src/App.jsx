@@ -38,12 +38,16 @@ const ProcessorDashboard = lazy(() => import("./pages/dashboards/ProcessorDashbo
 const TransporterDashboard = lazy(() => import("./pages/dashboards/TransporterDashboard.jsx"));
 const DistributorDashboard = lazy(() => import("./pages/dashboards/DistributorDashboard.jsx"));
 const InvestorDashboard = lazy(() => import("./pages/dashboards/InvestorDashboard.jsx"));
+const VerifyCertificate = lazy(() => import("./pages/VerifyCertificate.jsx"));
+const CorperDashboard = lazy(() => import("./pages/dashboards/CorperDashboard.jsx"));
 const AdminHub = lazy(() => import("./modules/admin-hub/AdminHub.jsx"));
 const AdminProfilePage = lazy(() => import("./modules/admin-hub/AdminProfilePage.jsx"));
 const AdminFeedbackPage = lazy(() => import("./modules/admin-hub/AdminFeedbackPage.jsx"));
 const AdminContactMessagesPage = lazy(() => import("./modules/admin-hub/AdminContactMessagesPage.jsx"));
 const AddCatalogPage = lazy(() => import("./modules/admin-hub/AddCatalogPage.jsx"));
 const AddPricePage = lazy(() => import("./modules/admin-hub/AddPricePage.jsx"));
+const PaymentReturn = lazy(() => import("./modules/m4-buyer-room/PaymentReturn.jsx"));
+const SystemPage = lazy(() => import("./modules/admin-system/SystemPage.jsx"));
 const LoginAsPage = lazy(() => import("./modules/admin-hub/LoginAsPage.jsx"));
 const ProcurementDepartment = lazy(() => import("./modules/m5-procurement-department/ProcurementDepartment.jsx"));
 const BuyersDirectory = lazy(() => import("./modules/admin-buyers/BuyersDirectory.jsx"));
@@ -70,6 +74,8 @@ export default function App() {
         <Route path="/research-education" element={<ResearchEducation />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/verify-certificate" element={<VerifyCertificate />} />
+        <Route path="/verify-certificate/:code" element={<VerifyCertificate />} />
 
         <Route path="/services/investment" element={<InvestmentRoom />} />
         <Route path="/services/investment/monthly" element={<MonthlyPlan />} />
@@ -105,6 +111,14 @@ export default function App() {
           element={
             <ProtectedRoute allow={["farmer"]}>
               <FarmerDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/buyer/payment-return"
+          element={
+            <ProtectedRoute allow={["buyer"]}>
+              <PaymentReturn />
             </ProtectedRoute>
           }
         />
@@ -145,6 +159,14 @@ export default function App() {
           element={
             <ProtectedRoute allow={["investor"]}>
               <InvestorDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/corper"
+          element={
+            <ProtectedRoute allow={["corper"]}>
+              <CorperDashboard />
             </ProtectedRoute>
           }
         />
@@ -193,6 +215,14 @@ export default function App() {
           element={
             <ProtectedRoute allow={["admin"]}>
               <AddPricePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/system"
+          element={
+            <ProtectedRoute allow={["admin"]}>
+              <SystemPage />
             </ProtectedRoute>
           }
         />

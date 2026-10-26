@@ -9,6 +9,11 @@ router.use(requireAuth);
 router.get("/catalog", requireRole("buyer"), orders.catalog);
 router.post("/", requireRole("buyer"), orders.placeOrder);
 router.get("/me", requireRole("buyer"), orders.myOrders);
+router.get("/fee-quote", requireRole("buyer"), orders.feeQuote);
+router.post("/:id/pay", requireRole("buyer"), orders.payOrder);
+router.post("/:id/cancel", requireRole("buyer"), orders.cancelOrder);
+router.get("/:id/receipt", requireRole("buyer"), orders.orderReceipt);
+router.post("/:id/mark-refunded", requireRole("admin"), orders.markRefunded);
 router.post("/commitment", requireRole("buyer"), orders.setStandingCommitment);
 
 // Finance (admin) — payment confirmation gates Procurement

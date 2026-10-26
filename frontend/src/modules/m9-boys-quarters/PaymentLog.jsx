@@ -26,8 +26,10 @@ export default function PaymentLog({ application, payments, onLogPayment }) {
 
   function handleLog(e) {
     e.preventDefault();
-    if (!amount) return;
-    onLogPayment({ amount: Number(amount) });
+    const n = Number(amount);
+    // Must be at least the agreed monthly amount (the server enforces this too).
+    if (!Number.isFinite(n) || n < Number(application.amount)) return;
+    onLogPayment({ amount: n });
   }
 
   return (
@@ -64,7 +66,7 @@ export default function PaymentLog({ application, payments, onLogPayment }) {
         <form onSubmit={handleLog} className="field mt-3 flex items-end gap-2">
           <div className="flex-1">
             <label>Log this month's payment (₦)</label>
-            <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input type="number" min={application.amount} value={amount} onChange={(e) => setAmount(e.target.value)} />
           </div>
           <button className="btn-primary" type="submit">
             Log payment

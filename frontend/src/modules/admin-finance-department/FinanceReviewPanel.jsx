@@ -1,7 +1,7 @@
 const LOAN_TYPE_LABELS = {
-  aided: "Aided loan (no interest)",
-  boost_cash: "Boost Cash",
-  business_fast_cash: "Business fast cash",
+  aided: "LT1 · Progressive Savings Loan (0%)",
+  boost_cash: "LT2 · Business Boost",
+  business_fast_cash: "LT3 · Business Enlargement (100%)",
 };
 
 export default function FinanceReviewPanel({ loans, onVerify, onReject }) {

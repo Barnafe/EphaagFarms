@@ -21,6 +21,7 @@ function mapMyLoan(l) {
     loanType: l.loan_type,
     interestRate: l.interest_rate ? Number(l.interest_rate) : null,
     amount: Number(l.amount),
+    repayableTotal: l.repayable_total != null ? Number(l.repayable_total) : Number(l.amount),
     repaymentMonths: l.repayment_months,
     rejectionReason: l.rejection_reason,
     reapplyAfter: l.reapply_after,
@@ -34,6 +35,7 @@ function mapRepayment(r) {
     date: r.paid_at?.slice(0, 10),
     amount: Number(r.amount),
     method: r.method,
+    verified: !!r.verified,
   };
 }
 
@@ -145,16 +147,13 @@ export default function LoanOffice() {
     }
   }
 
-  async function handleApply({ loanType, amount, depositId, repaymentMonths, reason }) {    try {
+  async function handleApply({ loanType, amount, depositId, reason }) {
+    try {
+      // The banner fixes the amount and repayment period for LT1/LT2, so only
+      // LT3 sends an amount; the server ignores anything else.
       await apiFetch("/loans", {
         method: "POST",
-        body: {
-          loan_type: loanType,
-          amount,
-          depositId,
-          repayment_months: repaymentMonths,
-          reason,
-        },
+        body: { loan_type: loanType, amount, depositId, reason },
       });
       await loadAll();
     } catch (err) {
@@ -214,6 +213,14 @@ export default function LoanOffice() {
 
   const eligibleDeposits = deposits.filter((d) => d.isEligible);
 
+  // A farmer can apply when they have no loan yet, their last one was rejected,
+  // or it's been fully repaid and verified (that's what moves LT1 up a level).
+  const verifiedRepaid = (loan.repayments || []).filter((r) => r.verified).reduce((sum, r) => sum + r.amount, 0);
+  const canApply =
+    loan.status === "none" ||
+    loan.status === "rejected" ||
+    (loan.status === "active" && loan.repayableTotal > 0 && verifiedRepaid >= loan.repayableTotal);
+
   return (
     <div className="mx-auto max-w-4xl px-6 py-10 space-y-6">
       <div>
@@ -234,7 +241,7 @@ export default function LoanOffice() {
         <>
           <LoanEligibility indices={eligibility} history={eligibilityHistory} onLoadHistory={handleLoadEligibilityHistory} ticket={ticket} />
 
-          {loan.status === "none" && (
+          {canApply && (
             <>
               <LoanApplicationForm
                 onSubmit={handleApply}
@@ -247,6 +254,7 @@ export default function LoanOffice() {
           )}
 
           {loan.status !== "none" && <LoanStatusPanel loan={loan} />}
+
 
           {loan.status === "active" && (
             <RepaymentTracker loan={loan} onLogRepayment={handleLogRepayment} />

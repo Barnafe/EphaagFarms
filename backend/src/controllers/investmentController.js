@@ -3,6 +3,7 @@ import { pool } from "../db/pool.js";
 import { generateReference, REF_PREFIX } from "../utils/reference.js";
 import { sendMail } from "../utils/email.js";
 import { AGREEMENTS_DIR } from "../middleware/upload.js";
+import { sendFileRef, refFromUrl } from "../utils/fileRefs.js";
 
 // ROI schedule matches the delivered investment proposal exactly — same
 // numbers the frontend's PlanApplicationForm shows before submitting.
@@ -38,18 +39,52 @@ async function getInvestorEmail(investorId) {
 
 // --- Investor: submit a plan application ------------------------------
 
+const PAYMENT_MODES = ["auto", "manual"];
+const OPEN_APPLICATION_STATUSES = ["submitted", "agreement_pending", "agreement_review", "active"];
+
 export async function apply(req, res) {
-  const { planType, amount, durationYears, paymentMode } = req.body;
+  const { planType, durationYears: rawDuration, paymentMode } = req.body;
+  const amount = Number(req.body.amount);
+  const durationYears = Number(rawDuration);
 
   if (!["monthly", "bulk"].includes(planType)) {
     return res.status(400).json({ error: "planType must be 'monthly' or 'bulk'" });
   }
   const minAmount = planType === "monthly" ? 5000 : 100000;
-  if (!amount || Number(amount) < minAmount) {
-    return res.status(400).json({ error: `amount must be at least ${minAmount}` });
+  if (!Number.isFinite(amount) || amount < minAmount) {
+    return res.status(400).json({ error: `amount must be a number of at least ${minAmount}` });
   }
   if (!Number.isInteger(durationYears) || durationYears < 1 || durationYears > 5) {
     return res.status(400).json({ error: "durationYears must be between 1 and 5" });
+  }
+
+  // A bad/unknown paymentMode used to reach the database CHECK constraint
+  // and come back as a generic 500 ("Something went wrong") — reject it
+  // up front with a clear message instead. A bulk plan is a single
+  // payment with no monthly schedule, so a payment mode means nothing
+  // there: it's always stored as the default, whatever the client sent
+  // (the form could carry over a stale "manual" from the monthly view).
+  let mode = "auto";
+  if (planType === "monthly" && paymentMode !== undefined && paymentMode !== null && paymentMode !== "") {
+    if (!PAYMENT_MODES.includes(paymentMode)) {
+      return res.status(400).json({ error: "paymentMode must be 'auto' or 'manual'" });
+    }
+    mode = paymentMode;
+  }
+
+  // One live application at a time. Everything else in this module
+  // (payment log, ROI breakdown, due-date countdown) reads the investor's
+  // MOST RECENT application, so a second submission while one is already
+  // running would silently hide the first one's payment schedule.
+  const { rows: openRows } = await pool.query(
+    `SELECT reference, status FROM investment_applications
+     WHERE investor_id = $1 AND status = ANY($2::text[]) LIMIT 1`,
+    [req.user.id, OPEN_APPLICATION_STATUSES]
+  );
+  if (openRows[0]) {
+    return res.status(409).json({
+      error: `You already have an application in progress (${openRows[0].reference}). Wait for it to be decided or completed before applying again.`,
+    });
   }
 
   const reference = generateReference(REF_PREFIX.investment);
@@ -57,7 +92,7 @@ export async function apply(req, res) {
     `INSERT INTO investment_applications
        (reference, investor_id, plan_type, amount, duration_years, payment_mode)
      VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [reference, req.user.id, planType, amount, durationYears, paymentMode || "auto"]
+    [reference, req.user.id, planType, amount, durationYears, mode]
   );
   res.status(201).json({ application: mapApplication(rows[0]) });
 }
@@ -68,7 +103,7 @@ export async function apply(req, res) {
 export async function myApplication(req, res) {
   const { rows } = await pool.query(
     `SELECT * FROM investment_applications WHERE investor_id = $1
-     ORDER BY id DESC LIMIT 1`,
+     ORDER BY created_at DESC, id DESC LIMIT 1`,
     [req.user.id]
   );
   const application = mapApplication(rows[0]);
@@ -89,7 +124,7 @@ export async function myApplication(req, res) {
 
 export async function myPayments(req, res) {
   const { rows: appRows } = await pool.query(
-    `SELECT id FROM investment_applications WHERE investor_id = $1 ORDER BY id DESC LIMIT 1`,
+    `SELECT id FROM investment_applications WHERE investor_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1`,
     [req.user.id]
   );
   if (!appRows[0]) return res.json({ payments: [] });
@@ -112,67 +147,107 @@ export async function myPayments(req, res) {
 
 // Manual payment logging — matches against the oldest outstanding 'due'
 // record (created on activation / after each prior payment) so the
-// countdown and reminder system stay in sync. Falls back to a one-off
-// log entry if there's no due schedule (e.g. a bulk plan).
+// countdown and reminder system stay in sync.
+//
+// Fixed in the 2026-10-20 payment audit:
+//  - amount is validated (was: any truthy value, "abc" reached the DB)
+//  - only an ACTIVE application can log payments (was: any application,
+//    including rejected / still-awaiting-agreement ones)
+//  - a payment below the agreed monthly amount is refused
+//  - the next due record always carries the AGREED monthly amount (was:
+//    it copied whatever the investor typed last, so one short payment
+//    silently lowered every future month)
+//  - on-time/late is decided by calendar date in the database (was: a JS
+//    timestamp comparison, so paying ON the due date after midnight UTC
+//    was marked late)
+//  - the whole thing runs in one transaction with the due row locked, so
+//    a double-click can't log the same month twice
+//  - no new due record is created once the plan's full term is covered
 export async function logPayment(req, res) {
-  const { amount } = req.body;
-  if (!amount || Number(amount) <= 0) {
-    return res.status(400).json({ error: "amount is required" });
+  const amount = Number(req.body?.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ error: "amount must be a positive number" });
   }
 
-  const { rows: appRows } = await pool.query(
-    `SELECT id, payment_mode, plan_type FROM investment_applications
-     WHERE investor_id = $1 ORDER BY id DESC LIMIT 1`,
-    [req.user.id]
-  );
-  const application = appRows[0];
-  if (!application) return res.status(404).json({ error: "No investment application found" });
-  if (application.payment_mode !== "manual") {
-    return res.status(400).json({ error: "This plan is auto-charged — no manual logging needed" });
-  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
 
-  const { rows: dueRows } = await pool.query(
-    `SELECT * FROM investment_payments WHERE application_id = $1 AND status = 'due'
-     ORDER BY due_date ASC LIMIT 1`,
-    [application.id]
-  );
-  const due = dueRows[0];
-
-  if (due) {
-    const status = new Date() <= new Date(due.due_date) ? "on_time" : "late";
-    const { rows: updated } = await pool.query(
-      `UPDATE investment_payments SET amount = $1, paid_date = CURRENT_DATE, status = $2
-       WHERE id = $3 RETURNING *`,
-      [amount, status, due.id]
+    const { rows: appRows } = await client.query(
+      `SELECT id, payment_mode, plan_type, status, amount, duration_years
+       FROM investment_applications
+       WHERE investor_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1 FOR UPDATE`,
+      [req.user.id]
     );
+    const application = appRows[0];
+    if (!application) throw Object.assign(new Error("No investment application found"), { status: 404 });
+    if (application.status !== "active") {
+      throw Object.assign(new Error("Payments can only be logged once your investment is active"), { status: 400 });
+    }
+    if (application.plan_type !== "monthly") {
+      throw Object.assign(new Error("Only monthly plans have a payment log"), { status: 400 });
+    }
+    if (application.payment_mode !== "manual") {
+      throw Object.assign(new Error("This plan is auto-charged — no manual logging needed"), { status: 400 });
+    }
 
-    // Roll the next due date forward a month, for monthly plans.
-    if (application.plan_type === "monthly") {
-      await pool.query(
-        `INSERT INTO investment_payments (application_id, amount, due_date, status)
-         VALUES ($1, $2, $3::date + INTERVAL '1 month', 'due')`,
-        [application.id, amount, due.due_date]
+    const { rows: dueRows } = await client.query(
+      `SELECT * FROM investment_payments WHERE application_id = $1 AND status = 'due'
+       ORDER BY due_date ASC LIMIT 1 FOR UPDATE`,
+      [application.id]
+    );
+    const due = dueRows[0];
+    if (!due) {
+      throw Object.assign(new Error("There's no payment due on this plan right now"), { status: 400 });
+    }
+
+    const agreed = Number(application.amount);
+    if (amount < agreed) {
+      throw Object.assign(
+        new Error(`Your agreed monthly payment is ₦${agreed.toLocaleString()} — a smaller amount can't be logged`),
+        { status: 400 }
       );
     }
 
-    const p = updated[0];
-    return res.status(201).json({ payment: { id: p.id, date: p.paid_date, amount: Number(p.amount), status: p.status } });
-  }
+    const { rows: updated } = await client.query(
+      `UPDATE investment_payments
+       SET amount = $1, paid_date = CURRENT_DATE,
+           status = CASE WHEN CURRENT_DATE <= due_date THEN 'on_time' ELSE 'late' END
+       WHERE id = $2 RETURNING *`,
+      [amount, due.id]
+    );
 
-  const { rows } = await pool.query(
-    `INSERT INTO investment_payments (application_id, amount, paid_date, status)
-     VALUES ($1, $2, CURRENT_DATE, 'on_time') RETURNING *`,
-    [application.id, amount]
-  );
-  const p = rows[0];
-  res.status(201).json({ payment: { id: p.id, date: p.paid_date, amount: Number(p.amount), status: p.status } });
+    // Roll the next due date forward a month — but only while the plan's
+    // term (duration_years x 12 monthly payments) isn't fully covered yet.
+    const { rows: countRows } = await client.query(
+      `SELECT COUNT(*)::int AS n FROM investment_payments WHERE application_id = $1`,
+      [application.id]
+    );
+    if (countRows[0].n < application.duration_years * 12) {
+      await client.query(
+        `INSERT INTO investment_payments (application_id, amount, due_date, status)
+         VALUES ($1, $2, $3::date + INTERVAL '1 month', 'due')`,
+        [application.id, agreed, due.due_date]
+      );
+    }
+
+    await client.query("COMMIT");
+    const p = updated[0];
+    res.status(201).json({ payment: { id: p.id, date: p.paid_date, amount: Number(p.amount), status: p.status } });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // --- Investor: ROI breakdown --------------------------------------------
 
 export async function myRoi(req, res) {
   const { rows: appRows } = await pool.query(
-    `SELECT id FROM investment_applications WHERE investor_id = $1 ORDER BY id DESC LIMIT 1`,
+    `SELECT id FROM investment_applications WHERE investor_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1`,
     [req.user.id]
   );
   if (!appRows[0]) return res.json({ records: [] });
@@ -267,8 +342,7 @@ export async function downloadAgreement(req, res) {
   const fileUrl = rows[0]?.agreement_file_url;
   if (!fileUrl) return res.status(404).json({ error: "No agreement uploaded for this application" });
 
-  const filename = fileUrl.split("/").pop();
-  res.sendFile(path.join(AGREEMENTS_DIR, filename));
+  await sendFileRef(res, refFromUrl(fileUrl), { legacyDir: AGREEMENTS_DIR });
 }
 
 // --- Admin (Finance): application review --------------------------------
@@ -282,7 +356,7 @@ export async function listApplications(req, res) {
     `SELECT a.*, u.name AS investor_name FROM investment_applications a
      JOIN users u ON u.id = a.investor_id
      WHERE a.status IN ('submitted', 'agreement_pending', 'agreement_review')
-     ORDER BY a.id ASC`
+     ORDER BY a.created_at ASC`
   );
   res.json({
     applications: rows.map((a) => ({ ...mapApplication(a), investorName: a.investor_name })),

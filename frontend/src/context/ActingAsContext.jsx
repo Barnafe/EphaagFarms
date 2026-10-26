@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { apiFetch } from "../api/client.js";
 
 const ActingAsContext = createContext(null);
 const STORAGE_KEY = "ephaag_acting_as";
@@ -28,7 +29,11 @@ export function ActingAsProvider({ children }) {
 
   function setActingAs(department) {
     setActingAsState(department);
-    if (department) sessionStorage.setItem(STORAGE_KEY, department);
+    if (department) {
+      sessionStorage.setItem(STORAGE_KEY, department);
+      // Written to the server's security log (best effort — never blocks the screen).
+      apiFetch("/security/acting-as", { method: "POST", body: { department } }).catch(() => {});
+    }
     else sessionStorage.removeItem(STORAGE_KEY);
   }
 

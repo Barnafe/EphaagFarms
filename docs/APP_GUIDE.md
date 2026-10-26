@@ -402,3 +402,132 @@ both v21 branches, untouched by this merge).
 Deleted all throwaway test scripts (`merge_v22_test.py`,
 `store_test_sandbox.py`, sandbox `.env`) and cleaned `node_modules`/
 `dist`/`__pycache__` before zipping. Delivered as Ephaag-farms-v22.zip.
+
+## v24 — Corps member (NYSC) portal, phase 1: role, registration, login, dashboard, profile — 2026-10-20
+NYSC has partnered with EPHAAG to train corps members. This is phase 1 of 6;
+the agreed rules for the later phases are recorded here so nobody has to
+re-derive them.
+
+**Agreed rules (all phases)**
+- Own role `corper` (self-service). Look = the light "portal" design (option B),
+  same hamburger `DashboardShell` as every room, content in an `on-light` cream surface.
+- Registration is free. A single one-time access fee is paid online through a
+  payment gateway (to be introduced later, for the whole app). Until paid:
+  no access to courses and the dashboard % does not count.
+- Admin creates training in all forms (video link, PDF/reading, live session) and,
+  for every course/training, chooses its audience: **Corps** or **General**.
+  Corps content is separate from the general (free) farmer courses — the existing
+  farmer endpoints (`rtc` `myCourses` etc.) must filter to `audience='general'`.
+- Each course has its own quiz and its own score out of 100 (score only matters at
+  course level). **Dashboard % = courses completed / total corps courses** (5 courses:
+  each = 20%), regardless of quiz score. Nothing counts before payment.
+- Certificate: one general EPHAAG certificate for everybody (personal details only —
+  no grades, no course names). Issued automatically when a member completes everything
+  but hidden until the batch due date; admin then marks the batch complete, making it
+  visible to every completed member of that batch and emailing them. Admin can export
+  all registered corps members' data to send to NYSC for NYSC's own certification.
+
+**Built in phase 1**
+- DB (`001_init.sql` §21): `users.role_type` now allows `'corper'` (self-healing
+  DROP/ADD of `users_role_type_check`); new `corper_profiles` (NYSC identity,
+  personal, education/skills, training goals, consents). Batch = `service_year` +
+  `batch` (A/B/C) + `stream` (I/II) — structured, not free text. State code is unique
+  (case-insensitive).
+- `backend/src/utils/corperProfile.js`: single spec of every profile field, its tab
+  ("section"), validation, and which fields count toward profile completeness (plus the
+  passport photo). Shared by registration, the profile endpoints and the `/me` loader.
+- `POST /auth/register` with `role_type:"corper"` (email + phone mandatory; NYSC fields
+  and terms acceptance validated before any insert); `GET /api/corpers/me`;
+  `PUT /api/corpers/me/profile/:section` (personal | nysc | education | goals | documents).
+  `attachProfile` returns `user.corper` and `user.profileCompletion` for corpers.
+- Frontend: `CorperRegisterWizard` (3 steps) wired into Register; Member / Corp member
+  switch on LoginMember; `/dashboard/corper` → `modules/m10-corper-room/` (Home with the
+  4-step tracker, five-tab Profile, locked placeholders for Training / Payments /
+  Certificate, Support → Contact).
+
+**Not built yet:** payment + gate, course audience + lessons + quizzes + admin screens,
+progress %, batches/due dates, certificate + verify page + emails, NYSC export, CV upload
+(needs persistent file storage — Render's free-tier disk is wiped on redeploy), universal
+Referral tab for corpers.
+
+## v25 — Corps member portal, phase 2: Corps / General training, lessons & quiz (admin side) — 2026-10-21
+**Rule:** every course/training the admin creates in TRC → Training now has an **audience**:
+`general` (the existing free farmer "Seminar" courses — every course that existed before this
+version is general) or `corps` (NYSC corps member training). Corps content is completely separate:
+farmers never see it (`myCourses`, `completeCourse`, material download and the farmer `course_pct`
+all filter to `audience = 'general'`), and corps members cannot use the farmer endpoints.
+
+**DB (`001_init.sql` §22):** `courses.audience` (`general`|`corps`, default `general`, self-healing
+check constraint); `course_lessons` (ordered; kind `video` link | `document` upload | `live` link + date);
+`course_quiz_questions` + `course_quiz_options` (multiple choice, exactly one correct option).
+
+**Admin API (all admin-only, `routes/rtc.js` → `trainingContentController.js`):**
+`POST /rtc/admin/courses` takes `audience` (a corps course ignores material/link/schedule);
+`GET /rtc/admin/courses?audience=general|corps|all` (adds lesson/question counts);
+`GET /rtc/admin/courses/:id/content`; lessons: `POST|PUT|DELETE .../lessons[/:lessonId]`,
+`POST .../lessons/:lessonId/move {direction:"up"|"down"}`, `GET /rtc/admin/lessons/:lessonId/file`;
+quiz: `POST|PUT|DELETE .../questions[/:questionId]`. Lesson/question changes are serialised per
+course (row lock) so positions stay unique and contiguous. Links must be http(s). **A corps course
+can only be approved once it has at least one lesson and one quiz question.** The dashboard summary
+gained `corpsApprovedCourses` / `corpsDraftCourses` (the general counts mean what they always did).
+
+**Admin UI (`modules/admin-trc-department`):** audience switch on the course form (corps hides the
+single-material / link / schedule fields), All/General/Corps filter, audience badge, lesson & question
+counts, "Manage lessons & quiz" → `CorpsCourseEditor.jsx` (add/edit/delete/reorder lessons, document
+download, question editor with 2–6 options, approve when ready). Dashboard shows corps cards.
+
+**Also fixed:** a rejected upload (wrong type) or an oversized file used to come back as a vague 500
+"Something went wrong"; it is now a clear 400 everywhere (`upload.js` `badFile`, multer errors in the
+global handler). `apiUpload` accepts `{method}` (needed for PUT multipart). The corps registration
+wizard's labels are now properly associated with their inputs.
+
+**Verification (see the delivery note):** 23 API tests (phase 1 regression + phase 2) and 8 UI tests that
+drive the real screens against the real backend/Postgres, on both an upgraded and a brand-new database.
+
+**Still to build:** payment gate + gateway, corps-member learning screens (lessons, quiz taking, scores,
+progress % = courses completed / total), batches + due date + admin "mark batch complete", certificate +
+verify page + emails, NYSC export, CV upload (needs persistent storage), Referral tab for corpers.
+Note for the learning phase: quiz attempts must snapshot answers (editing a question replaces its options).
+
+
+## Corps access-fee payments (phase 3, 2026-10-21)
+
+See `docs/CHANGES_2026-10-21_phase3_payment_gate.md` for the full write-up.
+In short: corps members pay a one-time fee (set by admin in TRC -> Corps, stored
+in `finance_settings`) via Paystack, or an admin confirms by hand when Paystack
+isn't connected. `confirmPayment()` is the only place a payment becomes "paid";
+it also posts the income to Finance. Every endpoint that opens corps training
+must sit behind `requireCorperPaid` (HTTP 402 `PAYMENT_REQUIRED`).
+
+
+## Corps learning, quizzes and progress (phase 4, v27, 2026-10-21)
+
+Full write-up: `docs/CHANGES_2026-10-21_phase4_learning.md`. Rules in short:
+
+- **Dashboard % = courses completed / live corps courses** (live = `audience='corps' AND approved`). 5 courses ->
+  each is 20%. Quiz score never changes it.
+- **A course is complete when every lesson is marked done AND the quiz has been submitted at least once.**
+  `corper_course_progress.completed_at` is set once and never cleared (later edits/deletes don't undo it).
+- Unpaid/refunded members: every learning endpoint returns 402 `PAYMENT_REQUIRED`, and their progress doesn't
+  count (kept; counts again if they pay again).
+- **One place for the numbers:** `utils/corperLearning.js` (pure rules: percent, quiz lock, live-session rule,
+  grading, shuffle) + `loadProgressRows()` in `corperLearningController.js` (the one SQL). Member dashboard,
+  admin Corps -> Progress, and (phase 5) certificate + NYSC export must all use these, never their own maths.
+- Decisions as switches: `RULES` in `utils/corperLearning.js` (lessons before quiz, live complete only after
+  start, shuffle). Retakes are unlimited; correct answers + explanations show after submitting.
+- Quiz is graded on the server only. Before submitting, the member gets question/option text only (no
+  `isCorrect`, no explanation). `corper_quiz_answers` keeps a COPY of the question, the chosen answer and the
+  correct answer, because editing a question replaces its option ids. lesson/question/option ids in the
+  progress tables have no foreign keys on purpose.
+- Double submit: `clientToken` (unique per member+course) makes repeated sends one attempt; all changes to a
+  member's course progress lock their `corper_course_progress` row first.
+- Honour system: videos and live sessions are on other sites, so "Mark complete" can't be verified. If NYSC
+  needs proof of attendance, add admin-marked attendance for live sessions.
+- Admin approving a corps course when members already have progress gets 409 `APPROVAL_IMPACT` and must
+  resend with `confirmImpact: true` (the screen shows a confirm box). The error handler now passes
+  `httpError(msg, status, clientCode, details)` through as `code` / `details`.
+- Tests: `npm run test:unit -w backend` (no database) and `python3 backend/corps_learning_test.py` (live API).
+
+
+## Corps certificates (v28)
+TRC -> Corps now has Payments | Progress | **Batches** | **Members**. Batches: set a due date, then Mark batch complete to release certificates and email members. Members: filters and the NYSC .xlsx export. Public check page: `/verify-certificate`. Details: `docs/CHANGES_2026-10-21_phase4_batches_certificates.md`.
