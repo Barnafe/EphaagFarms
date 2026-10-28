@@ -2,9 +2,11 @@ import { registerJob } from "./runner.js";
 import { processQueue } from "../services/messaging.js";
 import { purgeExpiredFiles } from "../services/storage.js";
 import { runDueDateReminders } from "../controllers/investmentController.js";
+import { runInvestmentAutoCharge } from "../services/investmentPayments.js";
 import { pool } from "../db/pool.js";
 import { expireUnpaidOrders, recheckStuckPayments } from "../services/orderPayments.js";
 import { expireSharePurchases } from "../controllers/farmerSharesController.js";
+import "../controllers/corperPaymentController.js"; // registers the corps_fee payment handler for the re-check job
 
 // Every scheduled task is registered here, in one place. Each job processes
 // whatever is due when it runs (catch-up) and is safe to run twice.
@@ -14,6 +16,9 @@ export function registerAllJobs() {
 
   registerJob({ name: "investment-reminders", description: "Investment payment due-date reminder emails", daily: "08:00" },
     async () => { await runDueDateReminders(); return { ok: true }; });
+
+  registerJob({ name: "investment-auto-charge", description: "Charge saved cards for investment payments that fall due (one attempt; a decline notifies the investor and Finance, no retry)", daily: "07:00" },
+    () => runInvestmentAutoCharge());
 
   registerJob({ name: "expire-unpaid", description: "Expire unpaid orders after their time limit (a payment that did arrive is settled first)", every: 10 },
     ({ now }) => expireUnpaidOrders({ now }));

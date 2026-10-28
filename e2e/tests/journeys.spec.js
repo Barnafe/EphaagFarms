@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import pg from "pg";
+
 
 const STANDIN = "http://127.0.0.1:4510"; // the stand-in Paystack (see global-setup.mjs)
 
@@ -43,6 +45,12 @@ async function newBuyerSession(page, request) {
 async function openMenuItem(page, name) {
   await page.locator("header button").first().click();
   await page.getByRole("button", { name }).first().click();
+}
+
+// Farmer Savings is a pull-down ("Go to": My savings / Farm shares). The share-purchase card lives under
+// "Farm shares", so tests that buy or inspect shares pick it first.
+async function openFarmShares(page) {
+  await page.getByLabel(/^go to/i).selectOption("farm-share");
 }
 
 async function shopOneItemToPaymentStep(page, email) {
@@ -108,7 +116,7 @@ test("a payment that cannot be used is refused on screen, not left for Finance @
   await request.get(`${STANDIN}/__set?reference=${reference}&status=success&amountKobo=100`);
   await page.goto(`/dashboard/buyer/payment-return?reference=${reference}`);
   await expect(page.getByText(/could not be used/i)).toBeVisible();
-  await expect(page.getByText(/returned to your original payment method/i)).toBeVisible();
+  await expect(page.getByText(/will return the money to you/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /pay the correct amount/i })).toBeVisible();
 });
 
@@ -122,6 +130,7 @@ test("3 farmer buys shares through Paystack, sees them, and is warned about a du
 
   await page.goto("/dashboard/farmer");
   await openMenuItem(page, /savings/i);
+  await openFarmShares(page);
   // the fee is shown before paying
   await expect(page.getByText(/payment processing fee/i).first()).toBeVisible();
   await page.getByRole("button", { name: /buy & pay/i }).click();
@@ -153,6 +162,7 @@ test("a share payment of the wrong amount is refused on screen", async ({ page, 
   await page.route("http://paystack.standin/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Paystack stand-in</h1>" }));
   await page.goto("/dashboard/farmer");
   await openMenuItem(page, /savings/i);
+  await openFarmShares(page);
   await page.getByRole("button", { name: /buy & pay/i }).click();
   await page.getByRole("button", { name: /with paystack/i }).click();
   await page.waitForURL(/paystack\.standin\/pay\/(SPR-[A-Z0-9-]+)/);
@@ -160,10 +170,178 @@ test("a share payment of the wrong amount is refused on screen", async ({ page, 
   await request.get(`${STANDIN}/__set?reference=${reference}&status=success&amountKobo=100`);
   await page.goto(`/dashboard/farmer?sharePayment=${reference}`);
   await expect(page.getByText(/could not be used/i)).toBeVisible();
-  await expect(page.getByText(/returned to your original payment method/i)).toBeVisible();
+  await expect(page.getByText(/will return the money to you/i)).toBeVisible();
 });
 
-test.fixme("4 corps: register, pay, learn, quiz, certificate hidden, batch closed, download, public verify (needs phases 3, 13, 14)", async () => {});
+const DB_URL = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/ephaag_e2e";
+async function sql(text, params) { const c = new pg.Client({ connectionString: DB_URL }); await c.connect(); try { return await c.query(text, params); } finally { await c.end(); } }
+async function farmerStartsShareCheckout(page, request, name) {
+  const email = `e2e${name}${Date.now()}@example.test`;
+  const reg = await request.post("/api/auth/register", { data: { name: `E2E ${name}`, email, password: "Passw0rd!x", role_type: "farmer", sex: "male", state: "Bauchi", lga: "Bauchi", ward: "Ward A", unit: "Unit 1", crops: "Maize" } });
+  expect(reg.status()).toBe(201);
+  const { token } = await reg.json();
+  await page.addInitScript((t) => localStorage.setItem("ephaag_token", t), token);
+  await page.route("http://paystack.standin/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Paystack stand-in</h1>" }));
+  await page.goto("/dashboard/farmer");
+  await openMenuItem(page, /savings/i);
+  await openFarmShares(page);
+  await page.getByRole("button", { name: /buy & pay/i }).click();
+  await page.getByRole("button", { name: /with paystack/i }).click();
+  await page.waitForURL(/paystack\.standin\/pay\/(SPR-[A-Z0-9-]+)/);
+  return { reference: page.url().split("/pay/")[1], token };
+}
+
+test("9 a late share payment is not refused: the farmer sees the fee, must tick agree, then pays and gets the share @phone", async ({ page, request }) => {
+  const { reference } = await farmerStartsShareCheckout(page, request, "latefarmer");
+  // the purchase fell due 10 days ago
+  await sql("UPDATE share_purchases SET expires_at = now() - interval '230 hours' WHERE reference = $1", [reference]);
+  await page.goto("/dashboard/farmer");
+  await openMenuItem(page, /savings/i);
+  await openFarmShares(page);
+  await expect(page.getByText(/overdue by 10 days/i)).toBeVisible();
+  await page.getByRole("button", { name: /pay again/i }).click();
+  await expect(page.getByText(/this purchase is 10 days late/i)).toBeVisible();
+  await expect(page.getByText(/late fee/i).first()).toBeVisible();
+  const proceed = page.getByRole("button", { name: /proceed to pay/i });
+  await expect(proceed).toBeDisabled();
+  await page.getByRole("checkbox", { name: /i agree to pay the late fee/i }).check();
+  await expect(proceed).toBeEnabled();
+  await proceed.click();
+  await page.waitForURL(/paystack\.standin\/pay\/(SPR-[A-Z0-9-]+)/);
+  const ref2 = page.url().split("/pay/")[1];
+  expect(ref2).not.toBe(reference);
+  await request.get(`${STANDIN}/__set?reference=${ref2}&status=success`);
+  await page.goto(`/dashboard/farmer?sharePayment=${reference}`);
+  await expect(page.getByText(/payment verified/i)).toBeVisible();
+});
+
+test("10 admin Refund room: money that could not be applied is listed, a reason is required, the refund is full and moves to History", async ({ page, request }) => {
+  const { reference } = await farmerStartsShareCheckout(page, request, "refundfarmer");
+  await request.get(`${STANDIN}/__set?reference=${reference}&status=success&amountKobo=100`);
+  await page.goto(`/dashboard/farmer?sharePayment=${reference}`);
+  await expect(page.getByText(/could not be used/i)).toBeVisible();
+
+  const adminLogin = await request.post("/api/auth/login", { data: { email: "admin@ephaag.test", password: "Admin1234" } });
+  const adminToken = (await adminLogin.json()).token;
+  await page.addInitScript((t) => localStorage.setItem("ephaag_token", t), adminToken);
+  await page.goto("/admin/refunds");
+  await expect(page.getByRole("heading").or(page.getByText(/^Refund room$/)).first()).toBeVisible();
+  const row = page.locator("li", { hasText: reference });
+  await expect(row).toBeVisible();
+  await expect(row.getByText(/amount paid did not match/i)).toBeVisible();
+  await row.getByRole("button", { name: /refund…/i }).click();
+  await row.getByRole("button", { name: /refund in full/i }).click();
+  await expect(row.getByText(/write the reason/i)).toBeVisible();
+  await row.getByPlaceholder(/reason for the refund/i).fill("Farmer paid the wrong amount");
+  await row.getByRole("button", { name: /refund in full/i }).click();
+  await expect(page.locator("li", { hasText: reference })).toHaveCount(0);
+  await page.getByRole("button", { name: /^history$/i }).click();
+  await expect(page.locator("li", { hasText: reference }).getByText(/farmer paid the wrong amount/i)).toBeVisible();
+});
+
+test("11 investor pays to activate through Paystack, then pays a month with Pay now and can switch to automatic card payments @phone", async ({ page, request }) => {
+  const email = `e2einvestor${Date.now()}@example.test`;
+  const reg = await request.post("/api/auth/register", { data: { name: "E2E Investor", email, password: "Passw0rd!x", role_type: "investor", sex: "male" } });
+  expect(reg.status()).toBe(201);
+  const { token } = await reg.json();
+  const auth = { Authorization: `Bearer ${token}` };
+  const adminToken = (await (await request.post("/api/auth/login", { data: { email: "admin@ephaag.test", password: "Admin1234" } })).json()).token;
+  const adm = { Authorization: `Bearer ${adminToken}` };
+  const app = (await (await request.post("/api/investments/apply", { headers: auth, data: { planType: "monthly", amount: 10000, durationYears: 1, paymentMode: "manual" } })).json()).application;
+  expect((await request.post(`/api/investments/applications/${app.id}/decide`, { headers: adm, data: { decision: "approve" } })).status()).toBe(200);
+  await sql("UPDATE investment_applications SET status='agreement_review', agreement_file_url='/uploads/agreements/x.pdf' WHERE id=$1", [app.id]);
+  expect((await request.post(`/api/investments/applications/${app.id}/decide`, { headers: adm, data: { decision: "approve" } })).status()).toBe(200);
+
+  await page.addInitScript((t) => localStorage.setItem("ephaag_token", t), token);
+  await page.route("http://paystack.standin/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Paystack stand-in</h1>" }));
+  await page.goto("/dashboard/investor");
+  await expect(page.getByText(/approved — pay to activate/i).first()).toBeVisible();
+  await expect(page.getByText(/payment processing fee/i)).toBeVisible();
+  await page.getByRole("button", { name: /pay securely with paystack/i }).click();
+  await page.waitForURL(/paystack\.standin\/pay\/(IPR-[A-Z0-9-]+)/);
+  const ref = page.url().split("/pay/")[1];
+  await request.get(`${STANDIN}/__set?reference=${ref}&status=success`);
+  await page.goto(`/dashboard/investor?investmentPayment=${ref}`);
+  await expect(page.getByText(/payment received/i)).toBeVisible();
+  await expect(page.getByText(/active investment/i)).toBeVisible();
+  await expect(page.getByText(/pay now: month due/i)).toBeVisible();
+
+  // pay the next month with Pay now
+  await page.getByRole("button", { name: /pay securely with paystack/i }).click();
+  await page.waitForURL(/paystack\.standin\/pay\/(IPR-[A-Z0-9-]+)/);
+  const ref2 = page.url().split("/pay/")[1];
+  expect(ref2).not.toBe(ref);
+  await request.get(`${STANDIN}/__set?reference=${ref2}&status=success`);
+  await page.goto(`/dashboard/investor?investmentPayment=${ref2}`);
+  await expect(page.getByText(/payment received/i)).toBeVisible();
+  await expect(page.getByText(/paystack\)/i).first()).toBeVisible();
+
+  // switch to automatic card payments
+  await page.getByRole("button", { name: /switch to automatic card payments/i }).click();
+  await expect(page.getByText(/no card is saved yet/i)).toBeVisible();
+});
+
+test("12 Finance can record an investment payment received outside Paystack, with a required reason", async ({ page, request }) => {
+  const email = `e2einvoffline${Date.now()}@example.test`;
+  const reg = await request.post("/api/auth/register", { data: { name: "E2E Offline Investor", email, password: "Passw0rd!x", role_type: "investor", sex: "male" } });
+  const { token } = await reg.json();
+  const adminToken = (await (await request.post("/api/auth/login", { data: { email: "admin@ephaag.test", password: "Admin1234" } })).json()).token;
+  const adm = { Authorization: `Bearer ${adminToken}` };
+  const app = (await (await request.post("/api/investments/apply", { headers: { Authorization: `Bearer ${token}` }, data: { planType: "bulk", amount: 100000, durationYears: 1 } })).json()).application;
+  expect((await request.post(`/api/investments/applications/${app.id}/decide`, { headers: adm, data: { decision: "approve" } })).status()).toBe(200);
+  await sql("UPDATE investment_applications SET status='agreement_review', agreement_file_url='/uploads/agreements/x.pdf' WHERE id=$1", [app.id]);
+  const fin = await request.post(`/api/investments/applications/${app.id}/decide`, { headers: adm, data: { decision: "approve" } });
+  expect(fin.status()).toBe(200);
+  expect((await fin.json()).application.status).toBe("awaiting_payment");
+
+  await page.addInitScript((t) => localStorage.setItem("ephaag_token", t), adminToken);
+  await page.goto("/admin/finance");
+  await page.getByRole("button", { name: /open menu/i }).click();
+  await page.getByRole("button", { name: /^investments$/i }).click();
+  const card = page.locator("div", { hasText: app.reference }).last();
+  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: /record a payment received outside paystack/i }).click();
+  await card.getByRole("button", { name: /^record payment$/i }).click();
+  await expect(card.getByText(/write the reason/i)).toBeVisible();
+  await card.getByPlaceholder(/reason \(required\)/i).fill("Bank transfer TRF-555 from the investor");
+  await card.getByRole("button", { name: /^record payment$/i }).click();
+  await expect.poll(async () => (await sql("SELECT status FROM investment_applications WHERE id=$1", [app.id])).rows[0].status).toBe("active");
+});
+
+test("4a corps member must agree the fee is non-refundable, pays through Paystack, and is unlocked @phone", async ({ page, request }) => {
+  // an admin sets the access fee
+  const adminLogin = await request.post("/api/auth/login", { data: { email: "admin@ephaag.test", password: "Admin1234" } });
+  const adminToken = (await adminLogin.json()).token;
+  const fee = await request.put("/api/rtc/admin/corps/fee", { headers: { Authorization: `Bearer ${adminToken}` }, data: { amount: 5000 } });
+  expect(fee.status()).toBe(200);
+  const email = `e2ecorper${Date.now()}@example.test`;
+  const n = Math.floor(Math.random() * 900000) + 100000;
+  const reg = await request.post("/api/auth/register", { data: {
+    name: "E2E Corper", email, password: "Passw0rd!x", role_type: "corper", sex: "male", phone: `0803${Math.floor(1000000 + Math.random() * 8999999)}`,
+    callUpNumber: `NYSC/E2E/${n}`, stateCode: `PL/26B/${n}`, serviceYear: 2026, batch: "B", stream: "II", stateOfDeployment: "Plateau", ppa: "Test PPA", discipline: "Agriculture", consentTerms: true, consentData: true } });
+  expect(reg.status()).toBe(201);
+  const { token } = await reg.json();
+  await page.addInitScript((t) => localStorage.setItem("ephaag_token", t), token);
+  await page.route("http://paystack.standin/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Paystack stand-in</h1>" }));
+
+  await page.goto("/dashboard/corper");
+  await openMenuItem(page, /^payments$/i);
+  await expect(page.getByText(/payment processing fee/i)).toBeVisible();
+  // the non-refundable tick is required before Pay now works
+  const payNow = page.getByRole("button", { name: /^pay now$/i });
+  await expect(payNow).toBeDisabled();
+  await page.getByRole("checkbox").check();
+  await expect(payNow).toBeEnabled();
+  await payNow.click();
+  await page.waitForURL(/paystack\.standin\/pay\/(CPAY-[A-Z0-9-]+)/);
+  const reference = page.url().split("/pay/")[1];
+  await request.get(`${STANDIN}/__set?reference=${reference}&status=success`);
+  await page.goto(`/dashboard/corper?corperPayment=${reference}`);
+  await openMenuItem(page, /^payments$/i);
+  await expect(page.getByText(/access fee paid/i)).toBeVisible();
+  await expect(page.getByText(/total paid/i)).toBeVisible();
+});
+
 test.fixme("5 investor: apply, agreement, pay, active, Pay now (needs phase 4)", async () => {});
 test.fixme("6 loan: savings deposit, score, apply, approvals, payout (needs phases 5, 6)", async () => {});
 test.fixme("7 purchasing: request, attachments, budget block, role approvals (needs phase 10)", async () => {});

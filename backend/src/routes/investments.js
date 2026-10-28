@@ -12,6 +12,9 @@ router.post("/apply", requireRole("investor"), investments.apply);
 router.get("/me", requireRole("investor"), investments.myApplication);
 router.get("/me/payments", requireRole("investor"), investments.myPayments);
 router.post("/me/payments", requireRole("investor"), investments.logPayment);
+router.post("/me/pay", requireRole("investor"), investments.payNow);
+router.patch("/me/payment-mode", requireRole("investor"), investments.setPaymentMode);
+router.delete("/me/card", requireRole("investor"), investments.removeCard);
 router.get("/me/roi", requireRole("investor"), investments.myRoi);
 router.get("/me/referral", requireRole("investor"), investments.myReferral);
 router.post(
@@ -25,6 +28,8 @@ router.post(
 router.get("/applications", requireRole("admin"), investments.listApplications);
 router.post("/applications/:id/decide", requireRole("admin"), investments.decideApplication);
 router.get("/applications/:id/agreement", requireRole("admin"), investments.downloadAgreement);
+router.post("/applications/:id/record-offline", requireRole("admin"), investments.recordOffline);
+router.post("/admin/run-auto-charge", requireRole("admin"), investments.runAutoChargeNow);
 router.get("/partner-reviews", requireRole("admin"), investments.partnerReviews);
 router.post("/partner-reviews/:investorId/approve", requireRole("admin"), investments.approvePartner);
 router.get("/roi-payouts", requireRole("admin"), investments.roiPayouts);

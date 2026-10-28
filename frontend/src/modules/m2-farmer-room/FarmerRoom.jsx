@@ -22,7 +22,9 @@ import ReferralPanel from "./ReferralPanel.jsx";
 import CreateUnitPanel from "./CreateUnitPanel.jsx";
 import FarmerProfileReportModal from "./FarmerProfileReportModal.jsx";
 import LoanOffice from "../m3-loan-office/LoanOffice.jsx";
+import SectionStack from "../../components/SectionStack.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 function honorific(user) {
   if (user.sex === "male") return "Mr";
   if (user.sex === "female") return user.maritalStatus === "married" ? "Mrs" : "Miss";
@@ -52,7 +54,7 @@ export default function FarmerRoom() {
   const rank = user?.rank || "Member";
   const isLeader = RANKS_ABOVE_MEMBER.includes(rank);
 
-  const [tab, setTab] = useState(() =>
+  const [tab, setTab] = useUrlState("tab", () =>
     new URLSearchParams(window.location.search).has("sharePayment") ? "savings" : "dashboard"
   );
   const [loading, setLoading] = useState(true);
@@ -139,28 +141,39 @@ export default function FarmerRoom() {
               Welcome back {honorific(user)} {user.name}
             </h1>
           </div>
-          {loading ? (
-            <p className="text-sm text-canopy-100">Loading…</p>
-          ) : (
-            <>
-              <div className="card">
-                <p className="text-sm text-ink-600">Your rank</p>
-                <p className="text-lg font-medium text-canopy-800">{rank}</p>
-              </div>
-              <RankingCard />
-            </>
-          )}
-          <CompanyGrowthChart />
+          {loading && <p className="text-sm text-canopy-100">Loading…</p>}
+          <SectionStack
+            label="Dashboard section"
+            sections={[
+              {
+                key: "rank",
+                label: "Your rank",
+                hidden: loading,
+                node: (
+                  <div className="card">
+                    <p className="text-sm text-ink-600">Your rank</p>
+                    <p className="text-lg font-medium text-canopy-800">{rank}</p>
+                  </div>
+                ),
+              },
+              { key: "ranking", label: "Ranking", hidden: loading, node: <RankingCard /> },
+              { key: "growth", label: "Company growth", node: <CompanyGrowthChart /> },
+            ]}
+          />
         </div>
       )}
 
       {tab === "profile" && <FarmerProfileCard profile={profile} onSave={handleProfileSave} />}
 
       {tab === "list-product" && (
-        <div className="space-y-4">
-          <DeclareProductPanel />
-          <ListProductPanel />
-        </div>
+        <SectionStack
+          className="space-y-4"
+          label="Go to"
+          sections={[
+            { key: "declare", label: "Declare produce", node: <DeclareProductPanel /> },
+            { key: "list", label: "List a product", node: <ListProductPanel /> },
+          ]}
+        />
       )}
 
       {tab === "transactions" && <TransactionsPanel />}
@@ -172,10 +185,15 @@ export default function FarmerRoom() {
       {tab === "loans" && <LoanOffice />}
 
       {tab === "savings" && (
-        <div className="space-y-4">
-          <SavingsPanel />
-          <FarmShareCard />
-        </div>
+        <SectionStack
+          className="space-y-4"
+          label="Go to"
+          defaultKey={new URLSearchParams(window.location.search).has("sharePayment") ? "farm-share" : undefined}
+          sections={[
+            { key: "savings", label: "My savings", node: <SavingsPanel /> },
+            { key: "farm-share", label: "Farm shares", node: <FarmShareCard /> },
+          ]}
+        />
       )}
 
       {tab === "feedback" && <FeedbackPanel />}
@@ -194,17 +212,26 @@ export default function FarmerRoom() {
       )}
 
       {tab === "rank" && isLeader && (
-        <div className="space-y-6">
-          <RecommendationTool farmers={jurisdictionFarmers} />
-          <AttendanceMarker farmers={jurisdictionFarmers} onRecorded={loadAll} />
-          <JurisdictionOverview
-            farmers={jurisdictionFarmers}
-            rank={rank}
-            onView={rank === "Unit Leader" ? setViewingFarmerId : undefined}
-          />
-          <JurisdictionReport />
-          {rank === "Unit Leader" && <CreateUnitPanel />}
-        </div>
+        <SectionStack
+          label="Go to"
+          sections={[
+            {
+              key: "overview",
+              label: "Farmers in my jurisdiction",
+              node: (
+                <JurisdictionOverview
+                  farmers={jurisdictionFarmers}
+                  rank={rank}
+                  onView={rank === "Unit Leader" ? setViewingFarmerId : undefined}
+                />
+              ),
+            },
+            { key: "recommend", label: "Recommend a farmer for a loan", node: <RecommendationTool farmers={jurisdictionFarmers} /> },
+            { key: "attendance", label: "Mark attendance", node: <AttendanceMarker farmers={jurisdictionFarmers} onRecorded={loadAll} /> },
+            { key: "report", label: "Jurisdiction report", node: <JurisdictionReport /> },
+            { key: "create-unit", label: "Create a unit", hidden: rank !== "Unit Leader", node: <CreateUnitPanel /> },
+          ]}
+        />
       )}
 
       {tab === "referral" && <ReferralPanel />}

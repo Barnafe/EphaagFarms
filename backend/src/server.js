@@ -34,6 +34,7 @@ import filesRoutes from "./routes/files.js";
 import systemRoutes from "./routes/system.js";
 import securityRoutes from "./routes/security.js";
 import paymentsRoutes from "./routes/payments.js";
+import refundsRoutes from "./routes/refunds.js";
 import { securityHeaders, corsMiddleware } from "./middleware/security.js";
 import { certificateVerifyLimiter } from "./middleware/rateLimits.js";
 import { registerAllJobs } from "./jobs/index.js";
@@ -147,6 +148,7 @@ app.use("/api/files", filesRoutes);
 app.use("/api/system", systemRoutes);
 app.use("/api/security", securityRoutes);
 app.use("/api/payments", paymentsRoutes);
+app.use("/api/refunds", refundsRoutes);
 
 // More routes land here module by module.
 

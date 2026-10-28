@@ -5,6 +5,7 @@ import { paystackConfigured, calculateFee, getFeeConfig } from "../services/pays
 import { createPayment, startCheckout, verifyAndSettle, registerPaymentType, reviewThreshold, notifyFinance, TYPE_LABEL, refusalText } from "../services/payments.js";
 import { notifyUser } from "../services/messaging.js";
 import "../services/paymentTemplates.js";
+import { getLateConfig, lateStatus, DEFAULT_LATE_CONFIG } from "../services/shareLateFees.js";
 
 // Farmers' "Shared Capital Investment and Rewards" — registered-farmer-only,
 // NOT the same product as the Investor role's Monthly/Bulk plans.
@@ -158,8 +159,14 @@ function mapShare(s, interestWithdrawals) {
   };
 }
 
+let lateCfg = DEFAULT_LATE_CONFIG; // refreshed at the start of every request that shows purchases
+async function refreshLateConfig() { lateCfg = await getLateConfig(); return lateCfg; }
+const fmtDate = (d) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
 function mapPurchase(p) {
   const unpaid = p.status === "pending";
+  const late = lateStatus(p, lateCfg);
+  const overdue = unpaid && ["late", "grace"].includes(late.state);
   return {
     id: p.id,
     reference: p.reference,
@@ -170,11 +177,25 @@ function mapPurchase(p) {
     amountCharged: Number(p.amount_charged ?? p.total),
     status: p.status,
     provider: p.provider,
-    authorizationUrl: unpaid ? p.authorization_url || null : null,
+    authorizationUrl: unpaid && !overdue ? p.authorization_url || null : null,
     createdAt: p.created_at,
     paidAt: p.paid_at,
     expiresAt: p.expires_at || null,
-    canPay: unpaid && (!p.expires_at || new Date(p.expires_at) > new Date()),
+    lateFeePaid: Number(p.late_fee || 0),
+    lateDaysPaid: Number(p.late_days || 0),
+    // canPay stays true while the purchase can still be saved: on time, late (fee applies) or in grace.
+    canPay: unpaid && late.state !== "closed",
+    late: overdue ? {
+      state: late.state,                          // late | grace
+      daysLate: late.daysLate,
+      lateFee: late.lateFee,                      // worked out automatically from the days late
+      amountDue: late.amountDue,                  // share amount + late fee (before Paystack's own fee)
+      percentPerMonth: late.percentPerMonth,
+      feeStopsGrowing: late.feeStopsGrowing,
+      feeStopsAt: late.feeStopsAt,
+      closesAt: late.graceEndsAt,                 // after this the share is taken down completely
+      graceDays: late.graceDays,
+    } : null,
   };
 }
 
@@ -209,10 +230,11 @@ export async function shareTerms(req, res) {
 export async function myShares(req, res) {
   const shares = await loadSharesWithWithdrawals(`farmer_id = $1`, [req.user.id]);
   const { rows: pending } = await pool.query(
-    `SELECT * FROM share_purchases WHERE farmer_id = $1 AND status = 'pending' AND (expires_at IS NULL OR expires_at > now()) ORDER BY created_at DESC`,
+    `SELECT * FROM share_purchases WHERE farmer_id = $1 AND status = 'pending' ORDER BY created_at DESC`,
     [req.user.id]
   );
-  res.json({ shares, pendingPurchases: pending.map(mapPurchase) });
+  await refreshLateConfig();
+  res.json({ shares, pendingPurchases: pending.map(mapPurchase).filter((p) => p.canPay) });
 }
 
 export async function shareDetail(req, res) {
@@ -243,6 +265,7 @@ const PAID_STATUS = ["paid"];
 // Pending payments are checked with Paystack first so a payment that really went
 // through is reported as paid.
 async function findDuplicatePurchase(farmerId, quantity) {
+  await refreshLateConfig();
   const hours = Number(await getSetting("duplicate_window_hours", 24)) || 24;
   const { rows } = await pool.query(
     `SELECT * FROM share_purchases WHERE farmer_id = $1 AND quantity = $2 AND created_at > now() - ($3 || ' hours')::interval
@@ -256,7 +279,7 @@ async function findDuplicatePurchase(farmerId, quantity) {
   }
   const paid = rows.find((p) => PAID_STATUS.includes(p.status));
   if (paid) return { kind: "paid", purchase: paid };
-  const unpaid = rows.find((p) => p.status === "pending" && (!p.expires_at || new Date(p.expires_at) > new Date()));
+  const unpaid = rows.find((p) => p.status === "pending" && lateStatus(p, lateCfg).state !== "closed");
   if (unpaid) return { kind: "unpaid", purchase: unpaid };
   return null;
 }
@@ -265,6 +288,7 @@ async function findDuplicatePurchase(farmerId, quantity) {
 // price and the fee); only then is Paystack started and the payment link stored on it,
 // so a failed save can never leave a payment with no purchase.
 export async function checkout(req, res) {
+  await refreshLateConfig();
   const quantity = Number(req.body?.quantity);
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_SHARES_PER_PURCHASE) {
     return res.status(400).json({
@@ -316,22 +340,36 @@ export async function checkout(req, res) {
   res.status(201).json({ purchase: mapPurchase(purchase) });
 }
 
-// A fresh Paystack attempt for an unpaid purchase. The channel only exists while the
-// purchase is payable; anything paid in the meantime is settled first.
-async function startSharePayment(purchase) {
+// A fresh Paystack attempt for an unpaid purchase. The channel only exists while the purchase
+// can still be saved. A LATE purchase is not refused: the late fee is worked out automatically
+// from the days late and the farmer must agree to that exact amount before an attempt is made.
+// Returns { alreadyPaid } | { payment } | { needsConsent: <late details> }.
+async function startSharePayment(purchase, { acceptLateFee = false, lateFee = null } = {}) {
   const { rows: fresh } = await pool.query("SELECT * FROM share_purchases WHERE id = $1", [purchase.id]);
   const p = fresh[0];
   if (p.status === "paid") return { alreadyPaid: true };
-  if (p.status !== "pending") throw Object.assign(new Error(p.status === "expired" ? "This purchase has expired. Please start a new one." : "This purchase can no longer be paid."), { status: 409, expose: true });
-  if (p.expires_at && new Date(p.expires_at) < new Date()) throw Object.assign(new Error("This purchase has expired. Please start a new one."), { status: 409, expose: true });
+  if (p.status !== "pending") throw Object.assign(new Error(p.status === "expired" ? "This share purchase was taken down because it was not paid in time. Please start a new one." : "This purchase can no longer be paid."), { status: 409, expose: true });
+  const cfg = await refreshLateConfig();
+  const late = lateStatus(p, cfg);
+  if (late.state === "closed") throw Object.assign(new Error("This share purchase passed its grace period and is being taken down. Please start a new one."), { status: 409, expose: true });
 
+  // Anything paid in the meantime is settled first (two tabs, a slow webhook).
   const { rows: pending } = await pool.query(
     `SELECT * FROM gateway_payments WHERE subject_id = $1 AND type = 'share' AND status IN ('initiated','pending') ORDER BY created_at DESC`, [p.id]);
   for (const g of pending) {
     const r = await verifyAndSettle(g.reference).catch(() => null);
     if (r?.outcome === "success") return { alreadyPaid: true };
   }
-  const reuse = pending.find((g) => g.authorization_url && new Date(g.created_at) > new Date(Date.now() - 3600 * 1000));
+
+  // Late: the farmer must have seen and agreed to exactly today's fee.
+  if (["late", "grace"].includes(late.state)) {
+    if (acceptLateFee !== true || !Number.isFinite(Number(lateFee)) || Math.abs(Number(lateFee) - late.lateFee) > 0.005) {
+      return { needsConsent: { ...late, closesAt: late.graceEndsAt } };
+    }
+  }
+  const lateFeeNow = ["late", "grace"].includes(late.state) ? late.lateFee : 0;
+
+  const reuse = pending.find((g) => g.authorization_url && new Date(g.created_at) > new Date(Date.now() - 3600 * 1000) && Math.abs(Number(g.meta?.lateFee || 0) - lateFeeNow) < 0.005);
   if (reuse) {
     const { rows: again } = await pool.query("SELECT * FROM gateway_payments WHERE id = $1", [reuse.id]);
     if (["initiated", "pending"].includes(again[0].status)) {
@@ -340,10 +378,11 @@ async function startSharePayment(purchase) {
     }
   }
   const { rows: u } = await pool.query("SELECT email, phone FROM users WHERE id = $1", [p.farmer_id]);
-  const isFirst = pending.length === 0 && !(await pool.query(`SELECT 1 FROM gateway_payments WHERE reference = $1`, [p.reference])).rowCount;
+  const isFirst = pending.length === 0 && lateFeeNow === 0 && !(await pool.query(`SELECT 1 FROM gateway_payments WHERE reference = $1`, [p.reference])).rowCount;
   const payment = await createPayment({
-    type: "share", userId: p.farmer_id, subjectId: p.id, netAmount: Number(p.total),
-    meta: { quantity: p.quantity, purchaseReference: p.reference }, ...(isFirst ? { reference: p.reference } : {}),
+    type: "share", userId: p.farmer_id, subjectId: p.id, netAmount: Number(p.total) + lateFeeNow,
+    meta: { quantity: p.quantity, purchaseReference: p.reference, goodsTotal: Number(p.total), lateFee: lateFeeNow, lateDays: lateFeeNow > 0 ? late.daysLate : 0 },
+    ...(isFirst ? { reference: p.reference } : {}),
   });
   const started = await startCheckout(payment, { email: paystackEmailFor(u[0] || {}), returnPath: `/dashboard/farmer?sharePayment=${encodeURIComponent(p.reference)}` });
   await pool.query(`UPDATE share_purchases SET authorization_url = $2, fee_amount = $3, amount_charged = $4 WHERE id = $1`, [p.id, started.authorization_url, payment.fee_amount, payment.gross_amount]);
@@ -353,7 +392,7 @@ async function startSharePayment(purchase) {
 // Creates the shares for a verified payment: ONE row per share, inside the caller's
 // transaction with the purchase locked, so verifying twice (double-click, page refresh,
 // two tabs, webhook + return page together) can never create the shares twice.
-async function createSharesForPurchase(client, purchase, providerReference) {
+async function createSharesForPurchase(client, purchase, providerReference, { lateFee = 0, lateDays = 0 } = {}) {
   for (let i = 0; i < purchase.quantity; i++) {
     await client.query(
       `INSERT INTO farmer_shares (reference, farmer_id, amount, duration_years, roi_pct, expires_at, purchase_id)
@@ -362,8 +401,8 @@ async function createSharesForPurchase(client, purchase, providerReference) {
     );
   }
   await client.query(
-    `UPDATE share_purchases SET status = 'paid', paid_at = now(), provider_reference = $2 WHERE id = $1`,
-    [purchase.id, providerReference || null]
+    `UPDATE share_purchases SET status = 'paid', paid_at = now(), provider_reference = $2, late_fee = $3, late_days = $4 WHERE id = $1`,
+    [purchase.id, providerReference || null, lateFee, lateDays]
   );
 }
 
@@ -389,12 +428,37 @@ registerPaymentType("share", {
     const { rows } = await client.query("SELECT * FROM share_purchases WHERE id = $1 FOR UPDATE", [payment.subject_id]);
     const purchase = rows[0];
     if (!purchase) return { refuse: { reason: "purchase_missing" } };
-    // The channel for expired or cancelled purchases is closed: money from a stale page is refused and returned.
+    // Taken down, cancelled or already paid: money from a stale page is never applied.
     if (purchase.status === "expired") return { refuse: { reason: "purchase_expired" } };
     if (purchase.status === "cancelled") return { refuse: { reason: "purchase_cancelled" } };
     if (purchase.status === "paid") return { refuse: { reason: "duplicate_payment" } };
 
-    await createSharesForPurchase(client, purchase, payment.provider_ref);
+    // A late payment IS accepted, with the late fee the farmer saw and agreed to. The agreed fee
+    // is honoured for 24 hours from the moment it was quoted; beyond that, or past the grace
+    // period, a payment that no longer covers what is owed is not applied.
+    const cfg = await getLateConfig(client);
+    const paidAt = new Date(payment.paid_at || Date.now());
+    const lateNow = lateStatus(purchase, cfg, paidAt);
+    if (lateNow.state === "closed") return { refuse: { reason: "purchase_expired" } };
+    const quoted = Number(payment.meta?.lateFee || 0);
+    const quoteAgeMs = paidAt.getTime() - new Date(payment.created_at).getTime();
+    if (lateNow.lateFee > quoted + 0.005 && quoteAgeMs > 24 * 3600 * 1000) return { refuse: { reason: "quote_expired" } };
+
+    const lateDays = Number(payment.meta?.lateDays || 0);
+    await createSharesForPurchase(client, purchase, payment.provider_ref, { lateFee: quoted, lateDays });
+    const { rows: u0 } = await client.query("SELECT name FROM users WHERE id = $1", [purchase.farmer_id]);
+    if (quoted > 0) {
+      // The late fee is Finance income; it is NOT part of the share capital (each share stays exactly the share price).
+      const { rows: inc } = await client.query(
+        `INSERT INTO finance_income (reference, source, category, amount, description, received_from)
+         VALUES ($1, 'customer_payment', 'Share late fee', $2, $3, $4) RETURNING id`,
+        [generateReference(REF_PREFIX.financeIncome), quoted, `Share late fee ${purchase.reference} (${lateDays} days late)`, u0[0]?.name || null]);
+      await client.query(
+        `INSERT INTO finance_transactions (reference, txn_type, amount, department, description, related_table, related_id)
+         VALUES ($1, 'income', $2, 'Finance', $3, 'share_purchases', $4)`,
+        [generateReference(REF_PREFIX.financeTransaction), quoted, `Share late fee ${purchase.reference}`, purchase.id]);
+      void inc;
+    }
     const flags = [];
     const threshold = await reviewThreshold(client, "share_review_threshold");
     if (threshold !== null && Number(purchase.total) >= threshold) {
@@ -403,14 +467,14 @@ registerPaymentType("share", {
     return {
       flags,
       after: async () => {
-        const { rows: u } = await pool.query("SELECT name FROM users WHERE id = $1", [purchase.farmer_id]);
         await notifyUser(purchase.farmer_id, "share_receipt", {
-          reference: purchase.reference, quantity: purchase.quantity, goodsTotal: Number(payment.net_amount),
-          fee: Number(payment.fee_amount), amountCharged: Number(payment.gross_amount), paymentReference: payment.reference,
+          reference: purchase.reference, quantity: purchase.quantity, goodsTotal: Number(purchase.total),
+          lateFee: quoted, lateDays, fee: Number(payment.fee_amount), amountCharged: Number(payment.gross_amount), paymentReference: payment.reference,
         });
         await notifyFinance("payment_finance_notice", {
-          typeLabel: TYPE_LABEL.share, payer: u[0]?.name || "farmer", netAmount: Number(payment.net_amount), fee: Number(payment.fee_amount),
-          grossAmount: Number(payment.gross_amount), reference: payment.reference, review: flags[0]?.detail || "",
+          typeLabel: TYPE_LABEL.share, payer: u0[0]?.name || "farmer", netAmount: Number(payment.net_amount), fee: Number(payment.fee_amount),
+          grossAmount: Number(payment.gross_amount), reference: payment.reference,
+          review: [flags[0]?.detail, quoted > 0 ? `includes a late fee of ₦${quoted.toLocaleString()} (${lateDays} days late)` : ""].filter(Boolean).join("; "),
         });
       },
     };
@@ -433,6 +497,7 @@ async function settleAttempts(purchase) {
 // answer is always a plain outcome the screen can explain:
 //   success | pending | failed | refused | expired
 export async function verifyPurchase(req, res) {
+  await refreshLateConfig();
   const { rows } = await pool.query(
     `SELECT * FROM share_purchases WHERE reference = $1 AND farmer_id = $2`,
     [req.params.reference, req.user.id]
@@ -474,16 +539,34 @@ export async function verifyPurchase(req, res) {
   });
 }
 
-// "Pay again": a new Paystack attempt for a purchase that is still open.
+// "Pay again" / "Pay now": a new Paystack attempt for a purchase that is still open. If the purchase
+// is late, the first answer is 409 LATE_FEE with the automatically calculated fee; the farmer agrees
+// and sends it back ({ acceptLateFee: true, lateFee }) to proceed.
 export async function payPurchase(req, res) {
+  await refreshLateConfig();
   const { rows } = await pool.query(`SELECT * FROM share_purchases WHERE reference = $1 AND farmer_id = $2`, [req.params.reference, req.user.id]);
   if (!rows[0]) return res.status(404).json({ error: "Purchase not found" });
   if (rows[0].provider !== "paystack") return res.status(400).json({ error: "This purchase is not paid through Paystack" });
   if (!paystackConfigured()) return res.status(503).json({ error: "Online payment is unavailable right now. Please try again later." });
-  const r = await startSharePayment(rows[0]);
+  const r = await startSharePayment(rows[0], { acceptLateFee: req.body?.acceptLateFee === true, lateFee: req.body?.lateFee });
   const purchase = (await pool.query("SELECT * FROM share_purchases WHERE id = $1", [rows[0].id])).rows[0];
+  if (r.needsConsent) {
+    const l = r.needsConsent;
+    const gross = calculateFee(l.amountDue, await getFeeConfig());
+    return res.status(409).json({
+      code: "LATE_FEE",
+      error: `This purchase is ${l.daysLate} day${l.daysLate === 1 ? "" : "s"} late, so a late fee of ₦${l.lateFee.toLocaleString()} applies.`,
+      late: {
+        state: l.state, daysLate: l.daysLate, lateFee: l.lateFee, shareAmount: Number(purchase.total), amountDue: l.amountDue,
+        processingFee: gross.fee, totalToPay: gross.gross, percentPerMonth: l.percentPerMonth, feeStopsGrowing: l.feeStopsGrowing,
+        feeStopsAt: l.feeStopsAt, closesAt: l.closesAt, graceDays: l.graceDays,
+      },
+      purchase: mapPurchase(purchase),
+    });
+  }
   if (r.alreadyPaid) return res.json({ alreadyPaid: true, message: `Good news: ${purchase.reference} has already been paid, so nothing more is needed.`, purchase: mapPurchase(purchase) });
-  res.json({ purchase: mapPurchase(purchase) });
+  // The fresh attempt's link is returned even for a late purchase (the list hides stale links of overdue purchases).
+  res.json({ purchase: { ...mapPurchase(purchase), authorizationUrl: r.payment?.authorization_url || purchase.authorization_url || null } });
 }
 
 export async function cancelPurchase(req, res) {
@@ -504,24 +587,43 @@ export async function cancelPurchase(req, res) {
   res.json({ ok: true });
 }
 
-// Unpaid purchases expire after 24 hours (scheduled job). A payment that did arrive is settled first.
+// Scheduled job. A share purchase is not dropped when it falls due: the late fee starts (no grace
+// before it), stops growing after one month, then a grace period; only after that is the share taken
+// down completely. Shareholders are warned on every notification channel along the way. A payment
+// that did arrive is settled first, never lost.
 export async function expireSharePurchases({ now = new Date() } = {}) {
+  const cfg = await refreshLateConfig();
   const { rows } = await pool.query(`SELECT * FROM share_purchases WHERE status = 'pending' AND expires_at IS NOT NULL AND expires_at < $1`, [now]);
-  let expired = 0, settled = 0;
-  for (const p of rows) {
-    if (p.provider === "paystack" && paystackConfigured()) await settleAttempts(p).catch(() => null);
-    const { rowCount } = await pool.query(`UPDATE share_purchases SET status = 'expired' WHERE id = $1 AND status = 'pending'`, [p.id]);
-    if (rowCount) {
-      expired++;
-      await pool.query(`UPDATE gateway_payments SET status = 'abandoned', updated_at = now() WHERE subject_id = $1 AND type = 'share' AND status IN ('initiated','pending')`, [p.id]);
-    } else settled++;
-  }
-  return { expired, settledBeforeExpiry: settled };
-}
+  let expired = 0, settled = 0, notices = 0;
+  for (const p0 of rows) {
+    if (p0.provider === "paystack" && paystackConfigured()) await settleAttempts(p0).catch(() => null);
+    const { rows: fresh } = await pool.query("SELECT * FROM share_purchases WHERE id = $1", [p0.id]);
+    const p = fresh[0];
+    if (p.status !== "pending") { settled++; continue; }
+    const st = lateStatus(p, cfg, now);
+    const base = { reference: p.reference, quantity: p.quantity, total: Number(p.total), lateFee: st.lateFee, percent: cfg.percentPerMonth, graceDays: cfg.graceDays, amountDue: st.amountDue };
+    const dates = { feeStopsAt: fmtDate(st.feeStopsAt), closesAt: fmtDate(st.graceEndsAt) };
 
-// ---------------------------------------------------------------------
-// Withdrawals — always per share
-// ---------------------------------------------------------------------
+    if (st.state === "closed") {
+      const { rowCount } = await pool.query(`UPDATE share_purchases SET status = 'expired', closed_at = $2, closed_reason = 'grace_ended' WHERE id = $1 AND status = 'pending'`, [p.id, now]);
+      if (rowCount) {
+        expired++;
+        await pool.query(`UPDATE gateway_payments SET status = 'abandoned', updated_at = now() WHERE subject_id = $1 AND type = 'share' AND status IN ('initiated','pending')`, [p.id]);
+        await notifyUser(p.farmer_id, "share_taken_down", { reference: p.reference, quantity: p.quantity }, { allChannels: true }).catch(() => {});
+        notices++;
+      }
+      continue;
+    }
+    const send = async (template, column) => {
+      const { rowCount } = await pool.query(`UPDATE share_purchases SET ${column} = $2 WHERE id = $1 AND ${column} IS NULL`, [p.id, now]);
+      if (rowCount) { await notifyUser(p.farmer_id, template, { ...base, ...dates }, { allChannels: true }).catch(() => {}); notices++; }
+    };
+    if (["late", "grace"].includes(st.state)) await send("share_late_started", "late_notice_at");
+    if (st.state === "grace") await send("share_grace_started", "grace_notice_at");
+    if (st.state === "grace" && st.graceEndsAt.getTime() - now.getTime() <= 3 * 24 * 3600 * 1000) await send("share_final_warning", "final_notice_at");
+  }
+  return { expired, settledBeforeExpiry: settled, notices };
+}
 
 export async function withdrawInterest(req, res) {
   const { id } = req.params;

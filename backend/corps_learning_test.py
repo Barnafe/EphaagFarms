@@ -76,7 +76,7 @@ def new_corper(label):
 
 
 def pay(corper):
-    r = call("POST", "/corpers/payments/initiate", corper, json={})
+    r = call("POST", "/corpers/payments/initiate", corper, json={"acceptNonRefundable": True})
     assert r.status_code in (200, 201), r.text[:200]
     pid = r.json()["payment"]["id"]
     r = call("POST", f"/rtc/admin/corps/payments/{pid}/confirm", admin, json={})
@@ -168,10 +168,15 @@ pid = pay(c1)
 r = call("GET", "/corpers/courses", c1)
 check("PAID: course list opens", r.status_code == 200, r.text[:200])
 
-# do some real work, then get refunded -> locked, progress kept, comes back on re-pay
+# do some real work, then lose access -> locked, progress kept, comes back on re-pay.
+# Refunds no longer exist as an action (the access fee is non-refundable), but payments refunded
+# BEFORE that change are still "refunded" history rows, so that state is set directly here.
 finish_lessons(c1, course_a)
 r = call("POST", f"/rtc/admin/corps/payments/{pid}/refund", admin, json={"reason": "test refund"})
-check("admin refunds", r.status_code == 200, r.text[:200])
+check("the admin refund action is gone", r.status_code == 404, str(r.status_code))
+import subprocess, os
+subprocess.run(["psql", os.environ.get("PGURL", "postgresql://postgres:postgres@localhost:5432/ephaag_farms"), "-c",
+    f"UPDATE corper_payments SET status = 'refunded', refund_reason = 'legacy', refunded_at = now() WHERE id = '{pid}'"], check=True, capture_output=True)
 for method, path in gated[:3]:
     r = call(method, path, c1, json={} if method == "POST" else None)
     check(f"REFUNDED {method} {path.split('/corpers')[1]} -> 402", r.status_code == 402, str(r.status_code))

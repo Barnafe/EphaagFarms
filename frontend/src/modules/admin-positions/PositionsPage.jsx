@@ -4,6 +4,7 @@ import { apiFetch } from "../../api/client.js";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 import DeptSectionNav from "../../components/DeptSectionNav.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 const FARMER_RANKS = ["Member", "Unit Leader", "Ward Leader", "LGA Coordinator", "State Coordinator", "Federal"];
 
 const SECTIONS = [
@@ -28,7 +29,7 @@ const SECTIONS = [
 ];
 
 export default function PositionsPage() {
-  const [tab, setTab] = useState(null);
+  const [tab, setTab] = useUrlState("tab", null);
   const [error, setError] = useState(null);
 
   const [query, setQuery] = useState("");

@@ -11,6 +11,7 @@ import CorperPayments from "./CorperPayments.jsx";
 import CorperCertificate from "./CorperCertificate.jsx";
 import CorperTraining from "./CorperTraining.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 const items = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "profile", label: "Profile", icon: User },
@@ -27,7 +28,7 @@ const items = [
 export default function CorperRoom() {
   const { session, refreshSession } = useAuth();
   const user = session?.user;
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useUrlState("tab", "dashboard");
   const [bundle, setBundle] = useState(null); // { profile, completion }
   const [error, setError] = useState(null);
   const [courseToOpen, setCourseToOpen] = useState(null); // "Continue learning" deep link
@@ -54,14 +55,18 @@ export default function CorperRoom() {
   const returnedRef = searchParams.get("corperPayment");
   useEffect(() => {
     if (!returnedRef) return;
-    setTab("payments");
+    setTab("payments", { replace: true });
     setVerifying(true);
     apiFetch(`/corpers/payments/${encodeURIComponent(returnedRef)}/verify`, { method: "POST", body: {} })
-      .then(() => setNotice(null))
+      .then((r) => setNotice(
+        r.outcome === "refused" ? `Your payment could not be used because ${r.refusalText || "it could not be applied"}. Our administrators have been told and will return the money to you.`
+        : r.outcome === "failed" ? "The payment did not go through and you have not been charged. You can try again."
+        : r.outcome === "pending" ? "We haven't received your payment yet. If you have just paid, press “I’ve paid — check now”."
+        : null))
       .catch((err) => setNotice(err.message))
       .finally(() => {
         setVerifying(false);
-        setSearchParams({}, { replace: true });
+        setSearchParams({ tab: "payments" }, { replace: true });
         load();
       });
   }, [returnedRef, load, setSearchParams]);

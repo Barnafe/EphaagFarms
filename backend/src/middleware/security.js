@@ -66,17 +66,18 @@ export function securityHeaders() {
 // While acting, money-moving, bank, consent and password actions are refused,
 // and every action is written to the security log.
 const blocked = [
-  /^\/api\/payments\/admin\/(refunds\/[^/]+\/(refund|mark-refunded)|settings|ledger\/[^/]+\/recorded)/,
-  /^\/api\/orders\/[^/]+\/mark-refunded$/,
+  /^\/api\/payments\/admin\/(settings|ledger\/[^/]+\/recorded)/,
+  /^\/api\/refunds\//,
   /^\/api\/finance\/payments\/[^/]+\/pay$/,
   /^\/api\/orders\/[^/]+\/confirm-payment$/,
   /^\/api\/loans\/[^/]+\/disburse$/,
   /^\/api\/loans\/repayments\/[^/]+\/verify$/,
   /^\/api\/investments\/roi-payouts\/[^/]+\/approve$/,
+  /^\/api\/investments\/applications\/[^/]+\/record-offline$/,
+  /^\/api\/investments\/admin\/run-auto-charge$/,
   /^\/api\/finance-department\/(payables\/[^/]+\/settle|receivables\/[^/]+\/receive|payments|accounts\/[^/]+\/withdraw)/,
   /^\/api\/purchasing\/requests\/[^/]+\/(authorize-payment|final-payment)$/,
   /^\/api\/rtc\/admin\/corps\/(payments\/|fee)/,
-  /^\/api\/orders\/[^/]+\/mark-refunded$/,
   /^\/api\/farmers\/admin\/savings\/withdrawals\/[^/]+\/decide$/,
   /\/(payout|payouts|bank-details|payout-account|consent|change-password|reset-password)(\/|$)/,
 ];

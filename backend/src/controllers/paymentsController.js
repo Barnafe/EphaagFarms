@@ -1,7 +1,7 @@
 import { pool } from "../db/pool.js";
 import { verifyPaystackSignature, paystackConfigured, getFeeConfig, DEFAULT_FEE_CONFIG, calculateFee } from "../services/paystack.js";
-import { settlePayment, verifyAndSettle, refundViaPaystack, markRefundedManually, refusalText, autoRefundEnabled, TYPE_LABEL } from "../services/payments.js";
-import { applyCorpsPaystackEvent } from "./corperPaymentController.js";
+import { settlePayment, verifyAndSettle, refusalText, TYPE_LABEL } from "../services/payments.js";
+import { processChargeSuccess } from "./corperPaymentController.js";
 import { recordWebhookEvent } from "../jobs/alerts.js";
 import { getSetting, setSetting } from "../utils/settings.js";
 import { logSecurityEvent } from "../utils/securityLog.js";
@@ -20,10 +20,7 @@ export async function paystackWebhook(req, res) {
   }
   const event = req.body || {};
   try {
-    if (event.event === "charge.success" && event.data?.reference) {
-      const out = await settlePayment(event.data.reference, event.data, { source: "webhook" });
-      if (!out.found) await applyCorpsPaystackEvent(event); // corps (and anything not in the ledger yet)
-    }
+    await processChargeSuccess(event); // the ledger first, then corps rows that pre-date it
     await recordWebhookEvent("paystack", "ok", event.event || "event");
     res.json({ received: true });
   } catch (err) {
@@ -86,7 +83,7 @@ async function loadLedger({ type, recorded, from, to, limit = 500, offset = 0 })
   params.push(limit, offset);
   const { rows } = await pool.query(
     `SELECT p.id, p.subject_id, p.reference, p.type, p.net_amount, p.fee_amount, p.gross_amount, p.channel, p.paid_at, p.recorded, p.recorded_at,
-            u.name AS payer_name, u.email AS payer_email,
+            u.name AS payer_name, u.email AS payer_email, p.refund_status,
             (SELECT COUNT(*)::int FROM payment_flags f WHERE f.payment_id = p.id AND f.status = 'open') AS open_flags,
             (SELECT string_agg(f.reason, ', ') FROM payment_flags f WHERE f.payment_id = p.id AND f.kind = 'review') AS review_reasons
        FROM gateway_payments p LEFT JOIN users u ON u.id = p.user_id
@@ -130,38 +127,6 @@ export async function listFlags(req, res) {
   res.json({ flags: rows.map((f) => ({ ...f, typeLabel: TYPE_LABEL[f.type] || f.type })) });
 }
 
-// Payments the system refused automatically and that are waiting to be (or have been) refunded.
-export async function listRefunds(req, res) {
-  const status = req.query.status === "done" ? ["refunded"] : ["due", "processing", "failed"];
-  const { rows } = await pool.query(
-    `SELECT p.id, p.reference, p.type, p.refusal_reason, p.refund_status, p.refund_note, p.refund_at, p.paid_amount, p.gross_amount, p.paid_at, p.channel, u.name AS payer_name, u.email AS payer_email
-       FROM gateway_payments p LEFT JOIN users u ON u.id = p.user_id
-      WHERE p.refund_status = ANY($1) ORDER BY p.paid_at DESC NULLS LAST LIMIT 300`, [status]);
-  res.json({
-    autoRefund: await autoRefundEnabled(),
-    refunds: rows.map((r) => ({ ...r, typeLabel: TYPE_LABEL[r.type] || r.type, reasonText: r.refusal_reason ? refusalText(r.refusal_reason) : null })),
-  });
-}
-
-export async function refundNow(req, res) {
-  if (!UUID_RE.test(req.params.id)) throw httpErr("Payment not found", 404);
-  const { rows } = await pool.query("SELECT * FROM gateway_payments WHERE id = $1", [req.params.id]);
-  if (!rows[0]) throw httpErr("Payment not found", 404);
-  const r = await refundViaPaystack(rows[0], { userId: req.user.id });
-  await logSecurityEvent("refund_requested", { userId: req.user.id, req, detail: { payment: rows[0].reference, ok: r.ok } });
-  if (!r.ok) return res.status(502).json({ error: r.error || "Paystack could not refund this payment. Refund it in the Paystack dashboard, then mark it refunded here." });
-  res.json({ ok: true });
-}
-
-export async function markRefundedHandler(req, res) {
-  if (!UUID_RE.test(req.params.id)) throw httpErr("Payment not found", 404);
-  const note = String(req.body?.note || "").trim();
-  if (!note) throw httpErr("Please enter the Paystack refund reference or a note");
-  const p = await markRefundedManually(req.params.id, { userId: req.user.id, note });
-  await logSecurityEvent("refund_marked_done", { userId: req.user.id, req, detail: { payment: p.reference } });
-  res.json({ ok: true });
-}
-
 export async function unfundedCommitments(req, res) {
   const { rows } = await pool.query(
     `SELECT u.id AS user_id, u.name, u.email, b.standing_commitment_total, b.standing_commitment_balance, b.standing_commitment_years
@@ -178,7 +143,9 @@ export async function getPaymentSettings(req, res) {
     orderExpiryHours: await getSetting("order_expiry_hours", 24),
     shareReviewThreshold: await getSetting("share_review_threshold", null),
     shareExpiryHours: await getSetting("share_expiry_hours", 24),
-    autoRefund: (await getSetting("auto_refund", false)) === true,
+    sharePercentPerMonth: await getSetting("share_late_percent", 2),
+    shareLateCapDays: await getSetting("share_late_cap_days", 30),
+    shareGraceDays: await getSetting("share_grace_days", 10),
     duplicateWindowHours: await getSetting("duplicate_window_hours", 24),
     paystackConfigured: paystackConfigured(),
     example: calculateFee(10000, await getFeeConfig()),
@@ -218,8 +185,11 @@ export async function updatePaymentSettings(req, res) {
     if (!Number.isFinite(v) || v < 1 || v > 168) throw httpErr("Share purchase expiry must be between 1 and 168 hours");
     await setSetting("share_expiry_hours", v, req.user.id); changed.shareExpiryHours = v;
   }
-  if (b.autoRefund !== undefined) {
-    await setSetting("auto_refund", b.autoRefund === true, req.user.id); changed.autoRefund = b.autoRefund === true;
+  for (const [key, setting, label, min, max] of [["sharePercentPerMonth", "share_late_percent", "Share late fee percent per month", 0, 50], ["shareLateCapDays", "share_late_cap_days", "Days the late fee keeps growing", 1, 365], ["shareGraceDays", "share_grace_days", "Share grace period in days", 0, 120]]) {
+    if (b[key] === undefined) continue;
+    const v = Number(b[key]);
+    if (!Number.isFinite(v) || v < min || v > max) throw httpErr(`${label} must be between ${min} and ${max}`);
+    await setSetting(setting, v, req.user.id); changed[key] = v;
   }
   if (b.duplicateWindowHours !== undefined) {
     const v = Number(b.duplicateWindowHours);

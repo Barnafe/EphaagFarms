@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../../api/client.js";
 
+import SectionStack from "../../../components/SectionStack.jsx";
 function naira(n) {
   return `₦${Number(n || 0).toLocaleString()}`;
 }
@@ -56,7 +57,14 @@ export default function AccountingDashboardPanel({ onNavigate }) {
         ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+<SectionStack
+            className="space-y-6"
+            label="Dashboard section"
+            sections={[
+              {
+                key: "dept",
+                label: "Department spending (this month)",
+                node: (
         <div className="card">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-ink-900">Department spending (this month)</p>
@@ -74,7 +82,12 @@ export default function AccountingDashboardPanel({ onNavigate }) {
             ))}
           </div>
         </div>
-
+                ),
+              },
+              {
+                key: "alerts",
+                label: "Financial alerts",
+                node: (
         <div className="card">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-ink-900">Financial alerts</p>
@@ -92,8 +105,12 @@ export default function AccountingDashboardPanel({ onNavigate }) {
             ))}
           </div>
         </div>
-      </div>
-
+                ),
+              },
+              {
+                key: "recent",
+                label: "Recent transactions",
+                node: (
       <div className="card">
         <p className="text-sm font-medium text-ink-900">Recent transactions</p>
         <div className="mt-3 space-y-2">
@@ -109,6 +126,10 @@ export default function AccountingDashboardPanel({ onNavigate }) {
           ))}
         </div>
       </div>
+                ),
+              },
+            ]}
+          />
     </div>
   );
 }

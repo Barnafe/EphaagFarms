@@ -99,23 +99,23 @@ export default function AttendanceRoom() {
           <div className="mt-3 h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={weekly} margin={{ top: 8, right: 8, left: -12, bottom: 8 }}>
-                <CartesianGrid stroke="#e6dccd" strokeDasharray="3 3" />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b6257" }} />
+                <CartesianGrid stroke="rgba(255,255,255,0.18)" strokeDasharray="3 3" />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#e6dccd" }} />
                 <YAxis
                   yAxisId="pct"
                   domain={[0, 100]}
-                  tick={{ fontSize: 11, fill: "#6b6257" }}
-                  label={{ value: "Attendance %", angle: -90, position: "insideLeft", fontSize: 11, fill: "#6b6257" }}
+                  tick={{ fontSize: 11, fill: "#e6dccd" }}
+                  label={{ value: "Attendance %", angle: -90, position: "insideLeft", fontSize: 11, fill: "#e6dccd" }}
                 />
                 <YAxis
                   yAxisId="count"
                   orientation="right"
                   allowDecimals={false}
-                  tick={{ fontSize: 11, fill: "#6b6257" }}
-                  label={{ value: "Records", angle: 90, position: "insideRight", fontSize: 11, fill: "#6b6257" }}
+                  tick={{ fontSize: 11, fill: "#e6dccd" }}
+                  label={{ value: "Records", angle: 90, position: "insideRight", fontSize: 11, fill: "#e6dccd" }}
                 />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Tooltip contentStyle={{ backgroundColor: "#ffffff", color: "#171310", borderRadius: 10, fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 12, color: "#f6f4ef" }} formatter={(v) => <span style={{ color: "#f6f4ef" }}>{v}</span>} />
                 <Bar yAxisId="count" dataKey="notPresent" name="Not present" fill={RED} radius={[3, 3, 0, 0]} />
                 <Line
                   yAxisId="pct"

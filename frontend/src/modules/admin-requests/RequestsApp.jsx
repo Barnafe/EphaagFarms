@@ -8,6 +8,7 @@ import RequestList from "./RequestList.jsx";
 import NewRequestForm from "./NewRequestForm.jsx";
 import RequestDetail from "./RequestDetail.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 const TABS = [
   {
     key: "awaiting",
@@ -33,7 +34,7 @@ export default function RequestsApp() {
   const { session } = useAuth();
   const currentUserId = session?.user?.id;
 
-  const [tab, setTab] = useState(null);
+  const [tab, setTab] = useUrlState("tab", null);
   const [awaiting, setAwaiting] = useState([]);
   const [mine, setMine] = useState([]);
   const [adminUsers, setAdminUsers] = useState([]);

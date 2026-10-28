@@ -531,3 +531,34 @@ Full write-up: `docs/CHANGES_2026-10-21_phase4_learning.md`. Rules in short:
 
 ## Corps certificates (v28)
 TRC -> Corps now has Payments | Progress | **Batches** | **Members**. Batches: set a due date, then Mark batch complete to release certificates and email members. Members: filters and the NYSC .xlsx export. Public check page: `/verify-certificate`. Details: `docs/CHANGES_2026-10-21_phase4_batches_certificates.md`.
+
+## v36 — your v35 (payments phases 3-4, late fees, Refund room) merged with the screen-usability pass
+
+v36 is a three-way merge: v32 was the common base, v35 brought the payment work, and the usability work below was done on v32. Only six files were edited by both sides; each was merged by hand (see "How the merge was done"). Nothing from either side was dropped.
+
+### Pull-down "Jump to" lists
+Long screens that used to stack many panels/tables now show a pull-down list instead:
+- `components/SectionDropdown.jsx` — the select control (optional pending-count badge per option).
+- `components/SectionStack.jsx` — wraps `[{ key, label, badge?, hidden?, node }]`; shows one section at a time with a "Show all sections" option; one visible section renders with no dropdown. `urlKey` lets two stacks nest (`sec`, `sec2`); `defaultKey` picks the opening section.
+- `components/DeptSectionNav.jsx` (card-grid pickers: Accounting, Requests, Maintenance, Purchasing, Positions) also shows a "Go to" dropdown once inside a section.
+Used in: Admin home dashboard (cash flow, budget, transactions, approvals, department spending, expenses — the top tiles, Quick actions and Platform at a glance stay as they were), Analytics, Finance (Loans, Investments, Savings, Accounting dashboard and reports), Loan Office, Farmer Room (Declare & List, Savings, Rank, Dashboard), Farmer Savings, Investor Room, Unit Leader, Store (dashboard, receiving), Maintenance reports, TRC (Training, Research, Consultancy, Corps progress), Add Catalog.
+Farmer Savings has two sections, "My savings" and "Farm shares"; the share-purchase card is under "Farm shares" (the e2e farmer tests pick it with `openFarmShares`). A share payment return (`?sharePayment=`) opens Farm shares automatically.
+Admin → Login as a department is a dropdown + preview card + "Login as …" button.
+
+### Back button
+Cause: tabs/sections were plain React state, so they never changed the URL, and Back only walks URL history.
+Fix: `hooks/useUrlState.js` keeps tab/section/sub-view in the query string (`?tab=accounting&section=budget`); every change is one history step; changing an outer key clears the inner ones. Used by every department/room `tab`, Accounting/Maintenance/Purchasing/Analytics `section`, TRC `corps`, Payments `view`/`sub`, the department Requests panel (`rtab`), the Refund room tabs and every Jump-to dropdown (`sec`/`sec2`).
+Payment-return links (`?sharePayment`, `?investmentPayment`, `?corperPayment`) clear only their own parameter through the router, keep the tab, and use replace, so Back never replays a payment check.
+Login As: the old "back trap" re-pushed the URL on every Back, so Back worked once and then went dead, and the router had already shown the previous page. It is replaced by a guard in `context/ActingAsContext.jsx`: Back/forward move through the department's own tabs normally and are only redirected (replace, before paint) when they would land outside the department page you entered. Exit clears the guard first. `setActingAs(name, homePath)` takes the department path.
+Still in-memory (Back leaves the page): Buyer checkout steps and open detail/edit panels (viewing a farmer, editing a course).
+
+### Readability and visibility
+End of `index.css`: form controls inside `.dash-scope` default to dark text on white (zero specificity, so classes still win), option lists are dark on white, white/cream surfaces keep dark text, dark text classes (text-red-700/800, clay-*, canopy-700/900, harvest-600/800, ink-700/500/400, gray-400, amber-900) are remapped to light shades on the dark cards/page, and `.recharts-*` text is light on the dark cards. A `.card` is always dark inside `.dash-scope` even if it carries bg-red-50 etc. Chart colours were also set in Analytics, Attendance and Company growth.
+
+### How the merge was done
+Files only v35 changed (backend, payments, Refund room, PayPanel, late-fee UI, tests, docs) were taken as v35 wrote them. Files only the usability pass changed were taken as is. The six shared files:
+- `FinanceDepartment.jsx` — my Investments dropdown + v35's new `onRecordOffline` on the Applications panel.
+- `PaymentsWorkspace.jsx` — v35 moved the refund list to the Refund room, so the old inline refund list stays removed; `sub`/`view` use URL state.
+- `InvestorRoom.jsx` — my dropdown around v35's new `PaymentLog` props (`onChanged`, `onError`), v35's PayPanel and return handling (now cleared through the router).
+- `AdminHub.jsx`, `CorperRoom.jsx`, `FarmShareCard.jsx` — merged cleanly; v35's Refund-room quick action, corper payment notices and late-fee box are all kept.
+Also: `RefundRoomPage.jsx` tabs use URL state; `e2e/tests/journeys.spec.js` selects "Farm shares" in the dropdown before the farmer share steps.

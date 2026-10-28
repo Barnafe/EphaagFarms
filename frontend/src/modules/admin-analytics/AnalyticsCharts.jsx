@@ -49,20 +49,20 @@ export function BarChartCard({ title, subtitle, data, color = CHART_COLORS[0], v
     <ChartShell title={title} subtitle={subtitle} empty={rows.length === 0}>
       <ResponsiveContainer width="100%" height={height}>
         <BarChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#efe6cf" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.18)" vertical={false} />
           <XAxis
             dataKey="key"
-            tick={{ fontSize: 11, fill: "#4a463c" }}
+            tick={{ fontSize: 11, fill: "#e6dccd" }}
             tickFormatter={(v) => truncate(v)}
             interval={0}
             angle={rows.length > 5 ? -25 : 0}
             textAnchor={rows.length > 5 ? "end" : "middle"}
             height={rows.length > 5 ? 46 : 24}
           />
-          <YAxis tick={{ fontSize: 11, fill: "#4a463c" }} allowDecimals={false} width={40} />
+          <YAxis tick={{ fontSize: 11, fill: "#e6dccd" }} allowDecimals={false} width={40} />
           <Tooltip
             formatter={(value, name, item) => (valueFormatter ? valueFormatter(value, name, item) : value)}
-            contentStyle={{ borderRadius: 10, borderColor: "#ddccA0", fontSize: 12 }}
+            contentStyle={{ borderRadius: 10, borderColor: "#ddccA0", fontSize: 12, backgroundColor: "#ffffff", color: "#171310" }}
           />
           <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} />
         </BarChart>
@@ -82,18 +82,18 @@ export function HorizontalBarChartCard({ title, subtitle, data, color = CHART_CO
       <div style={{ maxHeight: 420, overflowY: rows.length * 26 > 420 ? "auto" : "visible" }}>
         <ResponsiveContainer width="100%" height={height}>
           <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#efe6cf" horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 11, fill: "#4a463c" }} allowDecimals={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.18)" horizontal={false} />
+            <XAxis type="number" tick={{ fontSize: 11, fill: "#e6dccd" }} allowDecimals={false} />
             <YAxis
               type="category"
               dataKey="key"
-              tick={{ fontSize: 11, fill: "#4a463c" }}
+              tick={{ fontSize: 11, fill: "#e6dccd" }}
               width={90}
               tickFormatter={(v) => truncate(v, 14)}
             />
             <Tooltip
               formatter={(value, name, item) => (valueFormatter ? valueFormatter(value, name, item) : value)}
-              contentStyle={{ borderRadius: 10, borderColor: "#ddccA0", fontSize: 12 }}
+              contentStyle={{ borderRadius: 10, borderColor: "#ddccA0", fontSize: 12, backgroundColor: "#ffffff", color: "#171310" }}
             />
             <Bar dataKey="value" fill={color} radius={[0, 4, 4, 0]} />
           </BarChart>
@@ -119,9 +119,9 @@ export function PieChartCard({ title, subtitle, data, valueFormatter, height = 2
           </Pie>
           <Tooltip
             formatter={(value, name, item) => (valueFormatter ? valueFormatter(value, name, item) : value)}
-            contentStyle={{ borderRadius: 10, borderColor: "#ddccA0", fontSize: 12 }}
+            contentStyle={{ borderRadius: 10, borderColor: "#ddccA0", fontSize: 12, backgroundColor: "#ffffff", color: "#171310" }}
           />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Legend wrapperStyle={{ fontSize: 11, color: "#f6f4ef" }} formatter={(v) => <span style={{ color: "#f6f4ef" }}>{v}</span>} />
         </PieChart>
       </ResponsiveContainer>
     </ChartShell>
@@ -135,12 +135,12 @@ export function LineChartCard({ title, subtitle, data, color = CHART_COLORS[0], 
     <ChartShell title={title} subtitle={subtitle} empty={rows.length === 0}>
       <ResponsiveContainer width="100%" height={height}>
         <LineChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#efe6cf" vertical={false} />
-          <XAxis dataKey="key" tick={{ fontSize: 11, fill: "#4a463c" }} />
-          <YAxis tick={{ fontSize: 11, fill: "#4a463c" }} width={44} />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.18)" vertical={false} />
+          <XAxis dataKey="key" tick={{ fontSize: 11, fill: "#e6dccd" }} />
+          <YAxis tick={{ fontSize: 11, fill: "#e6dccd" }} width={44} />
           <Tooltip
             formatter={(value, name, item) => (valueFormatter ? valueFormatter(value, name, item) : value)}
-            contentStyle={{ borderRadius: 10, borderColor: "#ddccA0", fontSize: 12 }}
+            contentStyle={{ borderRadius: 10, borderColor: "#ddccA0", fontSize: 12, backgroundColor: "#ffffff", color: "#171310" }}
           />
           <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 3 }} />
         </LineChart>

@@ -14,8 +14,8 @@ export function paystackConfigured() {
   return !!process.env.PAYSTACK_SECRET_KEY;
 }
 
-export async function getFeeConfig() {
-  const stored = await getSetting("paystack_fee", null);
+export async function getFeeConfig(runner) {
+  const stored = await getSetting("paystack_fee", null, runner);
   return { ...DEFAULT_FEE_CONFIG, ...(stored || {}) };
 }
 
@@ -96,4 +96,22 @@ export async function requestRefund(reference) {
   } catch (e) {
     return { ok: false, error: e.message };
   }
+}
+
+/**
+ * Charge a saved card (Paystack "authorization") without the investor being present.
+ * Returns Paystack's data (status "success" | "failed" | "pending" ...). Throws when Paystack
+ * cannot be reached or does not answer, which is NOT a declined charge.
+ */
+export async function chargeAuthorization({ email, amountNaira, reference, authorizationCode, metadata = {} }) {
+  if (!paystackConfigured()) throw unavailable();
+  const r = await paystackRequest("/transaction/charge_authorization", {
+    method: "POST",
+    body: JSON.stringify({ email, amount: toKobo(amountNaira), currency: "NGN", reference, authorization_code: authorizationCode, metadata }),
+  });
+  if (r.body?.data) return r.body.data;
+  if (r.ok === false && r.body?.message && /authorization|card/i.test(String(r.body.message))) {
+    return { status: "failed", reference, gateway_response: r.body.message };
+  }
+  throw Object.assign(new Error("Paystack did not answer"), { status: 502 });
 }

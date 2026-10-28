@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sprout, ShoppingCart, Truck, Warehouse, Landmark, Wrench, GraduationCap, LogIn, Users } from "lucide-react";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 import { useActingAs } from "../../context/ActingAsContext.jsx";
+import SectionDropdown from "../../components/SectionDropdown.jsx";
 
 // The 7 positions a real hire would eventually fill (kept in sync with
 // DEPARTMENTS in backend/src/controllers/adminPositionsController.js — the
@@ -31,12 +33,14 @@ const departments = [
 export default function LoginAsPage() {
   const navigate = useNavigate();
   const { setActingAs } = useActingAs();
+  const [picked, setPicked] = useState("");
+  const chosen = departments.find((d) => d.key === picked) || null;
 
   function handleLoginAs(dept) {
-    setActingAs(dept.key);
+    setActingAs(dept.key, dept.to);
     // replace, not push: this picker screen shouldn't linger in history as
     // an extra back-stop between the department and the admin dashboard —
-    // see ActingAsContext.jsx for the back-button trap that takes over
+    // see ActingAsContext.jsx for the back-button guard that takes over
     // from here while acting as a department.
     navigate(dept.to, { replace: true });
   }
@@ -50,29 +54,28 @@ export default function LoginAsPage() {
           <p className="mt-1 text-sm text-canopy-100">Pick a department to step into its dashboard.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {departments.map((d) => {
-            const Icon = d.icon;
-            return (
-              <button
-                key={d.key}
-                type="button"
-                onClick={() => handleLoginAs(d)}
-                className="card flex flex-col items-start gap-2 text-left transition hover:border-canopy-400 hover:shadow-md"
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-canopy-50 text-canopy-700">
-                  <Icon size={20} />
-                </span>
-                <p className="font-medium text-ink-900">{d.key}</p>
-                <p className="text-sm text-ink-600">{d.desc}</p>
-                <span className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-canopy-700">
-                  <LogIn size={14} />
-                  Login as {d.key}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <SectionDropdown
+          label="Department"
+          placeholder="Select a department…"
+          sections={departments.map((d) => ({ key: d.key, label: d.key }))}
+          value={picked}
+          onSelect={setPicked}
+          className="mb-4"
+        />
+
+        {chosen && (
+          <div className="card flex max-w-xl flex-col items-start gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-canopy-50 text-canopy-700">
+              <chosen.icon size={20} />
+            </span>
+            <p className="font-medium text-ink-900">{chosen.key}</p>
+            <p className="text-sm text-ink-600">{chosen.desc}</p>
+            <button type="button" onClick={() => handleLoginAs(chosen)} className="btn-primary inline-flex items-center gap-2">
+              <LogIn size={16} />
+              Login as {chosen.key}
+            </button>
+          </div>
+        )}
       </div>
     </AdminDashboardShell>
   );

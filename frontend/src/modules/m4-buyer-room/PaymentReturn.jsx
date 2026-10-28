@@ -60,7 +60,7 @@ export default function PaymentReturn() {
       extra={`Total paid ${naira(state.payment.amountCharged)} (including ${naira(state.payment.fee)} processing fee)`} />;
   } else if (state.outcome === "refused") {
     body = <Msg icon={AlertTriangle} tone="amber" title="Your payment could not be used"
-      text={`We received your payment but could not use it because ${state.refusalText || "it could not be applied"}. Nothing has been ordered with it, and it will be returned to your original payment method. A message has been sent to you.`}
+      text={`We received your payment but could not use it because ${state.refusalText || "it could not be applied"}. Nothing has been ordered with it, and our administrators have been told and will return the money to you. A message has been sent to you.`}
       extra={state.refusalReason === "duplicate_payment" ? "This order was already paid, so you do not need to pay again." : null}
       action={["amount_mismatch", "currency_mismatch"].includes(state.refusalReason) && state.order?.status === "awaiting_payment"
         ? <button className="btn-primary" onClick={retry} disabled={retrying}>{retrying ? "Please wait…" : "Pay the correct amount"}</button> : null} />;

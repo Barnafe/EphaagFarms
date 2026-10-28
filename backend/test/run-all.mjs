@@ -27,6 +27,7 @@ const GUARD_LOG = path.join(os.tmpdir(), "ephaag-pool-guard.log");
 const results = [];
 const children = [];
 let serverA = null;
+let serverC = null;
 let serverBaseA = null;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -108,7 +109,7 @@ async function main() {
   startServer(4001, { ...base, NODE_ENV: "production", FRONTEND_ORIGIN: "https://app.example.test", JOB_RUNNER: "off", DB_SSL: "false" });
   // Server C: relaxed limits like A, but with Paystack switched on (pointing at the stand-in).
   // Kept separate because the older corps suites expect a server with NO Paystack key.
-  startServer(4003, { ...base, RATE_LIMIT_MULTIPLIER: "1000", JOB_RUNNER: "off", PAYSTACK_SECRET_KEY: paystack.secret, PAYSTACK_BASE_URL: paystack.url, FRONTEND_ORIGIN: "http://localhost:5173" });
+  serverC = startServer(4003, { ...base, RATE_LIMIT_MULTIPLIER: "1000", JOB_RUNNER: "off", PAYSTACK_SECRET_KEY: paystack.secret, PAYSTACK_BASE_URL: paystack.url, FRONTEND_ORIGIN: "http://localhost:5173" });
   if (!(await waitFor("http://localhost:4003/health"))) { console.log("Paystack-enabled server did not start"); return finish(1); }
   if (!(await waitFor("http://localhost:4000/health")) || !(await waitFor("http://localhost:4001/health"))) {
     console.log("Servers did not start"); children.forEach((c) => console.log(c.getLog?.())); return finish(1);
@@ -147,8 +148,18 @@ async function main() {
     }
   }
   // Last on purpose: these create lots of users/messages and are written to cope with a used database.
-  if (!process.env.ONLY_PYTHON) await run("Foundations API tests (phases 15-19)", "node", ["--test", "--test-concurrency=1", "test/api/*.test.mjs"], { env: testEnv });
+  if (!process.env.ONLY_PYTHON) await run("Foundations API tests (phases 15-19)", "node", ["--test", "--test-concurrency=1", ...(process.env.API_TEST_NAME ? ["--test-name-pattern", process.env.API_TEST_NAME] : []), ...(process.env.API_TEST_FILES ? process.env.API_TEST_FILES.split(",") : ["test/api/*.test.mjs"])], { env: testEnv });
   return finish(0, s3, mail, paystack);
+}
+
+async function dumpMessageState() {
+  try {
+    const c = new pg.Client({ connectionString: DB_URL }); await c.connect();
+    const a = await c.query("SELECT channel, status, count(*)::int AS n FROM messages GROUP BY 1,2 ORDER BY 1,2");
+    const q = await c.query("SELECT template, to_address, attempts, last_error, created_at FROM messages WHERE status='queued' ORDER BY created_at LIMIT 5");
+    console.log("\n--- messages by status ---\n" + JSON.stringify(a.rows) + "\n--- oldest queued ---\n" + JSON.stringify(q.rows));
+    await c.end();
+  } catch (e) { console.log("could not read messages:", e.message); }
 }
 
 function finish(code, s3, mail, paystack) {
@@ -161,7 +172,15 @@ function finish(code, s3, mail, paystack) {
   console.log("\n================ SUMMARY ================");
   for (const r of results) console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.label}`);
   const failed = results.filter((r) => !r.ok).length;
-  if (failed && process.env.SHOW_SERVER_LOG) console.log("\n--- app log (last 60 lines) ---\n" + (serverA?.getLog?.() || "").split("\n").slice(-60).join("\n"));
+  if (failed && process.env.SHOW_SERVER_LOG) return dumpMessageState().then(() => finishNow(code, failed));
+  return finishNow(code, failed);
+}
+
+function finishNow(code, failed) {
+  if (failed && process.env.SHOW_SERVER_LOG) {
+    console.log("\n--- app log A (last 40 lines) ---\n" + (serverA?.getLog?.() || "").split("\n").slice(-40).join("\n"));
+    console.log("\n--- app log C, Paystack-enabled (last 60 lines) ---\n" + (serverC?.getLog?.() || "").split("\n").slice(-60).join("\n"));
+  }
   console.log(failed ? `\n${failed} suite(s) FAILED` : "\nAll suites passed");
   process.exit(code || (failed ? 1 : 0));
 }

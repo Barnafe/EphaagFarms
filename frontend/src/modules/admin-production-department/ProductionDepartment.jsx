@@ -12,6 +12,7 @@ import FarmList from "./FarmList.jsx";
 import HarvestLog from "./HarvestLog.jsx";
 import AnnualSummary from "./AnnualSummary.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 const CURRENT_YEAR = new Date().getFullYear();
 
 const items = [
@@ -27,7 +28,7 @@ export default function ProductionDepartment() {
   const { session } = useAuth();
   const user = session?.user;
 
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useUrlState("tab", "dashboard");
   const [farms, setFarms] = useState([]);
   const [harvests, setHarvests] = useState([]);
   const [summary, setSummary] = useState([]);

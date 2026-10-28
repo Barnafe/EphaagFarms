@@ -106,7 +106,7 @@ Sign up with a Nigerian provider, register a **sender name** (approval takes tim
    (test card, bank transfer, closed window, replayed webhook, and that the net settled equals the listed price).
 4. To go live: swap in the **live** key (`sk_live_...`) and the live webhook. Money out (loans, payouts) arrives in
    Phase 5 and needs Transfers enabled on your account.
-Fee, review thresholds, expiry times and automatic refunds are all editable in Admin → Finance → Payment
+Fee, review thresholds, expiry times and the late-fee settings are all editable in Admin → Finance → Payment
 confirmations → Settings.
 
 ## 8. Scheduled jobs on a sleeping host

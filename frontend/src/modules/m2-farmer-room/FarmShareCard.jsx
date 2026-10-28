@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../../api/client.js";
 import {
@@ -116,6 +117,7 @@ function ShareDetail({ share, index, onWithdrawInterest, onWithdrawCapital }) {
 }
 
 export default function FarmShareCard() {
+  const [, setSearchParams] = useSearchParams();
   const [view, setView] = useState("list"); // list | pay | bought
   const [shares, setShares] = useState([]);
   const [pending, setPending] = useState([]);
@@ -128,6 +130,8 @@ export default function FarmShareCard() {
   const [info, setInfo] = useState(null);
   const [duplicate, setDuplicate] = useState(null);
   const [quote, setQuote] = useState(null);
+  const [lateQuote, setLateQuote] = useState(null); // { purchase, late } while the farmer decides on a late fee
+  const [agreeLate, setAgreeLate] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -162,7 +166,7 @@ export default function FarmShareCard() {
           setView("bought"); // redirect to the details of the share(s) just bought
         } else if (res.outcome === "refused") {
           setView("list"); setPurchase(null);
-          setError(`Your payment could not be used because ${res.refusalText || "it could not be applied"}. Nothing has been bought with it, and it will be returned to your original payment method. A message has been sent to you.`);
+          setError(`Your payment could not be used because ${res.refusalText || "it could not be applied"}. Nothing has been bought with it, and our administrators have been told and will return the money to you.`);
         } else if (res.outcome === "expired") {
           setView("list"); setPurchase(null);
           setError("This purchase has expired, so it can no longer be paid. Please start a new one.");
@@ -187,10 +191,16 @@ export default function FarmShareCard() {
     // Returning from the payment provider: ?sharePayment=<reference>
     const ref = new URLSearchParams(window.location.search).get("sharePayment");
     if (ref) {
-      window.history.replaceState({}, "", window.location.pathname);
+      // Remove only the payment reference (keep ?tab=…), through the router so
+      // its idea of the URL stays in sync and Back never replays the payment.
+      const rest = new URLSearchParams(window.location.search);
+      rest.delete("sharePayment");
+      rest.set("tab", "savings");
+      rest.set("sec", "farm-share");
+      setSearchParams(rest, { replace: true });
       verify(ref);
     }
-  }, [load, verify]);
+  }, [load, verify]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleCheckout(e, confirmDuplicate = false) {
     e?.preventDefault?.();
@@ -212,16 +222,17 @@ export default function FarmShareCard() {
   }
 
   // Opens Paystack for a purchase (a fresh attempt if the old one is used up).
-  async function handlePay(target = purchase) {
+  async function handlePay(target = purchase, acceptedLateFee = null) {
     setError(null); setInfo(null);
     if (target.provider === "paystack") {
       setBusy(true);
       try {
-        const r = await apiFetch(`/farmers/me/shares/purchases/${encodeURIComponent(target.reference)}/pay`, { method: "POST" });
+        const r = await apiFetch(`/farmers/me/shares/purchases/${encodeURIComponent(target.reference)}/pay`, { method: "POST", ...(acceptedLateFee !== null ? { body: { acceptLateFee: true, lateFee: acceptedLateFee } } : {}) });
         if (r.alreadyPaid) { setInfo(r.message || "This purchase has already been paid."); await load(); setView("list"); return; }
         if (r.purchase?.authorizationUrl) { window.location.href = r.purchase.authorizationUrl; return; } // returns here with ?sharePayment=
       } catch (err) {
-        setError(err.message);
+        if (err.code === "LATE_FEE" && err.late) { setLateQuote({ purchase: target, late: err.late }); setAgreeLate(false); }
+        else setError(err.message);
       } finally {
         setBusy(false);
       }
@@ -396,12 +407,40 @@ export default function FarmShareCard() {
         </div>
       )}
 
+      {lateQuote && (
+        <div className="mt-4 space-y-2 rounded-card border border-harvest-500 bg-harvest-50 p-3 text-xs text-ink-900" role="alert">
+          <p className="text-sm font-medium">This purchase is {lateQuote.late.daysLate} day{lateQuote.late.daysLate === 1 ? "" : "s"} late</p>
+          <p>{lateQuote.purchase.quantity} share{lateQuote.purchase.quantity === 1 ? "" : "s"} · {lateQuote.purchase.reference}. A late fee of {lateQuote.late.percentPerMonth}% a month (counted per day) applies. It is worked out automatically.</p>
+          <table className="w-full max-w-sm">
+            <tbody>
+              <tr><td>Share amount</td><td className="text-right">{naira(lateQuote.late.shareAmount)}</td></tr>
+              <tr><td>Late fee ({lateQuote.late.daysLate} days)</td><td className="text-right">{naira(lateQuote.late.lateFee)}</td></tr>
+              <tr><td>Payment processing fee</td><td className="text-right">{naira(lateQuote.late.processingFee)}</td></tr>
+              <tr className="border-t border-soil-200 font-medium"><td>Total to pay today</td><td className="text-right">{naira(lateQuote.late.totalToPay)}</td></tr>
+            </tbody>
+          </table>
+          <p>
+            {lateQuote.late.feeStopsGrowing ? "The late fee has stopped growing. " : lateQuote.late.feeStopsAt ? `The late fee stops growing on ${new Date(lateQuote.late.feeStopsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}. ` : ""}
+            {lateQuote.late.closesAt ? `If it is still unpaid on ${new Date(lateQuote.late.closesAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}, the share is taken down completely.` : ""}
+          </p>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" className="mt-0.5" checked={agreeLate} onChange={(e) => setAgreeLate(e.target.checked)} />
+            <span>I agree to pay the late fee of {naira(lateQuote.late.lateFee)}.</span>
+          </label>
+          <div className="flex gap-3">
+            <button type="button" className="btn-primary" disabled={!agreeLate || busy} onClick={() => { const t = lateQuote; setLateQuote(null); handlePay(t.purchase, t.late.lateFee); }}>Proceed to pay</button>
+            <button type="button" className="text-canopy-800 underline" onClick={() => setLateQuote(null)}>Not now</button>
+          </div>
+        </div>
+      )}
+
       {pending.length > 0 && (
         <div className="mt-4 space-y-2">
           {pending.map((p) => (
             <div key={p.id} className="flex items-center justify-between rounded-card border border-soil-200 bg-soil-50 px-3 py-2 text-xs text-ink-900">
               <span>
                 Payment not confirmed yet — {p.quantity} share{p.quantity === 1 ? "" : "s"} ({naira(p.amountCharged)}) · {p.reference}
+                {p.late && <strong className="mt-0.5 block text-harvest-700">Overdue by {p.late.daysLate} day{p.late.daysLate === 1 ? "" : "s"}: a late fee of {naira(p.late.lateFee)} applies. Pay before it is taken down.</strong>}
               </span>
               <span className="flex gap-3">
                 <button className="text-canopy-800 underline" onClick={() => handlePay(p)}>Pay again</button>

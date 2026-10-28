@@ -1,4 +1,4 @@
-import { useState } from "react";
+import useUrlState from "../hooks/useUrlState.js";
 import SectionDropdown from "./SectionDropdown.jsx";
 
 // Replaces a long vertical pile of panels with a pull-down list. Only the
@@ -10,9 +10,9 @@ import SectionDropdown from "./SectionDropdown.jsx";
 //   node   = the panel(s) to render for that section
 //   hidden = true drops it (role-gated panels such as Unit Leader only)
 // A single visible section renders with no dropdown at all.
-export default function SectionStack({ sections, label = "Jump to", className = "space-y-6" }) {
+export default function SectionStack({ sections, label = "Jump to", className = "space-y-6", defaultKey = null, urlKey = "sec" }) {
   const visible = sections.filter((s) => !s.hidden);
-  const [picked, setPicked] = useState(visible[0]?.key ?? null);
+  const [picked, setPicked] = useUrlState(urlKey, defaultKey ?? visible[0]?.key ?? null);
 
   if (visible.length === 0) return null;
   if (visible.length === 1) return <div className={className}>{visible[0].node}</div>;

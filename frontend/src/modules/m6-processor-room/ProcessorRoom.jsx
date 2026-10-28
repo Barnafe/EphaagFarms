@@ -6,6 +6,7 @@ import DashboardShell from "../../components/DashboardShell.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import JobList from "./JobList.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 function mapJob(j) {
   return {
     id: j.id,
@@ -27,7 +28,7 @@ export default function ProcessorRoom() {
   const { session } = useAuth();
   const user = session?.user;
 
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useUrlState("tab", "dashboard");
   const [jobs, setJobs] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);

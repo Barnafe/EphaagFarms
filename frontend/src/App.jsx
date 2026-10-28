@@ -44,6 +44,7 @@ const AdminHub = lazy(() => import("./modules/admin-hub/AdminHub.jsx"));
 const AdminProfilePage = lazy(() => import("./modules/admin-hub/AdminProfilePage.jsx"));
 const AdminFeedbackPage = lazy(() => import("./modules/admin-hub/AdminFeedbackPage.jsx"));
 const AdminContactMessagesPage = lazy(() => import("./modules/admin-hub/AdminContactMessagesPage.jsx"));
+const RefundRoomPage = lazy(() => import("./modules/admin-hub/RefundRoomPage.jsx"));
 const AddCatalogPage = lazy(() => import("./modules/admin-hub/AddCatalogPage.jsx"));
 const AddPricePage = lazy(() => import("./modules/admin-hub/AddPricePage.jsx"));
 const PaymentReturn = lazy(() => import("./modules/m4-buyer-room/PaymentReturn.jsx"));
@@ -199,6 +200,14 @@ export default function App() {
           element={
             <ProtectedRoute allow={["admin"]}>
               <AdminContactMessagesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/refunds"
+          element={
+            <ProtectedRoute allow={["admin"]}>
+              <RefundRoomPage />
             </ProtectedRoute>
           }
         />

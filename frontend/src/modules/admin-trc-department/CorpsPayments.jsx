@@ -84,7 +84,24 @@ export default function CorpsPayments() {
     }, "Fee updated. Payments already started keep the amount they were created with.");
   };
 
-  const confirm = (p) => run(() => apiFetch(`/rtc/admin/corps/payments/${p.id}/confirm`, { method: "POST", body: {} }), `Payment ${p.reference} confirmed — training unlocked and the income posted to Finance.`);
+  // Paystack is asked first. Only if Paystack cannot be reached does the server accept a hand
+  // confirmation, and then it needs a reason (for example a transfer reference).
+  async function confirm(p) {
+    setBusy(true); setError(null); setMessage(null);
+    try {
+      await apiFetch(`/rtc/admin/corps/payments/${p.id}/confirm`, { method: "POST", body: {} });
+      setMessage(`Payment ${p.reference} confirmed — training unlocked and the access fee posted to Finance.`);
+      await Promise.all([loadSummary(), loadPayments()]);
+    } catch (err) {
+      if (/could not be reached/i.test(err.message)) { setReasonFor({ id: p.id, kind: "confirm", reason: "" }); setError(err.message); }
+      else setError(err.message);
+    } finally { setBusy(false); }
+  }
+
+  const recheck = (p) => run(async () => {
+    const r = await apiFetch(`/rtc/admin/corps/payments/${p.id}/recheck`, { method: "POST" });
+    setMessage(r.unreachable ? "Paystack could not be reached just now. Try again in a moment." : r.payment.status === "paid" ? `Paystack confirms ${p.reference} was paid; training unlocked.` : "Paystack has not received this payment yet.");
+  });
 
   const submitReason = (e) => {
     e.preventDefault();
@@ -92,7 +109,8 @@ export default function CorpsPayments() {
     run(async () => {
       await apiFetch(`/rtc/admin/corps/payments/${id}/${kind}`, { method: "POST", body: { reason } });
       setReasonFor(null);
-    }, kind === "refund" ? "Refund recorded and access revoked." : "Payment rejected — the member can try again.");
+      setError(null);
+    }, kind === "confirm" ? "Confirmed by hand and flagged for review. If Paystack later reports the same payment it will not be credited twice." : "Payment rejected — the member can try again.");
   };
 
   return (
@@ -102,7 +120,7 @@ export default function CorpsPayments() {
         <h1 className="text-xl font-medium text-white">Corps access-fee payments</h1>
         <p className="mt-1 text-sm text-canopy-100">
           {summary?.mode === "paystack"
-            ? "Paystack is connected — payments are confirmed automatically. You can still confirm one by hand if needed."
+            ? "Paystack is connected: payments are confirmed automatically and listed in Finance. If one is stuck, Re-check asks Paystack again. You can confirm by hand only if Paystack cannot be reached, with a reason. The access fee is non-refundable once paid, so there is no refund action."
             : "Paystack isn’t connected yet — confirm each payment by hand once the money is received."}
         </p>
       </div>
@@ -116,7 +134,7 @@ export default function CorpsPayments() {
             ["Collected", naira(summary.collected), `${summary.paidCount} paid`],
             ["Awaiting confirmation", summary.pendingCount, naira(summary.pendingTotal)],
             ["Rejected", summary.failedCount, ""],
-            ["Refunded", summary.refundedCount, naira(summary.refundedTotal)],
+            ["Refunded (before refunds were removed)", summary.refundedCount, naira(summary.refundedTotal)],
           ].map(([label, value, hint]) => (
             <div key={label} className="card">
               <p className="text-xs text-ink-600">{label}</p>
@@ -172,10 +190,12 @@ export default function CorpsPayments() {
                     <p className="text-xs text-ink-600">{p.memberEmail || "no email"} · {p.reference} · {p.provider === "paystack" ? "Paystack" : "Manual"}</p>
                     <p className="text-xs text-ink-600">Started {when(p.createdAt)}{p.confirmedAt ? ` · confirmed ${when(p.confirmedAt)}${p.confirmedByName ? ` by ${p.confirmedByName}` : ""}` : ""}</p>
                     {p.failedReason && <p className="text-xs text-red-700">Rejected: {p.failedReason}</p>}
+                    {p.confirmedUnverified && <p className="text-xs text-harvest-600">Confirmed by hand without Paystack: {p.manualReason}</p>}
                     {p.refundReason && <p className="text-xs text-ink-600">Refunded{p.refundedByName ? ` by ${p.refundedByName}` : ""}: {p.refundReason}</p>}
                   </div>
                   <div className="text-right">
-                    <p className="font-medium text-ink-900">{naira(p.amount)}</p>
+                    <p className="font-medium text-ink-900">{naira(p.accessFee)} <span className="text-xs font-normal text-ink-600">access fee</span></p>
+                    {p.processingFee > 0 && <p className="text-xs text-ink-600">+ {naira(p.processingFee)} processing fee = {naira(p.totalCharged)} charged</p>}
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_TONE[p.status]}`}>{STATUS_LABEL[p.status]}</span>
                   </div>
                 </div>
@@ -183,25 +203,21 @@ export default function CorpsPayments() {
                 {p.status === "pending" && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     <button type="button" className="btn-primary" disabled={busy} onClick={() => confirm(p)}>Confirm payment</button>
+                    {p.provider === "paystack" && <button type="button" className="rounded-card border border-soil-200 px-3 py-2 text-sm text-ink-900" disabled={busy} onClick={() => recheck(p)}>Re-check with Paystack</button>}
                     <button type="button" className="rounded-card border border-soil-200 px-3 py-2 text-sm text-ink-900" disabled={busy} onClick={() => setReasonFor({ id: p.id, kind: "reject", reason: "" })}>Reject</button>
-                  </div>
-                )}
-                {p.status === "paid" && (
-                  <div className="mt-2">
-                    <button type="button" className="rounded-card border border-soil-200 px-3 py-2 text-sm text-ink-900" disabled={busy} onClick={() => setReasonFor({ id: p.id, kind: "refund", reason: "" })}>Refund &amp; revoke access</button>
                   </div>
                 )}
 
                 {reasonFor?.id === p.id && (
                   <form onSubmit={submitReason} className="field mt-2 space-y-2">
                     <label htmlFor={`reason-${p.id}`} className="text-xs text-ink-600">
-                      {reasonFor.kind === "refund"
-                        ? "Reason for the refund (recorded, and access closes immediately). If they paid through Paystack, return the money from your Paystack dashboard."
+                      {reasonFor.kind === "confirm"
+                        ? "Reason or transfer reference (required, recorded, and the payment is flagged for review)"
                         : "Reason for rejecting (the member will see it)"}
                     </label>
                     <input id={`reason-${p.id}`} value={reasonFor.reason} onChange={(e) => setReasonFor({ ...reasonFor, reason: e.target.value })} maxLength={500} autoFocus />
                     <div className="flex gap-2">
-                      <button className="btn-primary" type="submit" disabled={busy || reasonFor.reason.trim().length < 3}>{reasonFor.kind === "refund" ? "Refund & revoke" : "Reject payment"}</button>
+                      <button className="btn-primary" type="submit" disabled={busy || reasonFor.reason.trim().length < 3}>{reasonFor.kind === "confirm" ? "Confirm by hand" : "Reject payment"}</button>
                       <button type="button" className="rounded-card border border-soil-200 px-3 py-2 text-sm text-ink-900" onClick={() => setReasonFor(null)}>Cancel</button>
                     </div>
                   </form>

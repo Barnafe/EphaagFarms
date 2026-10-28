@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../../api/client.js";
 
+import SectionStack from "../../../components/SectionStack.jsx";
 function naira(n) {
   return `₦${Number(n || 0).toLocaleString()}`;
 }
@@ -33,6 +34,14 @@ export default function ReportsPanel() {
 
   return (
     <div className="space-y-4">
+<SectionStack
+            className="space-y-4"
+            label="Report"
+            sections={[
+              {
+                key: "income",
+                label: "Income statement",
+                node: (
       <div className="card">
         <p className="text-sm font-medium text-ink-900">Income statement — {incomeStatement.period.start} to {incomeStatement.period.end}</p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -53,7 +62,12 @@ export default function ReportsPanel() {
           <span>Net profit</span><span>{naira(incomeStatement.netProfit)}</span>
         </div>
       </div>
-
+                ),
+              },
+              {
+                key: "cash",
+                label: "Cash position",
+                node: (
       <div className="card">
         <p className="text-sm font-medium text-ink-900">Cash position</p>
         <div className="mt-2 space-y-1">
@@ -65,7 +79,12 @@ export default function ReportsPanel() {
           <span>Total cash</span><span>{naira(cashPosition.totalCash)}</span>
         </div>
       </div>
-
+                ),
+              },
+              {
+                key: "payrec",
+                label: "Payables & receivables",
+                node: (
       <div className="card">
         <p className="text-sm font-medium text-ink-900">Payables & receivables</p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -83,7 +102,12 @@ export default function ReportsPanel() {
           </div>
         </div>
       </div>
-
+                ),
+              },
+              {
+                key: "budget",
+                label: "Budget vs actual",
+                node: (
       <div className="card">
         <p className="text-sm font-medium text-ink-900">Budget vs actual</p>
         <div className="mt-2 space-y-1">
@@ -95,6 +119,10 @@ export default function ReportsPanel() {
           ))}
         </div>
       </div>
+                ),
+              },
+            ]}
+          />
     </div>
   );
 }

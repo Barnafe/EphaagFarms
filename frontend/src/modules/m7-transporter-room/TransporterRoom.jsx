@@ -6,6 +6,7 @@ import DashboardShell from "../../components/DashboardShell.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import DriverJobList from "./DriverJobList.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 function mapShipment(s) {
   return {
     id: s.id,
@@ -28,7 +29,7 @@ export default function TransporterRoom() {
   const { session } = useAuth();
   const user = session?.user;
 
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useUrlState("tab", "dashboard");
   const [myJobs, setMyJobs] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);

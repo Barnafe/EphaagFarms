@@ -49,3 +49,18 @@ export async function recordWebhookEvent(source, status, detail = null, req = nu
     console.error("[webhook-log] failed:", err.message);
   }
 }
+
+/**
+ * An exceptional case that needs a person: email every admin and text the named alert phone,
+ * straight away (not throttled: each one is a real item waiting for someone).
+ */
+export async function notifyAttention(templateName, data, smsText) {
+  try {
+    await notifyAdmins(templateName, data);
+    const phone = normalizeNgPhone((await getSetting("alert_sms_phone", null)) || process.env.ALERT_SMS_PHONE);
+    if (phone && smsText) await queueSms({ to: phone, text: String(smsText).slice(0, 160), template: templateName });
+    detached(() => setImmediate(() => processQueue({ limit: 20 }).catch(() => {})));
+  } catch (err) {
+    console.error("[attention] could not notify admins:", err.message);
+  }
+}

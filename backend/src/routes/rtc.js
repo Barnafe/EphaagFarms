@@ -47,7 +47,7 @@ router.get("/admin/corps/payments/summary", requireRole("admin"), corpsPayments.
 router.get("/admin/corps/payments", requireRole("admin"), corpsPayments.adminListPayments);
 router.post("/admin/corps/payments/:id/confirm", requireRole("admin"), corpsPayments.adminConfirmPayment);
 router.post("/admin/corps/payments/:id/reject", requireRole("admin"), corpsPayments.adminRejectPayment);
-router.post("/admin/corps/payments/:id/refund", requireRole("admin"), corpsPayments.adminRefundPayment);
+router.post("/admin/corps/payments/:id/recheck", requireRole("admin"), corpsPayments.adminRecheckPayment);
 
 // Admin (TRC department) — Corps member progress (phase 4).
 router.get("/admin/corps/progress", requireRole("admin"), corpsProgress.adminCorpsProgress);

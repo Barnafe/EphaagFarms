@@ -21,6 +21,8 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
   const [data, setData] = useState(null); // { fee, mode, access, payments }
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [agreed, setAgreed] = useState(false); // "non-refundable once paid" tick
+  const [outcomeMsg, setOutcomeMsg] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -39,7 +41,7 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
     setBusy(true);
     setError(null);
     try {
-      const { payment } = await apiFetch("/corpers/payments/initiate", { method: "POST", body: {} });
+      const { payment } = await apiFetch("/corpers/payments/initiate", { method: "POST", body: { acceptNonRefundable: agreed } });
       if (payment.authorizationUrl) {
         window.location.href = payment.authorizationUrl; // Paystack checkout
         return;
@@ -71,7 +73,13 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
     setBusy(true);
     setError(null);
     try {
-      await apiFetch(`/corpers/payments/${reference}/verify`, { method: "POST", body: {} });
+      const r = await apiFetch(`/corpers/payments/${reference}/verify`, { method: "POST", body: {} });
+      setOutcomeMsg(
+        r.outcome === "refused" ? `Your payment could not be used because ${r.refusalText || "it could not be applied"}. Nothing has been unlocked with it, and our administrators have been told and will return the money to you. A message has been sent to you. You can start a new payment below.`
+        : r.outcome === "failed" ? "The payment did not go through and you have not been charged. You can try again."
+        : r.outcome === "pending" ? (r.unreachable ? "We couldn't reach the payment service just now. Please check again in a moment." : "We haven't received your payment yet. If you have just paid, check again in a moment.")
+        : null
+      );
       await load();
       onChanged?.();
     } catch (err) {
@@ -83,7 +91,7 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
 
   if (!data) return <p className="text-sm text-ink-800">{error || "Loading..."}</p>;
 
-  const { fee, mode, access, payments } = data;
+  const { fee, mode, access, payments, quote } = data;
   const paidPayment = payments.find((p) => p.status === "paid");
   const lastFailed = !access.pending && !access.paid ? payments.find((p) => p.status === "failed") : null;
   const lastRefunded = !access.pending && !access.paid ? payments.find((p) => p.status === "refunded") : null;
@@ -93,6 +101,7 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
       <h1 className="font-display text-2xl font-semibold text-ink-900">Payments</h1>
 
       {error && <p role="alert" className="rounded-card border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      {outcomeMsg && !verifying && <p role="status" className="rounded-card border border-[#dba532] bg-[#fbf1dd] p-3 text-sm text-ink-900">{outcomeMsg}</p>}
       {verifying && <p className="rounded-card border border-[#dba532] bg-[#fbf1dd] p-3 text-sm text-ink-900">Checking your payment with the gateway…</p>}
       {notice && !verifying && <p role="status" className="rounded-card border border-[#dba532] bg-[#fbf1dd] p-3 text-sm text-ink-900">{notice}</p>}
 
@@ -106,7 +115,9 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
           <p className="mt-2 text-sm text-ink-800">Your corps training is unlocked. Open <strong>My Training</strong> to begin.</p>
           <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
             <div><dt className="text-xs uppercase tracking-wide text-ink-600">Receipt reference</dt><dd className="font-semibold text-ink-900">{paidPayment.reference}</dd></div>
-            <div><dt className="text-xs uppercase tracking-wide text-ink-600">Amount</dt><dd className="font-semibold text-ink-900">{naira(paidPayment.amount)}</dd></div>
+            <div><dt className="text-xs uppercase tracking-wide text-ink-600">Access fee</dt><dd className="font-semibold text-ink-900">{naira(paidPayment.accessFee)}</dd></div>
+            {paidPayment.processingFee > 0 && <div><dt className="text-xs uppercase tracking-wide text-ink-600">Payment processing fee</dt><dd className="font-semibold text-ink-900">{naira(paidPayment.processingFee)}</dd></div>}
+            <div><dt className="text-xs uppercase tracking-wide text-ink-600">Total paid</dt><dd className="font-semibold text-ink-900">{naira(paidPayment.totalCharged)}</dd></div>
             <div><dt className="text-xs uppercase tracking-wide text-ink-600">Paid on</dt><dd className="font-semibold text-ink-900">{when(paidPayment.confirmedAt)}</dd></div>
             <div><dt className="text-xs uppercase tracking-wide text-ink-600">Member</dt><dd className="font-semibold text-ink-900">{user.name}</dd></div>
           </dl>
@@ -128,7 +139,7 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
               ? "If you have finished paying, press “I’ve paid — check now”. If you left the payment page, you can start again below."
               : "Your payment is recorded. Pay using the details our team gave you and quote the reference below — once we confirm it, your training unlocks and you’ll get an email receipt."}
           </p>
-          <p className="mt-3 text-sm text-ink-900">Reference: <strong>{access.pending.reference}</strong> · Amount: <strong>{naira(access.pending.amount)}</strong></p>
+          <p className="mt-3 text-sm text-ink-900">Reference: <strong>{access.pending.reference}</strong> · Total to pay: <strong>{naira(access.pending.totalCharged)}</strong></p>
           <div className="mt-4 flex flex-wrap gap-3">
             {access.pending.provider === "paystack" && (
               <>
@@ -161,8 +172,15 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
           {fee ? (
             <>
               <p className="mt-3 font-display text-4xl font-semibold text-ink-900">{naira(fee)}</p>
+              {quote && quote.processingFee > 0 && (
+                <p className="mt-1 text-sm text-ink-800">Payment processing fee {naira(quote.processingFee)} · you pay <strong>{naira(quote.totalToPay)}</strong> in total</p>
+              )}
               <p className="mt-1 text-sm text-ink-800">Pay once to unlock all corps training, quizzes and your certificate. Nothing opens or counts toward your progress until the fee is paid.</p>
-              <button type="button" disabled={busy} onClick={payNow} className="mt-4 h-11 rounded-card bg-[#2c6b2f] px-6 text-sm font-semibold text-white disabled:opacity-60">
+              <label className="mt-4 flex items-start gap-2 text-sm text-ink-900">
+                <input type="checkbox" className="mt-1" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+                <span><strong>This fee is non-refundable once paid.</strong> I understand and agree.</span>
+              </label>
+              <button type="button" disabled={busy || !agreed} onClick={payNow} className="mt-3 h-11 rounded-card bg-[#2c6b2f] px-6 text-sm font-semibold text-white disabled:opacity-60">
                 {busy ? "Please wait…" : "Pay now"}
               </button>
               {mode === "manual" && <p className="mt-2 text-xs text-ink-600">Online card payment isn’t switched on yet — we’ll confirm your payment by hand.</p>}
@@ -182,14 +200,14 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[420px] text-left text-sm">
               <thead>
-                <tr className="text-xs uppercase tracking-wide text-ink-600"><th className="py-2 pr-3">Date</th><th className="py-2 pr-3">Reference</th><th className="py-2 pr-3">Amount</th><th className="py-2">Status</th></tr>
+                <tr className="text-xs uppercase tracking-wide text-ink-600"><th className="py-2 pr-3">Date</th><th className="py-2 pr-3">Reference</th><th className="py-2 pr-3">Total</th><th className="py-2">Status</th></tr>
               </thead>
               <tbody>
                 {payments.map((p) => (
                   <tr key={p.id} className="border-t border-soil-200 text-ink-900">
                     <td className="py-2 pr-3">{when(p.createdAt)}</td>
                     <td className="py-2 pr-3">{p.reference}</td>
-                    <td className="py-2 pr-3">{naira(p.amount)}</td>
+                    <td className="py-2 pr-3">{naira(p.totalCharged)}</td>
                     <td className="py-2"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_TONE[p.status]}`}>{STATUS_LABEL[p.status]}</span></td>
                   </tr>
                 ))}

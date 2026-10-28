@@ -93,3 +93,6 @@ New: login protection, email/SMS queue (Amazon SES + SMS adapter), scheduled-job
 
 ## v32: Phase 2 (farmer shares payment) and deployment setup
 Farmer share purchases now go through Paystack and the shared payment ledger (`docs/PHASE2-FARMER-SHARES.md`). Deployment is set up end to end: `DEPLOYMENT.md` (step by step, with a go-live checklist), `render.yaml` (every variable), a `Dockerfile` for other hosts, and `npm run preflight`, which checks your configuration before you go live and is also printed when the server boots in production.
+
+## v33: Phase 3 (corps access fee on live Paystack)
+Corps payments now use the shared Paystack ledger, fee calculator and webhook; refunds are removed; the member ticks "non-refundable once paid"; manual confirmation asks Paystack first. See `docs/PHASE3-CORPS-FEE.md`.

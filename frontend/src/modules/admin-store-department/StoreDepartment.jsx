@@ -14,7 +14,9 @@ import ProductionReceivingPanel from "./ProductionReceivingPanel.jsx";
 import AllocationPanel from "./AllocationPanel.jsx";
 import RestockRequestPanel from "./RestockRequestPanel.jsx";
 import MovementHistory from "./MovementHistory.jsx";
+import SectionStack from "../../components/SectionStack.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 function mapStock(s) {
   return {
     id: s.id,
@@ -51,7 +53,7 @@ export default function StoreDepartment() {
   const { session } = useAuth();
   const user = session?.user;
 
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useUrlState("tab", "dashboard");
   const [stock, setStock] = useState([]);
   const [receiving, setReceiving] = useState([]);
   const [productionQueue, setProductionQueue] = useState([]);
@@ -175,6 +177,13 @@ export default function StoreDepartment() {
               Inventory on hand, low-stock alerts, and reorder levels.
             </p>
           </div>
+          <SectionStack
+            label="Dashboard section"
+            sections={[
+              {
+                key: "summary",
+                label: "Summary",
+                node: (
           <DeptDashboardCards
             endpoint="/store/dashboard"
             onNavigate={setTab}
@@ -186,20 +195,34 @@ export default function StoreDepartment() {
               { label: "Pending restock requests", value: d.pendingRestockRequests, nav: "restock" },
             ]}
           />
+                ),
+              },
+              {
+                key: "stock",
+                label: "Stock on hand",
+                node: (
           <StockOverview
             stock={stock}
             onRaiseRestockRequest={handleRaiseRestockRequest}
             requestingCrop={requestingCrop}
             onSaveReorderLevel={handleSaveReorderLevel}
           />
+                ),
+              },
+            ]}
+          />
         </div>
       )}
 
       {tab === "receiving" && (
-        <div className="max-w-3xl space-y-6">
-          <ReceivingPanel orders={receiving} onReceive={handleReceive} />
-          <ProductionReceivingPanel harvests={productionQueue} onReceive={handleReceiveProduction} />
-        </div>
+        <SectionStack
+          className="max-w-3xl space-y-6"
+          label="Receive from"
+          sections={[
+            { key: "orders", label: "Sourced orders", badge: receiving.length, node: <ReceivingPanel orders={receiving} onReceive={handleReceive} /> },
+            { key: "production", label: "Own production (harvests)", badge: productionQueue.length, node: <ProductionReceivingPanel harvests={productionQueue} onReceive={handleReceiveProduction} /> },
+          ]}
+        />
       )}
 
       {tab === "allocation" && (

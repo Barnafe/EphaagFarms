@@ -10,6 +10,7 @@ import DeptDashboardCards from "../../components/DeptDashboardCards.jsx";
 import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.jsx";
 import DispatchPanel from "./DispatchPanel.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 function mapOrder(o) {
   return {
     id: o.id,
@@ -32,7 +33,7 @@ export default function TransportDepartment() {
   const { session } = useAuth();
   const user = session?.user;
 
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useUrlState("tab", "dashboard");
   const [dispatchQueue, setDispatchQueue] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [error, setError] = useState(null);

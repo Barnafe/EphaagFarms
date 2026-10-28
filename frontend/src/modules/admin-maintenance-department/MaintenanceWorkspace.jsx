@@ -25,6 +25,7 @@ import InspectionsPanel from "./InspectionsPanel.jsx";
 import HistoryPanel from "./HistoryPanel.jsx";
 import ReportsPanel from "./ReportsPanel.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 // The core reactive workflow lives here: Employee reports a problem ->
 // Maintenance Request -> Supervisor reviews -> Work Order created ->
 // Technician assigned -> Diagnosis -> Repair/Parts Used -> Inspection/
@@ -46,7 +47,7 @@ const sections = [
 ];
 
 export default function MaintenanceWorkspace() {
-  const [section, setSection] = useState(null);
+  const [section, setSection] = useUrlState("section", null);
 
   return (
     <div className="max-w-5xl space-y-6">

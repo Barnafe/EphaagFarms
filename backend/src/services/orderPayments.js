@@ -181,12 +181,12 @@ export async function expireUnpaidOrders({ now = new Date() } = {}) {
 }
 
 /** Re-check payments stuck as pending from the last 48 hours (a webhook that never came). */
-export async function recheckStuckPayments({ limit = 100 } = {}) {
+export async function recheckStuckPayments({ limit = 300 } = {}) {
   const { rows } = await pool.query(
     `SELECT p.reference FROM gateway_payments p
       WHERE p.status IN ('initiated','pending') AND p.created_at > now() - interval '48 hours' AND p.created_at < now() - interval '5 minutes'
         AND NOT EXISTS (SELECT 1 FROM payment_flags f WHERE f.payment_id = p.id AND f.status = 'open')
-      ORDER BY p.created_at LIMIT $1`, [limit]);
+      ORDER BY p.created_at DESC LIMIT $1`, [limit]);   // newest first: recent payments are the likeliest to be genuine
   let settled = 0, unreachable = 0;
   for (const r of rows) {
     const out = await verifyAndSettle(r.reference).catch(() => ({ unreachable: true }));

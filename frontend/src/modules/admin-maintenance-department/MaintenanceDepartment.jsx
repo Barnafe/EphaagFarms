@@ -10,6 +10,7 @@ import DashboardPanel from "./DashboardPanel.jsx";
 import MaintenanceWorkspace from "./MaintenanceWorkspace.jsx";
 import PreventiveMaintenance from "./PreventiveMaintenance.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 // The Maintenance HOD's own portal — deliberately its own DashboardShell
 // (own hamburger, own constant menu) rather than nested inside
 // AdminDashboardShell's generic admin sidebar, same pattern every member
@@ -27,7 +28,7 @@ const items = [
 export default function MaintenanceDepartment() {
   const { session } = useAuth();
   const user = session?.user;
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useUrlState("tab", "dashboard");
 
   if (!user) return null;
 

@@ -242,25 +242,6 @@ export async function orderReceipt(req, res) {
   } });
 }
 
-// --- Finance: mark an order refunded (the refund itself is made in the Paystack dashboard) ---
-export async function markRefunded(req, res) {
-  const { id } = req.params;
-  if (!UUID_RE.test(String(id))) return res.status(404).json({ error: "Order not found" });
-  const note = String(req.body?.note || "").trim();
-  if (!note) return res.status(400).json({ error: "Please give a note, for example the Paystack refund reference" });
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const { rows } = await client.query(
-      `UPDATE orders SET status = 'refunded', refunded_at = now(), refunded_by = $2, held = FALSE
-       WHERE id = $1 AND status NOT IN ('awaiting_payment','payment_failed','cancelled','expired','refunded','delivered') RETURNING *`, [id, req.user.id]);
-    if (!rows[0]) { await client.query("ROLLBACK"); return res.status(409).json({ error: "This order can't be marked refunded in its current state" }); }
-    await orderEvent(client, id, "marked_refunded", req.user, { note });
-    await client.query("COMMIT");
-    res.json({ order: rows[0] });
-  } catch (e) { await client.query("ROLLBACK").catch(() => {}); throw e; } finally { client.release(); }
-}
-
 // --- Buyer: standing commitment -------------------------------------------
 
 export async function setStandingCommitment(req, res) {

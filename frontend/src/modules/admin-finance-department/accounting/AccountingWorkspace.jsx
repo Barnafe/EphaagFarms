@@ -39,6 +39,7 @@ import ReportsPanel from "./ReportsPanel.jsx";
 import AuditPanel from "./AuditPanel.jsx";
 import SettingsPanel from "./SettingsPanel.jsx";
 
+import useUrlState from "../../../hooks/useUrlState.js";
 // The company's full internal accounting system — Financial Requests ->
 // Approval Center -> Budgets -> Income/Expense -> Payables/Receivables ->
 // Payments -> Bank & Cash, plus company-wide monitoring, reconciliation,
@@ -76,7 +77,7 @@ const sections = [
 // instead of landing on the section-picker grid — see FinanceDepartment.jsx,
 // which reads this from the ?section= URL param.
 export default function AccountingWorkspace({ initialSection = null }) {
-  const [section, setSection] = useState(initialSection);
+  const [section, setSection] = useUrlState("section", initialSection);
 
   return (
     <div className="max-w-5xl space-y-6">

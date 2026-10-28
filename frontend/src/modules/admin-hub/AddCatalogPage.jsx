@@ -3,6 +3,7 @@ import { PackagePlus, ImagePlus, Pencil, Trash2, X } from "lucide-react";
 import { apiFetch, apiUpload, assetUrl } from "../../api/client.js";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 
+import SectionStack from "../../components/SectionStack.jsx";
 const CROP_CATEGORIES = ["Grains", "Tubers", "Vegetables", "Other"];
 const LIVESTOCK_CATEGORIES = ["Goat", "Chicken", "Cattle", "Sheep", "Pig", "Turkey", "Other Livestock"];
 
@@ -293,6 +294,14 @@ export default function AddCatalogPage() {
           </div>
         )}
 
+<SectionStack
+            className="space-y-4"
+            label="Catalog section"
+            sections={[
+              {
+                key: "add",
+                label: "Add a catalog item",
+                node: (
         <form onSubmit={handleSubmit} className="card field space-y-4">
           <div>
             <label>What are you listing?</label>
@@ -440,8 +449,14 @@ export default function AddCatalogPage() {
             {submitting ? "Adding…" : "Add to catalog"}
           </button>
         </form>
-
-        <div className="mt-8">
+                ),
+              },
+              {
+                key: "catalog",
+                label: "Already in the catalog",
+                badge: catalog.length,
+                node: (
+        <div>
           <p className="mb-2 text-sm font-medium text-white">Already in the catalog</p>
           {loading ? (
             <p className="text-sm text-canopy-100">Loading…</p>
@@ -647,6 +662,10 @@ export default function AddCatalogPage() {
             </div>
           )}
         </div>
+                ),
+              },
+            ]}
+          />
       </div>
     </AdminDashboardShell>
   );

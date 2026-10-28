@@ -2,6 +2,7 @@ const statusCopy = {
   submitted: { label: "Submitted — awaiting Finance Department review", tone: "text-harvest-600" },
   agreement_pending: { label: "Approved by Finance — agreement emailed to you, awaiting your signed upload", tone: "text-harvest-600" },
   agreement_review: { label: "Signed agreement received — awaiting Finance's final review", tone: "text-harvest-600" },
+  awaiting_payment: { label: "Approved — pay to activate your investment", tone: "text-harvest-600" },
   active: { label: "Active investment", tone: "text-canopy-800" },
   rejected: { label: "Not approved", tone: "text-red-700" },
 };

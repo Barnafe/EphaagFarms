@@ -74,6 +74,7 @@ export const paystack = {
   success: (reference, extra = "") => ps(`/__set?reference=${encodeURIComponent(reference)}&status=success${extra ? "&" + extra : ""}`),
   down: (on) => ps(`/__down?on=${on ? 1 : 0}`),
   refundFail: (on) => ps(`/__refundfail?on=${on ? 1 : 0}`),
+  chargeFail: (on) => ps(`/__chargefail?on=${on ? 1 : 0}`),
   webhook: (reference, { bad = false, target = `${PAY}/api/payments/paystack-webhook`, event } = {}) =>
     ps(`/__webhook?reference=${encodeURIComponent(reference)}&target=${encodeURIComponent(target)}${bad ? "&bad=1" : ""}${event ? `&event=${event}` : ""}`),
 };
@@ -108,4 +109,21 @@ export async function newFarmer({ phoneOnly = false } = {}) {
   const r = await call(API, "/api/auth/register", { method: "POST", body });
   if (r.status !== 201) throw new Error(`farmer register failed: ${r.status} ${JSON.stringify(r.data)}`);
   return { email, phone, password, token: r.data.token, id: r.data.user.id };
+}
+
+/** A corps member (NYSC). { phoneOnly: true } registers without an email. */
+export async function newCorper({ phoneOnly = false } = {}) {
+  const id = `${uniq()}${++seq}`;
+  const password = "Passw0rd!x";
+  const n = Math.floor(Math.random() * 900000) + 100000;
+  const body = {
+    name: `Corper ${id}`, password, role_type: "corper", sex: "male", phone: `0803${String(Math.floor(1000000 + Math.random() * 8999999))}`,
+    callUpNumber: `NYSC/${id}`, stateCode: `PL/26B/${n}`, serviceYear: 2026, batch: "B", stream: "II", stateOfDeployment: "Plateau",
+    ppa: "Test PPA", discipline: "Agriculture", consentTerms: true, consentData: true,
+  };
+  let email = null;
+  if (!phoneOnly) { email = `c${id}@example.test`; body.email = email; }
+  const r = await call(API, "/api/auth/register", { method: "POST", body });
+  if (r.status !== 201) throw new Error(`corper register failed: ${r.status} ${JSON.stringify(r.data)}`);
+  return { email, phone: body.phone, password, token: r.data.token, id: r.data.user.id };
 }

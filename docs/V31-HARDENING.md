@@ -1,5 +1,7 @@
 # v31: final-round hardening before Phase 2 (base: v30)
 
+> **Updated in v34:** refunds now exist only in the admin **Refund room** (see `LATE-FEES-AND-REFUND-ROOM.md`). Anything below about automatic refunds, a "Refunds due" list, "Mark refunded" or refunds through Finance is replaced by that.
+
 ## Two serious bugs in v29 and v30 (fixed here)
 1. **The frontend stopped sending the login token.** My change to `authHeaders()` in v29 dropped the `Authorization` header, so every logged-in screen failed to load. Found by the new real-browser tests. **Do not deploy the v29 or v30 frontend.**
 2. **The app's own pages were blocked (HTTP 403)** when the site address did not exactly match `FRONTEND_ORIGIN`: a browser sends an Origin header on module scripts even for same-origin pages. A request from the app's own address is now always allowed.
@@ -18,4 +20,4 @@ See `PHASE1-BUYER-PAYMENTS.md`. In short: no manual Clear/Reject; refusal is aut
 - Migration `004_payment_refusals.sql` (refused status, refund columns, order items signature).
 
 ## Defaults I chose because you did not answer (all editable in Finance -> Payment confirmations -> Settings)
-Automatic refunds OFF. Duplicate window 24 hours. Order expiry 24 hours. Profile photos public.
+No automatic refunds (v34: none at all; the Refund room is the only way money is returned). Duplicate window 24 hours. Order expiry 24 hours. Profile photos public.

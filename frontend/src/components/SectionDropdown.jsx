@@ -12,6 +12,7 @@ export default function SectionDropdown({
   label = "Jump to",
   allKey = null,
   allLabel = "Show all sections",
+  placeholder = null,
   className = "",
 }) {
   return (
@@ -23,6 +24,7 @@ export default function SectionDropdown({
           onChange={(e) => onSelect(e.target.value)}
           className="w-full appearance-none rounded-card border border-canopy-600 bg-canopy-900 py-2 pl-3 pr-9 text-sm font-medium text-white focus:border-clay-400 focus:outline-none"
         >
+          {placeholder && <option value="" disabled>{placeholder}</option>}
           {allKey && <option value={allKey}>{allLabel}</option>}
           {sections.map((s) => (
             <option key={s.key} value={s.key}>

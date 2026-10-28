@@ -1,5 +1,7 @@
 # Phase 2: farmer shares payment (base: v31)
 
+> **Updated in v34:** refunds now exist only in the admin **Refund room** (see `LATE-FEES-AND-REFUND-ROOM.md`). Anything below about automatic refunds, a "Refunds due" list, "Mark refunded" or refunds through Finance is replaced by that.
+
 New migration `005_share_payments.sql`. Reuses the Phase 1 payment ledger, fee calculator, webhook and refusal rules.
 
 ## What changed
@@ -8,7 +10,7 @@ New migration `005_share_payments.sql`. Reuses the Phase 1 payment ledger, fee c
 - **Webhook**: share payments (reference prefix `SPR`) go through the shared webhook, so shares are created even if the browser was closed, and exactly once (the purchase is locked while the shares are created).
 - **Fee**: the farmer pays it, shown as its own line before paying. A purchase records the goods total, the fee and the total charged separately. **Each share's capital stays exactly ₦25,000**, so the banner figures and interest tables are untouched.
 - **Automatic rules (same as orders, no Finance decision step)**: wrong amount or currency, a purchase that expired or was cancelled, and a second payment for an already-paid purchase are **refused on the spot**, the farmer is told on screen and by message, and the payment goes to Finance's Refunds due list.
-- **Expiry**: an unpaid purchase expires after 24 hours (setting). Once expired or cancelled it has no payment link; a payment from a stale page is refused and returned. A payment that did arrive before the job runs is settled first, never lost.
+- **Due date and late fees (v34)**: an unpaid purchase falls due after 24 hours (setting) but is NOT dropped: it stays payable with a late fee (see `LATE-FEES-AND-REFUND-ROOM.md`). It is taken down only after the late period and grace period. The next sentences describe the earlier behaviour:  Once expired or cancelled it has no payment link; a payment from a stale page is refused and returned. A payment that did arrive before the job runs is settled first, never lost.
 - **Duplicate purchases**: the same number of shares again within 24 hours shows a notice ("You have already paid for this" with Proceed to pay again, or "already waiting for payment" with Pay for the existing purchase).
 - **Pending purchase actions**: Check my payment, Pay again, Cancel.
 - **Finance**: share payments appear in the Auto-confirmed list as Type **Share**, with the same email to Finance and the "recorded" tick. A purchase at or above an optional threshold gets a review-only mark (it still goes through); nothing is flagged for size until you set one (Settings).

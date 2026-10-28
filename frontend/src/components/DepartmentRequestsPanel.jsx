@@ -7,6 +7,7 @@ import RequestList from "../modules/admin-requests/RequestList.jsx";
 import NewRequestForm from "../modules/admin-requests/NewRequestForm.jsx";
 import RequestDetail from "../modules/admin-requests/RequestDetail.jsx";
 
+import useUrlState from "../hooks/useUrlState.js";
 const TABS = [
   {
     key: "awaiting",
@@ -38,7 +39,7 @@ export default function DepartmentRequestsPanel({ department }) {
   const { session } = useAuth();
   const currentUserId = session?.user?.id;
 
-  const [tab, setTab] = useState(null);
+  const [tab, setTab] = useUrlState("rtab", null);
   const [awaiting, setAwaiting] = useState([]);
   const [mine, setMine] = useState([]);
   const [adminUsers, setAdminUsers] = useState([]);

@@ -1,5 +1,7 @@
 # Phase 1: buyer checkout with real Paystack payment
 
+> **Updated in v34:** refunds now exist only in the admin **Refund room** (see `LATE-FEES-AND-REFUND-ROOM.md`). Anything below about automatic refunds, a "Refunds due" list, "Mark refunded" or refunds through Finance is replaced by that.
+
 Baseline: v29 (foundations). New migration `003_payments.sql`.
 
 ## What changed
@@ -12,7 +14,7 @@ Baseline: v29 (foundations). New migration `003_payments.sql`.
 - **Duplicate orders**: the same items for the same amount, ordered again within 24 hours (editable), shows a notice at checkout: "You have already paid for this" (with Proceed to pay again) or "already waiting for payment" (with Pay for the existing order). Pending payments are checked with Paystack first, so a payment that went through but whose confirmation has not arrived yet is still reported as paid.
 - **Unpaid orders**: Pay now (new attempt, or re-use a fresh one), Cancel, and automatic expiry after 24 hours. Before expiring or cancelling, the app asks Paystack, so a payment that did arrive is never lost. Once an order is expired or cancelled it gets no payment link; Paystack cannot cancel a checkout page the buyer already opened, so a payment from a stale page is refused and returned.
 - **Standing commitment**: pay through Paystack; the balance is credited only after verification, and only the amount (not the fee). Orders paid from the balance skip the gateway, carry no fee and go straight to Procurement. Balances typed in before this change keep working and are listed under "Unfunded commitments (legacy)".
-- **Refunds**: Finance refunds in the Paystack dashboard, then "Mark refunded" (with the Paystack reference) in the app. No automatic refunds.
+- **Refunds (v34)**: no refund action on orders or in Finance. Exceptions are handled in the admin Refund room (full refund, written reason required).
 - **Messages**: receipt to the buyer; email to Finance heads (or all admins if no Finance head is set in Positions) for every payment and every flag.
 - **Jobs**: `expire-unpaid` (every 10 min) and `payment-recheck` (every 15 min; payments pending from the last 48 hours).
 - **Audit**: `order_events` records every step with who and when. Fee, threshold and expiry changes go to the security log. Refund, flag decisions and settings are refused while an admin is "acting as" a department.

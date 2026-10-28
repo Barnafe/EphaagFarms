@@ -6,6 +6,7 @@ import DashboardShell from "../../components/DashboardShell.jsx";
 import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import AllocationTaskList from "./AllocationTaskList.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 function mapTask(a) {
   return {
     id: a.id,
@@ -26,7 +27,7 @@ export default function StoreRoom() {
   const { session } = useAuth();
   const user = session?.user;
 
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useUrlState("tab", "dashboard");
   const [tasks, setTasks] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);

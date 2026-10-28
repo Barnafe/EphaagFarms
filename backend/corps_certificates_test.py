@@ -78,7 +78,7 @@ RUN_DIGITS = str(int(RUN, 16) % 10000).zfill(4)
 
 
 def pay(c):
-    r = call("POST", "/corpers/payments/initiate", c, json={})
+    r = call("POST", "/corpers/payments/initiate", c, json={"acceptNonRefundable": True})
     assert r.status_code in (200, 201), r.text[:200]
     pid = r.json()["payment"]["id"]
     assert call("POST", f"/rtc/admin/corps/payments/{pid}/confirm", admin, json={}).status_code == 200

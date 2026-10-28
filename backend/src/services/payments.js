@@ -2,8 +2,9 @@ import { pool, detached } from "../db/pool.js";
 import { generateReference } from "../utils/reference.js";
 import { getSetting } from "../utils/settings.js";
 import { notifyUser, sendMail } from "./messaging.js";
+import { notifyAttention } from "../jobs/alerts.js";
 import { renderTemplate } from "./messageTemplates.js";
-import { calculateFee, getFeeConfig, initializeTransaction, verifyTransaction, requestRefund, toKobo, callbackUrl } from "./paystack.js";
+import { calculateFee, getFeeConfig, initializeTransaction, verifyTransaction, toKobo, callbackUrl } from "./paystack.js";
 import { logSecurityEvent } from "../utils/securityLog.js";
 
 // ---------------------------------------------------------------------------
@@ -26,7 +27,7 @@ const httpErr = (message, status = 400) => Object.assign(new Error(message), { s
 
 /** Insert a payment row (the fee is worked out here, on the server, never by the browser). */
 export async function createPayment({ client = pool, type, userId, subjectId = null, netAmount, meta = {}, reference: fixedReference = null }) {
-  const cfg = await getFeeConfig();
+  const cfg = await getFeeConfig(client); // the caller's own connection: never ask the pool while one is held
   const { net, fee, gross } = calculateFee(netAmount, cfg);
   const reference = fixedReference || generateReference(PAYMENT_PREFIX[type] || "PAY") + Math.random().toString(36).slice(2, 5).toUpperCase();
   const { rows } = await client.query(
@@ -121,7 +122,10 @@ export async function settlePayment(reference, data, { source = "verify" } = {})
       [payment.id, Number(data.amount) / 100, String(data.id ?? ""), data.channel || null, data.paid_at || null]);
     let paid = upd[0];
     const h = handlers.get(paid.type);
-    const out = (h?.apply ? await h.apply(paid, client) : null) || {};
+    // Never mark money as received if nothing knows what to do with it: roll back and let the next
+    // check (or a deploy that registers the handler) settle it.
+    if (!h?.apply) throw new Error(`No payment handler is registered for type "${paid.type}"`);
+    const out = (await h.apply(paid, client, data)) || {};
     if (out.refuse) {
       const refused = await refuseInTx(client, paid, out.refuse.reason, data);
       await client.query("COMMIT");
@@ -143,6 +147,19 @@ export async function settlePayment(reference, data, { source = "verify" } = {})
   return result;
 }
 
+/**
+ * Ask Paystack what happened to a reference and settle it. Used by the return
+ * page, the pending-payment checks and the scheduled re-check.
+ * Returns the settlePayment result, or { unreachable: true } when Paystack cannot be asked
+ * (not configured, network down, or it did not answer): nothing is changed in that case.
+ */
+export async function verifyAndSettle(reference, { source = "verify" } = {}) {
+  let data = null;
+  try { data = await verifyTransaction(reference); } catch { data = null; }
+  if (!data) return { found: true, outcome: "pending", unreachable: true };
+  return settlePayment(reference, data, { source });
+}
+
 const REFUSAL_TEXT = {
   amount_mismatch: "the amount paid did not match the amount due",
   currency_mismatch: "the payment was not in Naira",
@@ -152,7 +169,11 @@ const REFUSAL_TEXT = {
   no_buyer_profile: "no buyer profile was found for the account",
   purchase_expired: "the share purchase had already expired",
   purchase_cancelled: "the share purchase had been cancelled",
-  purchase_missing: "the share purchase could not be found",
+  purchase_missing: "the payment could not be matched to anything to pay for",
+  payment_cancelled: "the payment had been cancelled",
+  quote_expired: "the late fee had increased since you agreed to it",
+  payment_closed: "the payment had already been closed",
+  investment_closed: "the investment is no longer waiting for this payment",
 };
 export const refusalText = (code) => REFUSAL_TEXT[code] || "the payment could not be applied";
 
@@ -174,51 +195,11 @@ async function refuseInTx(client, payment, reason, data) {
       if (refused.user_id) {
         await notifyUser(refused.user_id, "payment_refused", { reference: refused.reference, amount: Number(refused.paid_amount ?? refused.gross_amount), reasonText: refusalText(reason) });
       }
-      await notifyFinance("refund_due_notice", { typeLabel: TYPE_LABEL[refused.type] || refused.type, payer: u[0]?.name || "payer", reference: refused.reference, amount: Number(refused.paid_amount ?? refused.gross_amount), reasonText: refusalText(reason) });
-      await maybeAutoRefund(refused);
+      // Exceptional case: tell every admin straight away. It waits under "Needs attention" in the Refund room.
+      await notifyAttention("payment_attention", { typeLabel: TYPE_LABEL[refused.type] || refused.type, payer: u[0]?.name || "payer", reference: refused.reference, amount: Number(refused.paid_amount ?? refused.gross_amount), reasonText: refusalText(reason) },
+        `EPHAAG: a ${TYPE_LABEL[refused.type] || refused.type} payment of ₦${Number(refused.paid_amount ?? refused.gross_amount).toLocaleString()} could not be applied and needs a refund. Open Admin > Refund room.`);
     },
   };
-}
-
-// ---- refunds -------------------------------------------------------------------------
-export async function autoRefundEnabled() { return (await getSetting("auto_refund", false)) === true; }
-
-/** Ask Paystack to return the money. Only if the Finance setting is on; failure leaves it "due". */
-export async function maybeAutoRefund(payment) {
-  if (!(await autoRefundEnabled())) return { skipped: true };
-  return refundViaPaystack(payment);
-}
-
-export async function refundViaPaystack(payment, { userId = null } = {}) {
-  if (!payment.provider_ref && !payment.reference) return { ok: false, error: "No Paystack transaction to refund" };
-  const { rows } = await pool.query(
-    `UPDATE gateway_payments SET refund_status = 'processing', updated_at = now() WHERE id = $1 AND refund_status IN ('due','failed') RETURNING id`, [payment.id]);
-  if (!rows[0]) return { ok: false, error: "This payment is not waiting for a refund" };
-  const r = await requestRefund(payment.reference);
-  if (r.ok) {
-    await pool.query(
-      `UPDATE gateway_payments SET refund_status = 'refunded', refund_reference = $2, refund_note = 'Refunded through Paystack', refund_at = now(), refunded_by = $3, updated_at = now() WHERE id = $1`,
-      [payment.id, r.reference || null, userId]);
-    return { ok: true };
-  }
-  await pool.query(`UPDATE gateway_payments SET refund_status = 'failed', refund_note = $2, updated_at = now() WHERE id = $1`, [payment.id, String(r.error || "Paystack refused the refund").slice(0, 300)]);
-  return { ok: false, error: r.error };
-}
-
-/** Finance refunded it by hand in the Paystack dashboard and records the reference. */
-export async function markRefundedManually(paymentId, { userId, note }) {
-  const { rows } = await pool.query(
-    `UPDATE gateway_payments SET refund_status = 'refunded', refund_note = $2, refund_reference = $2, refund_at = now(), refunded_by = $3, updated_at = now()
-      WHERE id = $1 AND refund_status IN ('due','failed') RETURNING *`, [paymentId, note, userId]);
-  if (!rows[0]) throw httpErr("This payment is not waiting for a refund", 409);
-  return rows[0];
-}
-
-/** Ask Paystack about a reference and settle it. Used by the return page and the re-check job. */
-export async function verifyAndSettle(reference) {
-  const data = await verifyTransaction(reference);
-  if (!data) return { found: true, outcome: "pending", unreachable: true };
-  return settlePayment(reference, data, { source: "verify" });
 }
 
 // ---- notifications --------------------------------------------------------------------

@@ -4,14 +4,10 @@ import { generateReference, REF_PREFIX } from "../utils/reference.js";
 import { sendMail } from "../utils/email.js";
 import { AGREEMENTS_DIR } from "../middleware/upload.js";
 import { sendFileRef, refFromUrl } from "../utils/fileRefs.js";
+import { notifyUser } from "../services/messaging.js";
+import { ROI_SCHEDULE, currentObligation, quote, startInvestmentPayment, runInvestmentAutoCharge, recordOfflinePayment } from "../services/investmentPayments.js";
 
-// ROI schedule matches the delivered investment proposal exactly — same
-// numbers the frontend's PlanApplicationForm shows before submitting.
-const ROI_SCHEDULE = {
-  monthly: [10, 20, 30, 40, 50],
-  bulk: [20, 25, 30, 35, 50],
-};
-
+// The ROI schedule (see services/investmentPayments.js) matches the delivered investment proposal exactly.
 const PARTNER_THRESHOLD = { amount: 1000000, altAmount: 250000, altReferrals: 25 };
 
 const AGREEMENT_TEMPLATE_PATH = path.join(
@@ -29,6 +25,7 @@ function mapApplication(row) {
     durationYears: row.duration_years,
     paymentMode: row.payment_mode,
     hasAgreementFile: !!row.agreement_file_url,
+    savedCard: row.card_auth_code ? { last4: row.card_last4, brand: row.card_brand } : null,
   };
 }
 
@@ -40,7 +37,7 @@ async function getInvestorEmail(investorId) {
 // --- Investor: submit a plan application ------------------------------
 
 const PAYMENT_MODES = ["auto", "manual"];
-const OPEN_APPLICATION_STATUSES = ["submitted", "agreement_pending", "agreement_review", "active"];
+const OPEN_APPLICATION_STATUSES = ["submitted", "agreement_pending", "agreement_review", "awaiting_payment", "active"];
 
 export async function apply(req, res) {
   const { planType, durationYears: rawDuration, paymentMode } = req.body;
@@ -108,13 +105,13 @@ export async function myApplication(req, res) {
   );
   const application = mapApplication(rows[0]);
 
-  if (application && application.status === "active" && application.planType === "monthly") {
-    const { rows: dueRows } = await pool.query(
-      `SELECT due_date FROM investment_payments
-       WHERE application_id = $1 AND status = 'due' ORDER BY due_date ASC LIMIT 1`,
-      [application.id]
-    );
-    application.nextDueDate = dueRows[0]?.due_date || null;
+  if (rows[0]) {
+    const ob = await currentObligation(pool, rows[0]);
+    if (!ob.none) {
+      application.obligation = { kind: ob.kind, dueDate: ob.dueDate || null, ...(await quote(ob.net)) };
+      if (ob.row?.auto_charge_error) application.autoChargeFailed = { error: ob.row.auto_charge_error, at: ob.row.auto_charge_attempted_at };
+      if (ob.kind === "monthly") application.nextDueDate = ob.dueDate;
+    }
   }
 
   res.json({ application });
@@ -141,106 +138,56 @@ export async function myPayments(req, res) {
       date: p.paid_date,
       amount: Number(p.amount),
       status: p.status,
+      paidVia: p.paid_via || null,
     })),
   });
 }
 
-// Manual payment logging — matches against the oldest outstanding 'due'
-// record (created on activation / after each prior payment) so the
-// countdown and reminder system stay in sync.
-//
-// Fixed in the 2026-10-20 payment audit:
-//  - amount is validated (was: any truthy value, "abc" reached the DB)
-//  - only an ACTIVE application can log payments (was: any application,
-//    including rejected / still-awaiting-agreement ones)
-//  - a payment below the agreed monthly amount is refused
-//  - the next due record always carries the AGREED monthly amount (was:
-//    it copied whatever the investor typed last, so one short payment
-//    silently lowered every future month)
-//  - on-time/late is decided by calendar date in the database (was: a JS
-//    timestamp comparison, so paying ON the due date after midnight UTC
-//    was marked late)
-//  - the whole thing runs in one transaction with the due row locked, so
-//    a double-click can't log the same month twice
-//  - no new due record is created once the plan's full term is covered
+// There is no typed-in payment log any more: every payment goes through Paystack (see below).
 export async function logPayment(req, res) {
-  const amount = Number(req.body?.amount);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return res.status(400).json({ error: "amount must be a positive number" });
-  }
+  res.status(410).json({ error: "Payments are now made online. Use Pay now in your Investor Room." });
+}
 
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
+// POST /api/investments/me/pay — start paying what is owed right now (to activate, or the month due).
+export async function payNow(req, res) {
+  const r = await startInvestmentPayment(req.user);
+  if (r.alreadyPaid) return res.json({ alreadyPaid: true });
+  res.json({ payment: { reference: r.payment.reference, authorizationUrl: r.payment.authorization_url, amount: Number(r.payment.net_amount), fee: Number(r.payment.fee_amount), total: Number(r.payment.gross_amount) } });
+}
 
-    const { rows: appRows } = await client.query(
-      `SELECT id, payment_mode, plan_type, status, amount, duration_years
-       FROM investment_applications
-       WHERE investor_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1 FOR UPDATE`,
-      [req.user.id]
-    );
-    const application = appRows[0];
-    if (!application) throw Object.assign(new Error("No investment application found"), { status: 404 });
-    if (application.status !== "active") {
-      throw Object.assign(new Error("Payments can only be logged once your investment is active"), { status: 400 });
-    }
-    if (application.plan_type !== "monthly") {
-      throw Object.assign(new Error("Only monthly plans have a payment log"), { status: 400 });
-    }
-    if (application.payment_mode !== "manual") {
-      throw Object.assign(new Error("This plan is auto-charged — no manual logging needed"), { status: 400 });
-    }
+// PATCH /api/investments/me/payment-mode { paymentMode: "auto" | "manual" } — monthly plans only.
+export async function setPaymentMode(req, res) {
+  const mode = req.body?.paymentMode;
+  if (!PAYMENT_MODES.includes(mode)) return res.status(400).json({ error: "paymentMode must be 'auto' or 'manual'" });
+  const { rows } = await pool.query(
+    `SELECT * FROM investment_applications WHERE investor_id = $1 AND status IN ('awaiting_payment','active') ORDER BY created_at DESC LIMIT 1`, [req.user.id]);
+  const app = rows[0];
+  if (!app) return res.status(404).json({ error: "No investment found" });
+  if (app.plan_type !== "monthly") return res.status(400).json({ error: "Only monthly plans have a payment mode" });
+  const { rows: u } = await pool.query(
+    `UPDATE investment_applications SET payment_mode = $2 WHERE id = $1 RETURNING *`, [app.id, mode]);
+  res.json({ application: mapApplication(u[0]), needsCard: mode === "auto" && !u[0].card_auth_code });
+}
 
-    const { rows: dueRows } = await client.query(
-      `SELECT * FROM investment_payments WHERE application_id = $1 AND status = 'due'
-       ORDER BY due_date ASC LIMIT 1 FOR UPDATE`,
-      [application.id]
-    );
-    const due = dueRows[0];
-    if (!due) {
-      throw Object.assign(new Error("There's no payment due on this plan right now"), { status: 400 });
-    }
+// DELETE /api/investments/me/card — forget the saved card; the plan goes back to Pay now.
+export async function removeCard(req, res) {
+  const { rows } = await pool.query(
+    `UPDATE investment_applications SET card_auth_code = NULL, card_last4 = NULL, card_brand = NULL, card_email = NULL, card_saved_at = NULL, payment_mode = 'manual'
+      WHERE id = (SELECT id FROM investment_applications WHERE investor_id = $1 AND status IN ('awaiting_payment','active') ORDER BY created_at DESC LIMIT 1) RETURNING *`, [req.user.id]);
+  if (!rows[0]) return res.status(404).json({ error: "No investment found" });
+  res.json({ application: mapApplication(rows[0]) });
+}
 
-    const agreed = Number(application.amount);
-    if (amount < agreed) {
-      throw Object.assign(
-        new Error(`Your agreed monthly payment is ₦${agreed.toLocaleString()} — a smaller amount can't be logged`),
-        { status: 400 }
-      );
-    }
+// POST /api/investments/applications/:id/record-offline { reason } — admin exception (money received outside Paystack).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export async function recordOffline(req, res) {
+  if (!UUID_RE.test(String(req.params.id))) return res.status(404).json({ error: "Application not found" });
+  const r = await recordOfflinePayment(req.params.id, req.user, req.body?.reason);
+  res.status(201).json({ recorded: r });
+}
 
-    const { rows: updated } = await client.query(
-      `UPDATE investment_payments
-       SET amount = $1, paid_date = CURRENT_DATE,
-           status = CASE WHEN CURRENT_DATE <= due_date THEN 'on_time' ELSE 'late' END
-       WHERE id = $2 RETURNING *`,
-      [amount, due.id]
-    );
-
-    // Roll the next due date forward a month — but only while the plan's
-    // term (duration_years x 12 monthly payments) isn't fully covered yet.
-    const { rows: countRows } = await client.query(
-      `SELECT COUNT(*)::int AS n FROM investment_payments WHERE application_id = $1`,
-      [application.id]
-    );
-    if (countRows[0].n < application.duration_years * 12) {
-      await client.query(
-        `INSERT INTO investment_payments (application_id, amount, due_date, status)
-         VALUES ($1, $2, $3::date + INTERVAL '1 month', 'due')`,
-        [application.id, agreed, due.due_date]
-      );
-    }
-
-    await client.query("COMMIT");
-    const p = updated[0];
-    res.status(201).json({ payment: { id: p.id, date: p.paid_date, amount: Number(p.amount), status: p.status } });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    if (err.status) return res.status(err.status).json({ error: err.message });
-    throw err;
-  } finally {
-    client.release();
-  }
+export async function runAutoChargeNow(req, res) {
+  res.json(await runInvestmentAutoCharge());
 }
 
 // --- Investor: ROI breakdown --------------------------------------------
@@ -346,7 +293,7 @@ export async function downloadAgreement(req, res) {
 }
 
 // --- Admin (Finance): application review --------------------------------
-// Lists everything mid-flow: 'submitted' (Finance's first look),
+// Lists everything mid-flow (plus active monthly plans, so a payment received outside Paystack can be recorded): 'submitted' (Finance's first look),
 // 'agreement_pending' (waiting on the investor — shown read-only so
 // Finance can see who's outstanding), and 'agreement_review' (investor
 // uploaded their signed copy — needs Finance's final decision).
@@ -355,7 +302,8 @@ export async function listApplications(req, res) {
   const { rows } = await pool.query(
     `SELECT a.*, u.name AS investor_name FROM investment_applications a
      JOIN users u ON u.id = a.investor_id
-     WHERE a.status IN ('submitted', 'agreement_pending', 'agreement_review')
+     WHERE a.status IN ('submitted', 'agreement_pending', 'agreement_review', 'awaiting_payment')
+        OR (a.status = 'active' AND a.plan_type = 'monthly')
      ORDER BY a.created_at ASC`
   );
   res.json({
@@ -367,9 +315,9 @@ export async function listApplications(req, res) {
 // From 'submitted': approve -> agreement_pending (emails the agreement
 //   template to the investor, with instructions to sign and upload it back).
 //   reject -> rejected.
-// From 'agreement_review': approve -> active (generates the ROI schedule,
-//   sets up the first payment due-date for monthly plans, emails a
-//   congratulations confirmation). reject -> rejected.
+// From 'agreement_review': approve -> awaiting_payment (the investor then pays online; the verified
+//   payment activates the investment, generates the ROI schedule and the monthly due dates).
+//   reject -> rejected.
 // 'agreement_pending' has no Finance decision to make — it's waiting on
 //   the investor to upload — but Finance can still reject a stale one.
 export async function decideApplication(req, res) {
@@ -380,6 +328,7 @@ export async function decideApplication(req, res) {
   }
 
   const client = await pool.connect();
+  let released = false;
   try {
     await client.query("BEGIN");
 
@@ -392,10 +341,10 @@ export async function decideApplication(req, res) {
       throw Object.assign(new Error("Application not found"), { status: 404 });
     }
 
-    const approveRoute = { submitted: "agreement_pending", agreement_review: "active" };
+    const approveRoute = { submitted: "agreement_pending", agreement_review: "awaiting_payment" };
     let nextStatus;
     if (decision === "reject") {
-      if (!["submitted", "agreement_pending", "agreement_review"].includes(application.status)) {
+      if (!["submitted", "agreement_pending", "agreement_review", "awaiting_payment"].includes(application.status)) {
         throw Object.assign(new Error("Application isn't awaiting a decision"), { status: 400 });
       }
       nextStatus = "rejected";
@@ -411,31 +360,15 @@ export async function decideApplication(req, res) {
       [nextStatus, id]
     );
 
-    if (nextStatus === "active") {
-      const schedule = ROI_SCHEDULE[application.plan_type];
-      for (let i = 0; i < application.duration_years && i < schedule.length; i++) {
-        const roiPercent = schedule[i];
-        const roiAmount = (Number(application.amount) * roiPercent) / 100;
-        await client.query(
-          `INSERT INTO roi_records (application_id, year_number, roi_percent, roi_amount, penalty_percent, net_payout)
-           VALUES ($1, $2, $3, $4, 0, $4)`,
-          [id, i + 1, roiPercent, roiAmount]
-        );
-      }
-
-      // Monthly plans get a recurring due-date schedule starting one
-      // month from activation, which drives the countdown UI and the
-      // day-before reminder email.
-      if (application.plan_type === "monthly") {
-        await client.query(
-          `INSERT INTO investment_payments (application_id, amount, due_date, status)
-           VALUES ($1, $2, CURRENT_DATE + INTERVAL '1 month', 'due')`,
-          [id, application.amount]
-        );
-      }
+    // Nothing is activated here any more: the investor's online payment activates the investment
+    // (see services/investmentPayments.js). A rejected application's unpaid payment pages are closed.
+    if (nextStatus === "rejected") {
+      await client.query(`UPDATE gateway_payments SET status = 'abandoned', updated_at = now() WHERE type = 'investment' AND meta->>'applicationId' = $1 AND status IN ('initiated','pending')`, [id]);
     }
 
     await client.query("COMMIT");
+    client.release(); // hand the connection back before the notices use the pool
+    released = true;
 
     // Email is intentionally NOT awaited here — sendMail() never throws
     // (it catches its own errors internally), so firing it without
@@ -463,30 +396,19 @@ export async function decideApplication(req, res) {
         `,
         attachments: [{ filename: "investment-agreement.pdf", path: AGREEMENT_TEMPLATE_PATH }],
       });
-    } else if (nextStatus === "active" && investor?.email) {
-      sendMail({
-        to: investor.email,
-        subject: `Congratulations — you're now an EPHAAG Farms investor!`,
-        html: `
-          <p>Hi ${investor.name},</p>
-          <p>Congratulations! Your signed agreement has been reviewed and your investment
-          (<strong>${application.reference}</strong>) is now active.</p>
-          <p>You can track your ROI schedule and (if on the monthly plan) your upcoming
-          payment dates from your Investor Room dashboard from now on.</p>
-          <p>Welcome aboard — we're glad to have you with us.</p>
-          <p>— EPHAAG Farms</p>
-        `,
-      });
+    }
+    if (nextStatus === "awaiting_payment") {
+      notifyUser(application.investor_id, "investment_payment_requested", { reference: application.reference, planType: application.plan_type, amount: Number(application.amount) }).catch(() => {});
     }
 
     res.json({ application: mapApplication(updated[0]) });
   } catch (err) {
-    await client.query("ROLLBACK");
+    if (!released) await client.query("ROLLBACK");
     if (err.status) return res.status(err.status).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: "Could not update application" });
   } finally {
-    client.release();
+    if (!released) client.release();
   }
 }
 
@@ -570,7 +492,7 @@ export async function approveRoiPayout(req, res) {
 
 export async function runDueDateReminders() {
   const { rows } = await pool.query(
-    `SELECT ip.*, a.reference, a.investor_id, u.name AS investor_name, u.email AS investor_email
+    `SELECT ip.*, a.reference, a.investor_id, a.payment_mode, a.card_last4, u.name AS investor_name, u.email AS investor_email
      FROM investment_payments ip
      JOIN investment_applications a ON a.id = ip.application_id
      JOIN users u ON u.id = a.investor_id
@@ -590,6 +512,7 @@ export async function runDueDateReminders() {
         <strong>₦${Number(row.amount).toLocaleString()}</strong> on investment
         <strong>${row.reference}</strong> is due <strong>tomorrow (${row.due_date})</strong>,
         as agreed and signed in your investment agreement.</p>
+        ${row.payment_mode === "auto" && row.card_last4 ? `<p>It will be charged automatically to your saved card ending ${row.card_last4}. Please make sure it has enough funds.</p>` : `<p>Open your Investor Room and use <strong>Pay now</strong>.</p>`}
         <p>Please make your payment on time to stay in good standing. As a reminder, the
         agreed terms note that inconsistent payments carry a penalty of 2% of profit per
         month, so we'd encourage settling this before the due date.</p>

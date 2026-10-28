@@ -16,6 +16,7 @@ import DuplicateOrderNotice from "./DuplicateOrderNotice.jsx";
 import OrderHistory from "./OrderHistory.jsx";
 import { mergeCatalog } from "./catalogMeta.js";
 
+import useUrlState from "../../hooks/useUrlState.js";
 function mapCommitment(user) {
   return {
     active: (user?.standingCommitmentTotal || 0) > 0,
@@ -59,7 +60,7 @@ export default function BuyerRoom() {
   const { session, refreshSession } = useAuth();
   const user = session?.user;
 
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useUrlState("tab", "dashboard");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [catalogItems, setCatalogItems] = useState([]);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch, API_ORIGIN } from "../../api/client.js";
 
+import useUrlState from "../../hooks/useUrlState.js";
 function UnitRequestsTab() {
   const [units, setUnits] = useState([]);
   const [error, setError] = useState(null);
@@ -139,7 +140,7 @@ function ProfileReportsTab() {
 }
 
 export default function CommunityPage() {
-  const [tab, setTab] = useState("units");
+  const [tab, setTab] = useUrlState("tab", "units");
 
   return (
     <div className="space-y-4">

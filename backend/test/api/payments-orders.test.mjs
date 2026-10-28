@@ -146,7 +146,7 @@ test("a webhook with a bad signature is rejected, logged and changes nothing", a
 
 const refusedRow = async (ref) => (await db.query("SELECT status, refusal_reason, refund_status, paid_amount FROM gateway_payments WHERE reference=$1", [ref])).rows[0];
 
-test("a wrong amount is REFUSED immediately and automatically: order untouched, buyer told on screen and by message, refund queued", async () => {
+test("a wrong amount is REFUSED immediately and automatically: order untouched, buyer told on screen and by message, admins told, it waits in the Refund room", async () => {
   const b = await newBuyer();
   const out = await place(b);
   const ref = out.payment.reference;
@@ -156,7 +156,7 @@ test("a wrong amount is REFUSED immediately and automatically: order untouched, 
   const p = await refusedRow(ref);
   assert.equal(p.status, "refused");
   assert.equal(p.refusal_reason, "amount_mismatch");
-  assert.equal(p.refund_status, "due");
+  assert.equal(p.refund_status, "due", "waits under Needs attention in the Refund room");
   assert.equal(Number(p.paid_amount), 1);
   assert.equal((await flagsFor(ref)).length, 0, "no Finance decision is needed, so nothing is flagged for one");
   assert.ok((await events(out.order.id)).includes("payment_refused"));
@@ -166,15 +166,19 @@ test("a wrong amount is REFUSED immediately and automatically: order untouched, 
   assert.equal(st.data.refusalReason, "amount_mismatch");
   assert.match(st.data.refusalText, /amount/);
   assert.ok(await waitForMessage("to_user_id=$1 AND template='payment_refused'", [b.id]), "buyer notified");
-  assert.ok(await waitForMessage("template='refund_due_notice' AND body_text ILIKE $1", [`%${ref}%`]), "Finance told for information");
+  assert.ok(await waitForMessage("template='payment_attention' AND body_text ILIKE $1", [`%${ref}%`]), "admins told straight away");
+  assert.match(st.data.refusalText, /amount/);
+  const notice = await waitForMessage("to_user_id=$1 AND template='payment_refused'", [b.id]);
+  assert.match(notice.body_text, /administrators|return/i, "the buyer is told the administrators will return the money");
+  assert.doesNotMatch(notice.body_text, /automatically/i);
   // repeated webhooks and checks do not refuse twice or send twice
   await paystack.webhook(ref); await pay(`/payments/status/${ref}`, { token: b.token });
   assert.equal((await db.query("SELECT count(*)::int AS n FROM messages WHERE template='payment_refused' AND to_user_id=$1", [b.id])).rows[0].n, 1);
-  // it is NOT in the accounting list of confirmed payments, but IS in Refunds due
+  // it is NOT in the accounting list of confirmed payments, but IS under Needs attention in the Refund room
   const led = await api("/payments/admin/ledger?type=order", { token: admin });
   assert.ok(!led.data.payments.some((x) => x.reference === ref));
-  const due = await api("/payments/admin/refunds", { token: admin });
-  const line = due.data.refunds.find((x) => x.reference === ref);
+  const due = await pay("/refunds/attention", { token: admin });
+  const line = due.data.items.find((x) => x.reference === ref);
   assert.ok(line); assert.match(line.reasonText, /amount/);
   // the buyer can simply pay again properly
   const retry = await pay(`/orders/${out.order.id}/pay`, { method: "POST", token: b.token });
@@ -191,46 +195,59 @@ test("a wrong currency is refused too", async () => {
   assert.equal((await refusedRow(out.payment.reference)).refusal_reason, "currency_mismatch");
 });
 
-test("refunds: Finance sees only what is left to refund; manual mark-refunded, Paystack refund on demand, and the automatic switch", async () => {
-  const mk = async (qs) => { const b = await newBuyer(); const o = await place(b); await paystack.success(o.payment.reference, qs); await paystack.webhook(o.payment.reference); return { b, o, ref: o.payment.reference }; };
-  const a = await mk("amountKobo=100");
-  const id = (await db.query("SELECT id FROM gateway_payments WHERE reference=$1", [a.ref])).rows[0].id;
-  // manual: needs a note, then it leaves the list
-  assert.equal((await api(`/payments/admin/refunds/${id}/mark-refunded`, { method: "POST", token: admin, body: {} })).status, 400);
-  assert.equal((await api(`/payments/admin/refunds/${id}/mark-refunded`, { method: "POST", token: admin, body: { note: "Paystack refund RF-9" } })).status, 200);
-  assert.equal((await refusedRow(a.ref)).refund_status, "refunded");
-  assert.equal((await api(`/payments/admin/refunds/${id}/mark-refunded`, { method: "POST", token: admin, body: { note: "again" } })).status, 409);
-  assert.ok(!(await api("/payments/admin/refunds", { token: admin })).data.refunds.some((x) => x.reference === a.ref));
-  assert.ok((await api("/payments/admin/refunds?status=done", { token: admin })).data.refunds.some((x) => x.reference === a.ref));
+test("Refund room: one place for refunds; full refunds only, a written reason is required, the payer is told, Paystack failures stay on the list", async () => {
+  const mk = async (qs = "") => { const b = await newBuyer(); const o = await place(b); await paystack.success(o.payment.reference, qs); await paystack.webhook(o.payment.reference); return { b, o, ref: o.payment.reference }; };
+  const idOf = async (ref) => (await db.query("SELECT id FROM gateway_payments WHERE reference=$1", [ref])).rows[0].id;
 
-  // Paystack refund on demand
-  const c = await mk("amountKobo=100");
-  const cid = (await db.query("SELECT id FROM gateway_payments WHERE reference=$1", [c.ref])).rows[0].id;
+  // the old refund features are gone
+  assert.equal((await pay("/payments/admin/refunds", { token: admin })).status, 404);
+  assert.equal((await pay("/payments/admin/refunds/00000000-0000-0000-0000-000000000000/mark-refunded", { method: "POST", token: admin, body: { note: "x" } })).status, 404);
+  const st = await pay("/payments/admin/settings", { token: admin });
+  assert.equal(st.data.autoRefund, undefined, "no automatic refund setting any more");
+
+  // money that arrived but could not be applied waits under "Needs attention"
+  const a = await mk("amountKobo=100"); const aid = await idOf(a.ref);
+  assert.ok((await pay("/refunds/attention", { token: admin })).data.items.some((x) => x.reference === a.ref));
+  assert.equal((await pay("/refunds/attention", { token: a.b.token })).status, 403, "admins only");
+  assert.equal((await pay("/refunds/attention")).status, 401);
+
+  // a written reason is required
+  assert.equal((await pay(`/refunds/${aid}`, { method: "POST", token: admin, body: {} })).status, 400);
+  assert.equal((await pay(`/refunds/${aid}`, { method: "POST", token: admin, body: { reason: "  " } })).status, 400);
+  assert.equal((await pay("/refunds/not-a-uuid", { method: "POST", token: admin, body: { reason: "valid reason" } })).status, 404);
+
+  // Paystack cannot refund: the payment stays on the list with a clear message, then works on retry
   await paystack.refundFail(true);
-  const bad = await pay(`/payments/admin/refunds/${cid}/refund`, { method: "POST", token: admin });
+  const bad = await pay(`/refunds/${aid}`, { method: "POST", token: admin, body: { reason: "Wrong amount paid by mistake" } });
   assert.equal(bad.status, 502);
-  assert.equal((await refusedRow(c.ref)).refund_status, "failed", "a failed refund stays on the list");
+  assert.equal((await refusedRow(a.ref)).refund_status, "failed");
+  assert.ok((await pay("/refunds/attention", { token: admin })).data.items.some((x) => x.reference === a.ref), "still needs attention");
   await paystack.refundFail(false);
-  assert.equal((await pay(`/payments/admin/refunds/${cid}/refund`, { method: "POST", token: admin })).status, 200);
-  assert.equal((await refusedRow(c.ref)).refund_status, "refunded");
-  assert.equal((await paystack.tx(c.ref)).refunded, true);
+  const ok = await pay(`/refunds/${aid}`, { method: "POST", token: admin, body: { reason: "Wrong amount paid by mistake" } });
+  assert.equal(ok.status, 200);
+  assert.equal((await refusedRow(a.ref)).refund_status, "refunded");
+  assert.equal((await paystack.tx(a.ref)).refunded, true);
+  assert.ok(await waitForMessage("to_user_id=$1 AND template='refund_sent'", [a.b.id]), "the payer is told on the notification channels");
+  // it leaves Needs attention and appears in History with its reason; a second refund is refused
+  assert.ok(!(await pay("/refunds/attention", { token: admin })).data.items.some((x) => x.reference === a.ref));
+  const hist = (await pay("/refunds/history", { token: admin })).data.items.find((x) => x.reference === a.ref);
+  assert.ok(hist); assert.equal(hist.reason, "Wrong amount paid by mistake");
+  assert.equal((await pay(`/refunds/${aid}`, { method: "POST", token: admin, body: { reason: "again please" } })).status, 409);
 
-  // automatic switch ON: a refused payment is returned straight away, with no Finance step at all
-  await api("/payments/admin/settings", { method: "PUT", token: admin, body: { autoRefund: true } });
-  const d = await mk("amountKobo=100");
-  for (let i = 0; i < 40 && (await refusedRow(d.ref)).refund_status !== "refunded"; i++) await sleep(150);
-  assert.equal((await refusedRow(d.ref)).refund_status, "refunded");
-  assert.equal((await paystack.tx(d.ref)).refunded, true);
-  // automatic switch ON but Paystack refuses: it falls back to the Refunds due list
-  await paystack.refundFail(true);
-  const e = await mk("amountKobo=100");
-  for (let i = 0; i < 40 && (await refusedRow(e.ref)).refund_status === "due"; i++) await sleep(150);
-  assert.equal((await refusedRow(e.ref)).refund_status, "failed");
-  await paystack.refundFail(false);
-  await api("/payments/admin/settings", { method: "PUT", token: admin, body: { autoRefund: false } });
-  // refund actions are money actions: refused while acting as a department
-  const blocked = await pay(`/payments/admin/refunds/${cid}/refund`, { method: "POST", token: admin, headers: { "X-Acting-As": "Finance" } });
-  assert.equal(blocked.status, 403);
+  // a payment that WAS applied (goods delivered wrongly and returned): found by search, refunded in full, the order is marked refunded
+  const c = await mk(); const cid = await idOf(c.ref);
+  assert.equal((await orderRow(c.o.order.id)).status, "payment_confirmed");
+  assert.equal((await pay("/refunds/search?q=ab", { token: admin })).data.items.length, 0, "search needs at least 3 characters");
+  const found = (await pay(`/refunds/search?q=${encodeURIComponent(c.ref)}`, { token: admin })).data.items.find((x) => x.id === cid);
+  assert.ok(found); assert.equal(found.refundable, true);
+  const blocked = await pay(`/refunds/${cid}`, { method: "POST", token: admin, headers: { "X-Acting-As": "Finance" }, body: { reason: "valid reason" } });
+  assert.equal(blocked.status, 403, "a money action: refused while acting as a department");
+  assert.equal((await pay(`/refunds/${cid}`, { method: "POST", token: c.b.token, body: { reason: "valid reason" } })).status, 403, "buyers cannot refund");
+  assert.equal((await pay(`/refunds/${cid}`, { method: "POST", token: admin, body: { reason: "Goods delivered wrongly and returned" } })).status, 200);
+  assert.equal((await orderRow(c.o.order.id)).status, "refunded");
+  assert.ok((await events(c.o.order.id)).includes("refunded"));
+  assert.equal((await paystack.tx(c.ref)).refunded, true);
+  assert.equal((await pay(`/refunds/search?q=${encodeURIComponent(c.ref)}`, { token: admin })).data.items.find((x) => x.id === cid).refundable, false);
 });
 
 test("once an order expires its payment channel is closed; a payment that still arrives is refused automatically", async () => {
@@ -498,7 +515,7 @@ test("a payment stuck as pending (webhook never came) is found and settled by th
   assert.equal((await orderRow(o2.order.id)).status, "awaiting_payment");
 });
 
-test("receipts, privacy and refunds", async () => {
+test("receipts and privacy", async () => {
   const b = await newBuyer(); const other = await newBuyer();
   const out = await place(b);
   assert.equal((await pay(`/orders/${out.order.id}/receipt`, { token: b.token })).status, 409, "no receipt before payment");
@@ -513,17 +530,8 @@ test("receipts, privacy and refunds", async () => {
   const row = mine.data.orders.find((o) => o.id === out.order.id);
   assert.equal(row.has_receipt, true); assert.equal(row.can_pay, false);
 
-  // refunds: Finance refunds in the Paystack dashboard, then marks it here
-  assert.equal((await api(`/orders/${out.order.id}/mark-refunded`, { method: "POST", token: admin, body: {} })).status, 400, "needs a note");
-  const rf = await api(`/orders/${out.order.id}/mark-refunded`, { method: "POST", token: admin, body: { note: "Paystack refund RF-123" } });
-  assert.equal(rf.data.order.status, "refunded");
-  assert.ok((await events(out.order.id)).includes("marked_refunded"));
-  assert.equal((await api(`/orders/${out.order.id}/mark-refunded`, { method: "POST", token: admin, body: { note: "again" } })).status, 409);
-  assert.equal((await api(`/orders/${out.order.id}/mark-refunded`, { method: "POST", token: b.token, body: { note: "x" } })).status, 403);
-  // refund is a money action: refused while an admin is "acting as" a department
-  const o2 = await place(b); await paystack.success(o2.payment.reference); await paystack.webhook(o2.payment.reference);
-  const blocked = await api(`/orders/${o2.order.id}/mark-refunded`, { method: "POST", token: admin, headers: { "X-Acting-As": "Finance" }, body: { note: "x" } });
-  assert.equal(blocked.status, 403);
+  // there is no refund action on an order any more: refunds live only in the Refund room
+  assert.equal((await api(`/orders/${out.order.id}/mark-refunded`, { method: "POST", token: admin, body: { note: "x" } })).status, 404);
 });
 
 test("old orders still work: legacy 'paid' orders can still be confirmed by hand from the manual queue", async () => {

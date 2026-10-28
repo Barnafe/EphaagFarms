@@ -29,6 +29,7 @@ import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { CashFlowChart, SplitDonut, CategoryDonut, MiniTrendChart, FLOW_GREEN, FLOW_RED, GOLD } from "./HomeCharts.jsx";
 
+import SectionStack from "../../components/SectionStack.jsx";
 function naira(n) {
   return `₦${(Number(n) || 0).toLocaleString()}`;
 }
@@ -240,8 +241,15 @@ export default function AdminHub() {
               </Link>
             </div>
 
-            {/* ---------------- Cash flow / Budget / Recent transactions ---------------- */}
-            <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+            {/* ---------------- Dashboard sections (pull-down list) ---------------- */}
+            <SectionStack
+              className="mt-4 space-y-3"
+              label="Dashboard section"
+              sections={[
+              {
+                key: "cash-flow",
+                label: "Cash flow overview",
+                node: (
               <div className="card lg:col-span-1">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-medium text-white">Cash flow overview</p>
@@ -249,7 +257,12 @@ export default function AdminHub() {
                 </div>
                 <CashFlowChart data={cashFlow} />
               </div>
-
+                ),
+              },
+              {
+                key: "budget",
+                label: "Budget utilization",
+                node: (
               <Link to="/admin/finance?tab=accounting&section=budgets" className="card block transition hover:border-canopy-400 hover:shadow-md">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-medium text-white">Budget utilization</p>
@@ -268,7 +281,12 @@ export default function AdminHub() {
                   <span>Allocated {naira(finance?.budgetAllocated)}</span>
                 </div>
               </Link>
-
+                ),
+              },
+              {
+                key: "transactions",
+                label: "Recent transactions",
+                node: (
               <div className="card">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-medium text-white">Recent transactions</p>
@@ -302,10 +320,13 @@ export default function AdminHub() {
                   <p className="text-sm text-ink-600">No transactions recorded yet.</p>
                 )}
               </div>
-            </div>
-
-            {/* ---------------- Approvals / Department spending / Expense mix ---------------- */}
-            <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
+                ),
+              },
+              {
+                key: "approvals",
+                label: "Pending approvals",
+                badge: awaiting.length,
+                node: (
               <div className="card">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-medium text-white">Pending approvals</p>
@@ -329,7 +350,12 @@ export default function AdminHub() {
                   <p className="text-sm text-ink-600">Nothing waiting on you right now.</p>
                 )}
               </div>
-
+                ),
+              },
+              {
+                key: "departments",
+                label: "Department spending",
+                node: (
               <Link to="/admin/finance?tab=accounting&section=monitoring" className="card block transition hover:border-canopy-400 hover:shadow-md">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-medium text-white">Department spending</p>
@@ -356,7 +382,12 @@ export default function AdminHub() {
                   <p className="text-sm text-ink-600">No department spending recorded yet.</p>
                 )}
               </Link>
-
+                ),
+              },
+              {
+                key: "expenses",
+                label: "Top expenses by category",
+                node: (
               <Link to="/admin/finance?tab=accounting&section=expenses" className="card block transition hover:border-canopy-400 hover:shadow-md">
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-medium text-white">Top expenses by category</p>
@@ -364,7 +395,10 @@ export default function AdminHub() {
                 </div>
                 <CategoryDonut data={expenseCategories} />
               </Link>
-            </div>
+                ),
+              },
+            ]}
+            />
 
             {/* ---------------- Quick actions ---------------- */}
             <div className="card mt-3">
@@ -373,6 +407,10 @@ export default function AdminHub() {
                 <Link to="/admin/add-catalog" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
                   <PackagePlus size={20} className="text-canopy-300" />
                   <span className="text-xs text-white">Add catalog item</span>
+                </Link>
+                <Link to="/admin/refunds" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
+                  <Undo2 size={20} className="text-canopy-300" />
+                  <span className="text-xs text-white">Refund room</span>
                 </Link>
                 <Link to="/admin/add-price" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
                   <Tag size={20} className="text-canopy-300" />
@@ -437,6 +475,7 @@ export default function AdminHub() {
                 </p>
               </div>
             </div>
+
           </>
         )}
       </div>

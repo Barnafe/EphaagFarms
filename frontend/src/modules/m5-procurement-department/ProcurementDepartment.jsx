@@ -12,6 +12,7 @@ import OrderQueue from "./OrderQueue.jsx";
 import OrderSourcingPanel from "./OrderSourcingPanel.jsx";
 import PurchasingPanel from "./PurchasingPanel.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 // Pricing is admin-only now (2026-09-05): standardized prices are set and
 // edited exclusively via Admin's Add Catalog / Add Price tools. Procurement
 // used to have a read-only "Pricing" tab here with a non-functional "edit"
@@ -51,7 +52,7 @@ export default function ProcurementDepartment() {
   const { session } = useAuth();
   const user = session?.user;
 
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useUrlState("tab", "dashboard");
   const [orders, setOrders] = useState([]);
   const [sourcedOrders, setSourcedOrders] = useState([]);
   const [farmers, setFarmers] = useState([]);

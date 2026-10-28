@@ -10,7 +10,9 @@ import JurisdictionReport from "../m2-farmer-room/JurisdictionReport.jsx";
 import CreateUnitPanel from "../m2-farmer-room/CreateUnitPanel.jsx";
 import FarmerProfileReportModal from "../m2-farmer-room/FarmerProfileReportModal.jsx";
 import UnitLeaderReview from "../m3-loan-office/UnitLeaderReview.jsx";
+import SectionStack from "../../components/SectionStack.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 function mapJurisdictionFarmer(f) {
   return {
     id: f.id,
@@ -46,7 +48,7 @@ const items = [
 // this page just gives that existing bypass a real screen to sit behind,
 // same pattern as every other "Login As" department (2026-09-06 spec).
 export default function UnitLeaderDepartment() {
-  const [tab, setTab] = useState("dashboard");
+  const [tab, setTab] = useUrlState("tab", "dashboard");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [jurisdictionFarmers, setJurisdictionFarmers] = useState([]);
@@ -104,12 +106,15 @@ export default function UnitLeaderDepartment() {
       )}
 
       {tab === "jurisdiction" && !loading && (
-        <div className="space-y-6">
-          <RecommendationTool farmers={jurisdictionFarmers} onIssued={loadAll} />
-          <AttendanceMarker farmers={jurisdictionFarmers} onRecorded={loadAll} />
-          <JurisdictionOverview farmers={jurisdictionFarmers} rank="Unit Leader" onView={setViewingFarmerId} />
-          <JurisdictionReport />
-        </div>
+        <SectionStack
+          label="Jurisdiction section"
+          sections={[
+            { key: "overview", label: "Farmers in my jurisdiction", node: <JurisdictionOverview farmers={jurisdictionFarmers} rank="Unit Leader" onView={setViewingFarmerId} /> },
+            { key: "recommend", label: "Recommend a farmer for a loan", node: <RecommendationTool farmers={jurisdictionFarmers} onIssued={loadAll} /> },
+            { key: "attendance", label: "Mark attendance", node: <AttendanceMarker farmers={jurisdictionFarmers} onRecorded={loadAll} /> },
+            { key: "report", label: "Jurisdiction report", node: <JurisdictionReport /> },
+          ]}
+        />
       )}
 
       {tab === "loans" && !loading && (

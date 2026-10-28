@@ -167,3 +167,128 @@ h1, h2, h3 {
 .dash-scope .on-light [class*="text-gray-400"] {
   color: #a97918 !important;
 }
+
+/* -------------------------------------------------------------------
+   Readability guard (v34) — light controls and light surfaces inside the
+   dark .dash-scope. Two real causes of "white text on a white box":
+
+   1. Form controls (select/input/textarea) outside a `.field` wrapper
+      inherit the dashboard's light default text color (Tailwind preflight
+      sets `color: inherit` on them) while the browser paints them with a
+      white background. These defaults are ZERO-specificity (:where) so any
+      control that sets its own text/background classes — e.g. the dark
+      "Jump to" dropdown — still wins.
+   2. Any white/very-light surface (bg-white etc.) that carries text-ink-* /
+      text-gray-* classes was being run through the dark-background
+      inversion rules above and turned cream. Those surfaces get dark text
+      back, without needing the `on-light` class on every one.
+   ------------------------------------------------------------------- */
+:where(.dash-scope) :is(input, select, textarea) {
+  color: #171310;
+  background-color: #ffffff;
+}
+
+:where(.dash-scope) :is(input, textarea)::placeholder {
+  color: #6b6258;
+  opacity: 1;
+}
+
+/* The pop-up list of a select is drawn by the browser; force a readable
+   pair so options never inherit light text onto a white list. */
+.dash-scope select option,
+.dash-scope select optgroup {
+  color: #171310;
+  background-color: #ffffff;
+}
+
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) {
+  color: #171310;
+}
+
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-ink-900"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-ink-800"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-ink-700"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-gray-900"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-gray-800"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-gray-700"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"])[class*="text-ink-900"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"])[class*="text-ink-800"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"])[class*="text-gray-900"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"])[class*="text-gray-800"] {
+  color: #171310 !important;
+}
+
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-ink-600"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-gray-600"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"]) [class*="text-gray-500"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"])[class*="text-ink-600"],
+.dash-scope :is([class~="bg-white"], [class~="bg-white/90"], [class~="bg-amber-50"], [class~="bg-gray-50"], [class~="bg-gray-100"])[class*="text-gray-600"] {
+  color: #4a4036 !important;
+}
+
+/* -------------------------------------------------------------------
+   Visibility guard (v36) — invisible text on the dark dashboard surfaces
+   Inside .dash-scope the cards are dark red (.card) and the page is dark
+   green, but many components still carry text colours picked for a light
+   page (text-red-700 error lines, text-canopy-700 links, text-harvest-600
+   hints, text-ink-700/500 …). Dark-on-dark = invisible. These remaps are
+   skipped on genuinely light surfaces (on-light, bg-white, bg-soil-50 …).
+   NOTE: a .card is ALWAYS dark here — `.dash-scope .card` overrides any
+   bg-* utility on it — so a card carrying bg-red-50 is NOT a light surface.
+   ------------------------------------------------------------------- */
+.dash-scope :is([class~="text-red-700"],[class~="text-red-800"],[class~="text-clay-600"],[class~="text-clay-700"],[class~="text-clay-800"],[class~="text-clay-900"]):not(:is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card),.on-light) *):not(:is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card))) {
+  color: #ffb4ac;
+}
+.dash-scope :is([class~="text-canopy-700"],[class~="text-canopy-900"],[class~="text-canopy-950"]):not(:is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card),.on-light) *):not(:is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card))) {
+  color: #f0b93f;
+}
+.dash-scope :is([class~="text-harvest-600"],[class~="text-harvest-800"],[class~="text-amber-900"]):not(:is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card),.on-light) *):not(:is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card))) {
+  color: #f3dda3;
+}
+.dash-scope :is([class~="text-ink-700"]):not(:is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card),.on-light) *):not(:is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card))) {
+  color: #f6f4ef;
+}
+.dash-scope :is([class~="text-ink-500"],[class~="text-ink-400"],[class~="text-gray-400"]):not(:is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card),.on-light) *):not(:is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card))) {
+  color: #e6dccd;
+}
+
+/* Light surfaces inside the dark dashboard: dark default text (zero
+   specificity so any explicit text-* class still wins), and undo the
+   dark-surface inversions for ink/gray/canopy text nested inside them. */
+:where(.dash-scope :is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card))) {
+  color: #171310;
+}
+.dash-scope :is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card)) :is([class*="text-ink-900"],[class*="text-ink-800"],[class*="text-ink-700"],[class*="text-gray-900"],[class*="text-gray-800"],[class*="text-gray-700"]) {
+  color: #171310 !important;
+}
+.dash-scope :is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card)) :is([class*="text-ink-600"],[class*="text-gray-600"],[class*="text-gray-500"]) {
+  color: #4a4036 !important;
+}
+.dash-scope :is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card)) :is([class*="text-canopy-800"]) {
+  color: #1c4720 !important;
+}
+.dash-scope :is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card)) :is([class*="text-canopy-600"]) {
+  color: #2c6b2f !important;
+}
+
+/* Recharts text: light on the dark cards (axes, ticks, pie labels, legend) */
+.dash-scope .recharts-text,
+.dash-scope .recharts-cartesian-axis-tick-value,
+.dash-scope .recharts-label {
+  fill: #e6dccd;
+}
+.dash-scope .recharts-legend-item-text {
+  color: #f6f4ef !important;
+}
+.dash-scope .recharts-cartesian-axis-line,
+.dash-scope .recharts-cartesian-axis-tick-line {
+  stroke: rgba(255, 255, 255, 0.35);
+}
+.dash-scope .on-light .recharts-text,
+.dash-scope .on-light .recharts-cartesian-axis-tick-value,
+.dash-scope .on-light .recharts-label {
+  fill: #4a4036;
+}
+.dash-scope .on-light .recharts-legend-item-text {
+  color: #171310 !important;
+}

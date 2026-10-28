@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
+import SectionStack from "../../components/SectionStack.jsx";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 import { NIGERIA_STATE_NAMES } from "../../data/nigeriaStatesLgas.js";
 import AttendanceMarker from "../m2-farmer-room/AttendanceMarker.jsx";
@@ -17,6 +18,7 @@ import JurisdictionOverview from "../m2-farmer-room/JurisdictionOverview.jsx";
 import AnalyticsSectionNav from "./AnalyticsSectionNav.jsx";
 import { BarChartCard, HorizontalBarChartCard, PieChartCard, LineChartCard, CHART_COLORS } from "./AnalyticsCharts.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 const nairaFormatter = (v) => `₦${Number(v).toLocaleString()}`;
 const countFormatter = (v) => Number(v).toLocaleString();
 
@@ -89,7 +91,7 @@ const SECTIONS = [
 ];
 
 export default function AnalyticsDepartment() {
-  const [section, setSection] = useState("overview");
+  const [section, setSection] = useUrlState("section", "overview");
   const [error, setError] = useState(null);
 
   const [overview, setOverview] = useState(null);
@@ -234,34 +236,68 @@ export default function AnalyticsDepartment() {
         )}
 
         {section === "overview" && overview && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <SectionStack
+            className="space-y-4"
+            label="Overview section"
+            sections={[
+              {
+                key: "users",
+                label: "Users by role",
+                node: (
             <BarChartCard
               title="Users by role"
               data={overview.usersByRole.map((r) => ({ key: r.role, value: r.count }))}
               valueFormatter={countFormatter}
             />
+                ),
+              },
+              {
+                key: "loans",
+                label: "Loans by status",
+                node: (
             <PieChartCard
               title="Loans by status"
               data={overview.loansByStatus.map((r) => ({ key: r.status, value: r.count }))}
               valueFormatter={countFormatter}
             />
+                ),
+              },
+              {
+                key: "savings",
+                label: "Total savings on platform",
+                node: (
             <div className="card">
               <p className="text-sm text-ink-600">Total savings on platform</p>
               <p className="mt-1 text-2xl font-medium text-canopy-800">
                 ₦{overview.totalSavings.toLocaleString()}
               </p>
             </div>
+                ),
+              },
+              {
+                key: "produce",
+                label: "Produce declarations",
+                node: (
             <div className="card">
               <p className="text-sm text-ink-600">Produce declarations</p>
               <p className="mt-1 text-2xl font-medium text-canopy-800">{overview.distinctCropsDeclared} crops</p>
               <p className="text-xs text-ink-600">from {overview.farmersWithDeclarations} farmers</p>
             </div>
+                ),
+              },
+              {
+                key: "shares",
+                label: "Buy Shares",
+                node: (
             <div className="card">
               <p className="text-sm text-ink-600">Buy Shares</p>
               <p className="mt-1 text-2xl font-medium text-canopy-800">{overview.farmerShares.count}</p>
               <p className="text-xs text-ink-600">₦{overview.farmerShares.totalInvested.toLocaleString()} invested</p>
             </div>
-          </div>
+                ),
+              },
+            ]}
+          />
         )}
 
         {section === "farmers" && (
@@ -282,21 +318,73 @@ export default function AnalyticsDepartment() {
               </div>
             </div>
             {farmers && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <SectionStack
+            className="space-y-4"
+            label="Farmer breakdown"
+            sections={[
+              {
+                key: "f0",
+                label: "Total farmers",
+                node: (
                 <div className="card sm:col-span-2">
                   <p className="text-sm text-ink-600">Total farmers matching filter</p>
                   <p className="mt-1 text-2xl font-medium text-canopy-800">{farmers.totalFarmers}</p>
                 </div>
+                ),
+              },
+              {
+                key: "f1",
+                label: "By gender",
+                node: (
                 <PieChartCard title="By gender" data={farmers.byGender.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} />
+                ),
+              },
+              {
+                key: "f2",
+                label: "By marital status",
+                node: (
                 <PieChartCard title="By marital status" data={farmers.byMaritalStatus.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} />
+                ),
+              },
+              {
+                key: "f3",
+                label: "By farm type",
+                node: (
                 <BarChartCard title="By farm type" data={farmers.byFarmType.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} color={CHART_COLORS[1]} />
+                ),
+              },
+              {
+                key: "f4",
+                label: "By farm size",
+                node: (
                 <BarChartCard title="By farm size" data={farmers.byFarmSize.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} color={CHART_COLORS[2]} />
+                ),
+              },
+              {
+                key: "f5",
+                label: "By annual income band",
+                node: (
                 <BarChartCard title="By annual income band" data={farmers.byAnnualIncome.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} color={CHART_COLORS[3]} />
+                ),
+              },
+              {
+                key: "f6",
+                label: "By years of experience",
+                node: (
                 <BarChartCard title="By years of experience" data={farmers.byYearsExperience.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} color={CHART_COLORS[0]} />
+                ),
+              },
+              {
+                key: "f7",
+                label: "By state",
+                node: (
                 <div className="sm:col-span-2">
                   <HorizontalBarChartCard title="By state" data={farmers.byState.map((r) => ({ key: r.key, value: r.count }))} valueFormatter={countFormatter} />
                 </div>
-              </div>
+                ),
+              },
+            ]}
+          />
             )}
           </div>
         )}
@@ -328,8 +416,15 @@ export default function AnalyticsDepartment() {
               </div>
             </div>
 
-            {produce && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <SectionStack
+            className="space-y-4"
+            label="Produce section"
+            sections={[
+              {
+                key: "crop",
+                label: "Production by crop",
+                hidden: !produce,
+                node: produce && (
                 <HorizontalBarChartCard
                   title="Total declared production by crop"
                   subtitle="Quantities are in each crop's own unit — hover a bar for detail."
@@ -339,6 +434,13 @@ export default function AnalyticsDepartment() {
                     item?.payload ? `${Number(v).toLocaleString()} ${item.payload.unit} (${item.payload.farmerCount} farmers)` : v
                   }
                 />
+                ),
+              },
+              {
+                key: "state",
+                label: "Production by state",
+                hidden: !produce,
+                node: produce && (
                 <HorizontalBarChartCard
                   title="Total declared production by state"
                   subtitle="Totals mix units across crops — hover a bar for farmer count."
@@ -347,9 +449,12 @@ export default function AnalyticsDepartment() {
                     item?.payload ? `${Number(v).toLocaleString()} (${item.payload.farmerCount} farmers)` : v
                   }
                 />
-              </div>
-            )}
-
+                ),
+              },
+              {
+                key: "capacity",
+                label: "Capacity query",
+                node: (
             <div className="card">
               <p className="text-sm text-ink-600">Capacity query</p>
               <p className="mt-1 text-xs text-ink-600">
@@ -399,17 +504,34 @@ export default function AnalyticsDepartment() {
                 </div>
               )}
             </div>
+                ),
+              },
+            ]}
+          />
           </div>
         )}
 
         {section === "loans" && loans && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <SectionStack
+            className="space-y-4"
+            label="Loan chart"
+            sections={[
+              {
+                key: "l0",
+                label: "Loan applications by status",
+                node: (
             <PieChartCard
               title="Loan applications by status"
               subtitle="Share of all applications, by current status."
               data={loans.byStatus.map((r) => ({ key: r.status, value: r.count }))}
               valueFormatter={countFormatter}
             />
+                ),
+              },
+              {
+                key: "l1",
+                label: "Loan amount by status",
+                node: (
             <BarChartCard
               title="Loan amount by status"
               subtitle="Total ₦ value tied up at each status."
@@ -417,18 +539,36 @@ export default function AnalyticsDepartment() {
               color={CHART_COLORS[2]}
               valueFormatter={nairaFormatter}
             />
+                ),
+              },
+              {
+                key: "l2",
+                label: "Loans by type — count",
+                node: (
             <BarChartCard
               title="Loans by type — count"
               data={loans.byType.map((r) => ({ key: r.loanType, value: r.count }))}
               color={CHART_COLORS[1]}
               valueFormatter={countFormatter}
             />
+                ),
+              },
+              {
+                key: "l3",
+                label: "Loans by type — total amount",
+                node: (
             <BarChartCard
               title="Loans by type — total amount"
               data={loans.byType.map((r) => ({ key: r.loanType, value: r.totalAmount }))}
               color={CHART_COLORS[3]}
               valueFormatter={nairaFormatter}
             />
+                ),
+              },
+              {
+                key: "l4",
+                label: "Repayments",
+                node: (
             <div className="card sm:col-span-2">
               <p className="text-sm text-ink-600">Repayments</p>
               <p className="mt-1 text-sm text-ink-900">
@@ -436,22 +576,50 @@ export default function AnalyticsDepartment() {
                 {loans.repayments.unverifiedCount} awaiting verification
               </p>
             </div>
-          </div>
+                ),
+              },
+            ]}
+          />
         )}
 
         {section === "savings" && savings && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <SectionStack
+            className="space-y-4"
+            label="Savings section"
+            sections={[
+              {
+                key: "s0",
+                label: "Main savings total",
+                node: (
             <div className="card">
               <p className="text-sm text-ink-600">Main savings total</p>
               <p className="mt-1 text-2xl font-medium text-canopy-800">₦{savings.mainTotal.toLocaleString()}</p>
             </div>
+                ),
+              },
+              {
+                key: "s1",
+                label: "Insurance total",
+                node: (
             <div className="card">
               <p className="text-sm text-ink-600">Insurance total</p>
               <p className="mt-1 text-2xl font-medium text-harvest-600">₦{savings.insuranceTotal.toLocaleString()}</p>
             </div>
+                ),
+              },
+              {
+                key: "s2",
+                label: "Savers",
+                node: (
             <div className="card sm:col-span-2">
               <p className="text-sm text-ink-600">{savings.saversCount} farmers with at least one deposit</p>
             </div>
+                ),
+              },
+              {
+                key: "s3",
+                label: "Deposits by month",
+                node: (
             <div className="sm:col-span-2">
               <LineChartCard
                 title="Deposits by month (last 12)"
@@ -465,7 +633,10 @@ export default function AnalyticsDepartment() {
                 }
               />
             </div>
-          </div>
+                ),
+              },
+            ]}
+          />
         )}
 
         {section === "training" && training && (

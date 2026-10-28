@@ -1,4 +1,5 @@
 import { ArrowLeft } from "lucide-react";
+import SectionDropdown from "./SectionDropdown.jsx";
 
 // Card-grid section switcher for admin department pages — same pattern as
 // the TRC Department hub (click a card to open it, one section at a time)
@@ -38,8 +39,6 @@ export default function DeptSectionNav({ sections, activeKey, onSelect, deptLabe
     );
   }
 
-  const active = sections.find((s) => s.key === activeKey);
-
   return (
     <div className="flex items-center justify-between">
       <button
@@ -49,7 +48,7 @@ export default function DeptSectionNav({ sections, activeKey, onSelect, deptLabe
       >
         <ArrowLeft size={14} /> All {deptLabel}
       </button>
-      {active && <span className="text-sm font-medium text-white">{active.label}</span>}
+      <SectionDropdown sections={sections} value={activeKey} onSelect={onSelect} label="Go to" />
     </div>
   );
 }

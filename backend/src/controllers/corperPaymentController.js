@@ -1,4 +1,4 @@
-import { pool } from "../db/pool.js";
+import { pool, detached } from "../db/pool.js";
 import { generateReference, REF_PREFIX } from "../utils/reference.js";
 import { sendMail } from "../utils/email.js";
 import {
@@ -9,6 +9,11 @@ import {
   verifyPaystackSignature,
 } from "../utils/paymentProvider.js";
 import { recordWebhookEvent } from "../jobs/alerts.js";
+import { paystackConfigured, calculateFee, getFeeConfig, verifyTransaction } from "../services/paystack.js";
+import { createPayment, startCheckout, settlePayment, verifyAndSettle, registerPaymentType, notifyFinance, refusalText, TYPE_LABEL } from "../services/payments.js";
+import { notifyUser } from "../services/messaging.js";
+import { notifyAttention } from "../jobs/alerts.js";
+import "../services/paymentTemplates.js";
 
 function httpError(message, status = 400) {
   return Object.assign(new Error(message), { status });
@@ -45,7 +50,11 @@ function mapPayment(p) {
   return {
     id: p.id,
     reference: p.reference,
-    amount: Number(p.amount),
+    amount: Number(p.amount),                                  // the access fee
+    accessFee: Number(p.amount),
+    processingFee: Number(p.processing_fee || 0),              // Paystack's fee, paid by the member on top
+    totalCharged: Number(p.total_charged ?? p.amount),
+    nonRefundableAcceptedAt: p.non_refundable_accepted_at || null,
     status: p.status,
     provider: p.provider,
     authorizationUrl: p.status === "pending" ? p.authorization_url : null,
@@ -68,6 +77,8 @@ function mapAdminPayment(p) {
     stateCode: p.state_code || null,
     confirmedByName: p.confirmed_by_name || null,
     refundedByName: p.refunded_by_name || null,
+    confirmedUnverified: !!p.confirmed_unverified,
+    manualReason: p.manual_reason || null,
   };
 }
 
@@ -96,58 +107,59 @@ export async function loadAccess(userId, runner = pool) {
 // the Finance ledger in the SAME transaction so the two can never disagree.
 // ---------------------------------------------------------------------
 
-export async function confirmPayment(paymentId, { via, confirmedBy = null, providerReference = null }) {
+// The ledger posting and status change, inside a transaction the CALLER owns (so the shared
+// payment settlement and this can commit or roll back together).
+export async function confirmPaymentInTx(client, paymentId, { via, confirmedBy = null, providerReference = null, manualReason = null }) {
+  const { rows } = await client.query(
+    `SELECT p.*, u.name AS member_name, u.email AS member_email
+     FROM corper_payments p JOIN users u ON u.id = p.user_id
+     WHERE p.id = $1 FOR UPDATE OF p`,
+    [paymentId]
+  );
+  const p = rows[0];
+  if (!p) throw httpError("Payment not found", 404);
+  if (p.status === "paid") return { payment: p, already: true };
+  // Money verified by the gateway may arrive after an admin rejected it. A manual (admin)
+  // confirmation only applies to a payment that is still waiting.
+  const allowed = via === "paystack" ? ["pending", "failed"] : ["pending"];
+  if (!allowed.includes(p.status)) throw httpError(`A ${p.status} payment can't be confirmed`, 409);
+
+  const incomeRef = generateReference(REF_PREFIX.financeIncome);
+  // Finance income is the ACCESS FEE only; the processing fee is not income (it goes to Paystack).
+  const { rows: incomeRows } = await client.query(
+    `INSERT INTO finance_income (reference, source, category, amount, description, received_from, recorded_by)
+     VALUES ($1, 'customer_payment', 'Corps access fee', $2, $3, $4, $5) RETURNING id`,
+    [incomeRef, p.amount, `Corps access fee ${p.reference}`, p.member_name, confirmedBy]
+  );
+  await client.query(
+    `INSERT INTO finance_transactions (reference, txn_type, amount, department, description, related_table, related_id, recorded_by)
+     VALUES ($1, 'income', $2, 'TRC', $3, 'corper_payments', $4, $5)`,
+    [generateReference(REF_PREFIX.financeTransaction), p.amount, `Corps access fee ${p.reference} — ${p.member_name}`, p.id, confirmedBy]
+  );
+  const { rows: updated } = await client.query(
+    `UPDATE corper_payments
+     SET status = 'paid', confirmed_by = $2, confirmed_at = now(), provider_reference = $3,
+         finance_income_id = $4, failed_reason = NULL, manual_reason = $5, confirmed_unverified = $6, updated_at = now()
+     WHERE id = $1 RETURNING *`,
+    [p.id, confirmedBy, providerReference || (via === "admin" || via === "admin_fallback" ? "ADMIN" : null), incomeRows[0].id, manualReason, via === "admin_fallback"]
+  );
+  // Any other payment this member still had waiting is now pointless.
+  await client.query(
+    `UPDATE corper_payments SET status = 'cancelled', updated_at = now()
+     WHERE user_id = $1 AND status = 'pending' AND id <> $2`,
+    [p.user_id, p.id]
+  );
+  return { payment: { ...updated[0], member_name: p.member_name, member_email: p.member_email }, already: false };
+}
+
+// Used by the manual paths (admin confirmation, legacy rows). One transaction of its own.
+export async function confirmPayment(paymentId, opts) {
   const client = await pool.connect();
-  let payment;
+  let result;
   try {
     await client.query("BEGIN");
-    const { rows } = await client.query(
-      `SELECT p.*, u.name AS member_name, u.email AS member_email
-       FROM corper_payments p JOIN users u ON u.id = p.user_id
-       WHERE p.id = $1 FOR UPDATE OF p`,
-      [paymentId]
-    );
-    const p = rows[0];
-    if (!p) throw httpError("Payment not found", 404);
-    if (p.status === "paid") {
-      await client.query("ROLLBACK");
-      return { payment: p, already: true };
-    }
-    // Money verified by the gateway may arrive after a member cancelled or
-    // after a rejection, so those can still be confirmed. A manual (admin)
-    // confirmation only applies to a payment that is still waiting.
-    const allowed = via === "paystack" ? ["pending", "cancelled", "failed"] : ["pending"];
-    if (!allowed.includes(p.status)) {
-      throw httpError(`A ${p.status} payment can't be confirmed`, 409);
-    }
-
-    const incomeRef = generateReference(REF_PREFIX.financeIncome);
-    const { rows: incomeRows } = await client.query(
-      `INSERT INTO finance_income (reference, source, category, amount, description, received_from, recorded_by)
-       VALUES ($1, 'customer_payment', 'Corps access fee', $2, $3, $4, $5) RETURNING id`,
-      [incomeRef, p.amount, `Corps access fee ${p.reference}`, p.member_name, confirmedBy]
-    );
-    await client.query(
-      `INSERT INTO finance_transactions (reference, txn_type, amount, department, description, related_table, related_id, recorded_by)
-       VALUES ($1, 'income', $2, 'TRC', $3, 'corper_payments', $4, $5)`,
-      [generateReference(REF_PREFIX.financeTransaction), p.amount, `Corps access fee ${p.reference} — ${p.member_name}`, p.id, confirmedBy]
-    );
-
-    const { rows: updated } = await client.query(
-      `UPDATE corper_payments
-       SET status = 'paid', confirmed_by = $2, confirmed_at = now(), provider_reference = $3,
-           finance_income_id = $4, failed_reason = NULL, updated_at = now()
-       WHERE id = $1 RETURNING *`,
-      [p.id, confirmedBy, providerReference || (via === "admin" ? "ADMIN" : null), incomeRows[0].id]
-    );
-    // Any other payment this member still had waiting is now pointless.
-    await client.query(
-      `UPDATE corper_payments SET status = 'cancelled', updated_at = now()
-       WHERE user_id = $1 AND status = 'pending' AND id <> $2`,
-      [p.user_id, p.id]
-    );
+    result = await confirmPaymentInTx(client, paymentId, opts);
     await client.query("COMMIT");
-    payment = { ...updated[0], member_name: p.member_name, member_email: p.member_email };
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
     if (err.code === "23505") {
@@ -159,25 +171,62 @@ export async function confirmPayment(paymentId, { via, confirmedBy = null, provi
   } finally {
     client.release();
   }
-
-  sendReceipt(payment).catch((e) => console.error("Corps receipt email failed", e));
-  return { payment, already: false };
+  if (!result.already) detached(() => afterCorpsConfirmed(result.payment, { finance: opts.via !== "admin" }).catch((e) => console.error("Corps receipt failed", e)));
+  return result;
 }
 
-// Never blocks or fails the payment — a mail problem is logged and ignored.
-async function sendReceipt(p) {
-  if (!p.member_email) return;
-  const naira = Number(p.amount).toLocaleString("en-NG");
-  await sendMail({
-    to: p.member_email,
-    subject: `EPHAAG Farms — payment received (${p.reference})`,
-    html:
-      `<p>Hello ${escapeHtml(p.member_name)},</p>` +
-      `<p>We have received your one-time access fee of <strong>₦${naira}</strong>. ` +
-      `Your corps training is now unlocked — sign in and open <em>My Training</em> to begin.</p>` +
-      `<p>Receipt reference: <strong>${escapeHtml(p.reference)}</strong></p>` +
-      `<p>EPHAAG Farms</p>`,
+// Receipt to the member (email, or SMS if phone-only). Never blocks or fails the payment.
+async function afterCorpsConfirmed(p, { finance = true } = {}) {
+  await notifyUser(p.user_id, "corps_receipt", {
+    reference: p.reference, accessFee: Number(p.amount), fee: Number(p.processing_fee || 0), totalCharged: Number(p.total_charged ?? p.amount),
   });
+  if (finance) {
+    await notifyFinance("payment_finance_notice", {
+      typeLabel: TYPE_LABEL.corps_fee, payer: p.member_name, netAmount: Number(p.amount), fee: Number(p.processing_fee || 0),
+      grossAmount: Number(p.total_charged ?? p.amount), reference: p.reference, review: p.confirmed_unverified ? `confirmed by hand without Paystack: ${p.manual_reason}` : "",
+    });
+  }
+}
+
+// What a verified Paystack payment means for a corps access fee.
+registerPaymentType("corps_fee", {
+  async apply(gp, client) {
+    const { rows } = await client.query(
+      `SELECT p.*, u.name AS member_name FROM corper_payments p JOIN users u ON u.id = p.user_id WHERE p.id = $1 FOR UPDATE OF p`, [gp.subject_id]);
+    const cp = rows[0];
+    if (!cp) return { refuse: { reason: "purchase_missing" } };
+
+    if (cp.status === "paid") {
+      // This very payment was already confirmed (an admin confirmed it by hand while Paystack was
+      // down): the later Paystack report is matched to it and NOT credited a second time.
+      await client.query(`UPDATE corper_payments SET provider_reference = $2, updated_at = now() WHERE id = $1`, [cp.id, gp.provider_ref || cp.provider_reference]);
+      return {};
+    }
+    // Another payment already unlocked this member: a second payment is a duplicate.
+    const { rowCount: other } = await client.query(`SELECT 1 FROM corper_payments WHERE user_id = $1 AND status = 'paid' AND id <> $2`, [cp.user_id, cp.id]);
+    if (other) return { refuse: { reason: "duplicate_payment" } };
+    if (cp.status === "cancelled") return { refuse: { reason: "payment_cancelled" } };
+    if (cp.status === "refunded") return { refuse: { reason: "payment_closed" } };
+
+    await client.query("SAVEPOINT corps_confirm");
+    try {
+      const { payment } = await confirmPaymentInTx(client, cp.id, { via: "paystack", providerReference: gp.provider_ref });
+      return { after: () => afterCorpsConfirmed(payment) };
+    } catch (err) {
+      await client.query("ROLLBACK TO SAVEPOINT corps_confirm");
+      if (err.code === "23505") return { refuse: { reason: "duplicate_payment" } };
+      throw err;
+    }
+  },
+});
+
+// One handler for a Paystack "charge.success" event, used by BOTH webhook addresses so corps
+// behaves the same on either: the shared ledger first, then older corps rows that pre-date it.
+export async function processChargeSuccess(event) {
+  if (event?.event !== "charge.success" || !event.data?.reference) return { handled: false };
+  const out = await settlePayment(event.data.reference, event.data, { source: "webhook" });
+  if (out.found) return { handled: true, out };
+  return { handled: await applyCorpsPaystackEvent(event) };
 }
 
 function escapeHtml(s) {
@@ -195,27 +244,67 @@ export async function myPayments(req, res) {
     loadAccess(req.user.id),
     pool.query(`SELECT * FROM corper_payments WHERE user_id = $1 ORDER BY created_at DESC`, [req.user.id]),
   ]);
-  res.json({ fee, mode: corperPaymentMode(), access, payments: rows.map(mapPayment) });
+  // What the member will be asked to pay: the access fee plus Paystack's processing fee (shown as its own line).
+  const mode = corperPaymentMode();
+  const q = fee && mode === "paystack" ? calculateFee(fee, await getFeeConfig()) : fee ? { net: fee, fee: 0, gross: fee } : null;
+  res.json({
+    fee, mode, access, payments: rows.map(mapPayment),
+    quote: q ? { accessFee: q.net, processingFee: q.fee, totalToPay: q.gross } : null,
+    nonRefundableNotice: "This fee is non-refundable once paid.",
+  });
 }
 
 // POST /api/corpers/payments/initiate — the amount ALWAYS comes from the
-// server's fee setting; anything the browser sends is ignored.
+// server's fee setting; anything the browser sends is ignored. The member must
+// tick "this fee is non-refundable once paid"; the time of the tick is stored.
 export async function initiatePayment(req, res) {
   const fee = await getFee();
   if (!fee) throw httpError("The access fee hasn't been set yet — please check back soon", 409);
+  const accepted = req.body?.acceptNonRefundable === true;
 
-  const access = await loadAccess(req.user.id);
+  let access = await loadAccess(req.user.id);
   if (access.paid) throw httpError("Your access fee is already paid", 409);
-  if (access.pending) return res.json({ payment: access.pending, existing: true });
+
+  // Before starting anything new, scan Paystack for an earlier payment by this member that we
+  // may have missed (a webhook that never came, a closed tab). If one is found it is applied and
+  // the member is told, so nobody is asked to pay twice.
+  if (paystackConfigured()) {
+    const { rows: earlier } = await pool.query(
+      `SELECT p.reference FROM corper_payments p JOIN gateway_payments g ON g.reference = p.reference
+        WHERE p.user_id = $1 AND p.provider = 'paystack' AND p.status IN ('pending','failed') AND g.status IN ('initiated','pending','failed')
+        ORDER BY p.created_at DESC LIMIT 5`, [req.user.id]);
+    for (const e of earlier) await verifyAndSettle(e.reference).catch(() => null);
+    access = await loadAccess(req.user.id);
+    if (access.paid) throw httpError("We checked with Paystack and found your earlier payment. Your access fee is already paid and your training is unlocked.", 409);
+  }
+  if (access.pending) {
+    // If the Paystack attempt behind the waiting payment is spent (refused or failed), it cannot be paid
+    // any more: close it so the member can start a fresh one.
+    const { rows: spent } = await pool.query(`SELECT 1 FROM gateway_payments WHERE reference = $1 AND status IN ('refused','failed')`, [access.pending.reference]);
+    if (spent.length) {
+      await pool.query(`UPDATE corper_payments SET status = 'cancelled', updated_at = now() WHERE id = $1 AND status = 'pending'`, [access.pending.id]);
+    } else if (!access.pending.nonRefundableAcceptedAt) {
+      if (!accepted) throw httpError("Please tick the box to confirm you understand this fee is non-refundable once paid", 400);
+      await pool.query(`UPDATE corper_payments SET non_refundable_accepted_at = now() WHERE id = $1 AND non_refundable_accepted_at IS NULL`, [access.pending.id]);
+      const fresh = await loadAccess(req.user.id);
+      return res.json({ payment: fresh.pending, existing: true });
+    } else {
+      return res.json({ payment: access.pending, existing: true });
+    }
+  }
+  if (!accepted) throw httpError("Please tick the box to confirm you understand this fee is non-refundable once paid", 400);
 
   const mode = corperPaymentMode();
+  if (mode === "paystack" && !paystackConfigured()) throw httpError("Online payment is unavailable right now. Please try again later.", 503);
+  const q = mode === "paystack" ? calculateFee(fee, await getFeeConfig()) : { fee: 0, gross: fee };
+
   let row = null;
   for (let attempt = 0; attempt < 3 && !row; attempt++) {
     try {
       const { rows } = await pool.query(
-        `INSERT INTO corper_payments (reference, user_id, amount, provider)
-         VALUES ($1, $2, $3, $4) RETURNING *`,
-        [generateReference(REF_PREFIX.corperPayment), req.user.id, fee, mode]
+        `INSERT INTO corper_payments (reference, user_id, amount, processing_fee, total_charged, provider, non_refundable_accepted_at)
+         VALUES ($1, $2, $3, $4, $5, $6, now()) RETURNING *`,
+        [generateReference(REF_PREFIX.corperPayment), req.user.id, fee, q.fee, q.gross, mode]
       );
       row = rows[0];
     } catch (err) {
@@ -231,38 +320,24 @@ export async function initiatePayment(req, res) {
 
   if (mode === "paystack") {
     const { rows: u } = await pool.query(`SELECT email, phone FROM users WHERE id = $1`, [req.user.id]);
-    const email = u[0]?.email || `${u[0]?.phone || req.user.id}@corpers.ephaag.app`;
-    const base = (process.env.FRONTEND_ORIGIN || "").split(",")[0].trim().replace(/\/$/, "");
-    let init;
+    const domain = process.env.CORPER_PLACEHOLDER_EMAIL_DOMAIN || "corpers.ephaag.app";
+    const email = u[0]?.email || `${String(u[0]?.phone || req.user.id).replace(/[^a-z0-9]/gi, "")}@${domain}`;
     try {
-      init = await paystackRequest("/transaction/initialize", {
-        method: "POST",
-        body: JSON.stringify({
-          email,
-          amount: toKobo(row.amount),
-          currency: "NGN",
-          reference: row.reference,
-          callback_url: base ? `${base}/dashboard/corper?corperPayment=${row.reference}` : undefined,
-          metadata: { userId: req.user.id, purpose: "corper_access_fee" },
-        }),
-      });
-    } catch (err) {
-      console.error("Paystack initialize threw", err);
-      init = { ok: false, body: null };
-    }
-    if (!init.ok || !init.body?.status || !init.body?.data?.authorization_url) {
-      console.error("Paystack initialize failed", init.body);
-      await pool.query(
-        `UPDATE corper_payments SET status = 'failed', failed_reason = $2, updated_at = now() WHERE id = $1`,
-        [row.id, "Couldn't reach the payment gateway"]
+      // The payment is recorded in the shared ledger under the SAME reference, so the shared
+      // webhook, the return-page check and the re-check job all find it.
+      const gp = await createPayment({ type: "corps_fee", userId: req.user.id, subjectId: row.id, netAmount: fee, reference: row.reference, meta: { purpose: "corper_access_fee" } });
+      const started = await startCheckout(gp, { email, returnPath: `/dashboard/corper?corperPayment=${encodeURIComponent(row.reference)}` });
+      const { rows } = await pool.query(
+        `UPDATE corper_payments SET authorization_url = $2, updated_at = now() WHERE id = $1 RETURNING *`,
+        [row.id, started.authorization_url]
       );
+      row = rows[0];
+    } catch (err) {
+      console.error("Paystack initialize failed", err.message);
+      await pool.query(`UPDATE corper_payments SET status = 'failed', failed_reason = $2, updated_at = now() WHERE id = $1`, [row.id, "Couldn't reach the payment gateway"]);
+      await pool.query(`UPDATE gateway_payments SET status = 'failed', updated_at = now() WHERE reference = $1`, [row.reference]);
       throw httpError("Couldn't start the payment — please try again", 502);
     }
-    const { rows } = await pool.query(
-      `UPDATE corper_payments SET authorization_url = $2, updated_at = now() WHERE id = $1 RETURNING *`,
-      [row.id, init.body.data.authorization_url]
-    );
-    row = rows[0];
   }
 
   res.status(201).json({ payment: mapPayment(row) });
@@ -277,12 +352,14 @@ export async function cancelPayment(req, res) {
     [req.params.id, req.user.id]
   );
   if (!rows[0]) throw httpError("There's no pending payment to cancel", 404);
+  await pool.query(`UPDATE gateway_payments SET status = 'abandoned', updated_at = now() WHERE reference = $1 AND status IN ('initiated','pending')`, [rows[0].reference]);
   res.json({ payment: mapPayment(rows[0]) });
 }
 
 // POST /api/corpers/payments/:reference/verify — after returning from
 // Paystack (or on refresh). The member's own word is never trusted: for
 // Paystack we ask Paystack. For manual payments this just reports status.
+// The answer is a plain outcome: success | pending | failed | refused.
 export async function verifyPayment(req, res) {
   const { rows } = await pool.query(
     `SELECT * FROM corper_payments WHERE reference = $1 AND user_id = $2`,
@@ -291,26 +368,39 @@ export async function verifyPayment(req, res) {
   const payment = rows[0];
   if (!payment) throw httpError("Payment not found", 404);
 
-  const retryable = ["pending", "cancelled", "failed"].includes(payment.status);
-  if (retryable && payment.provider === "paystack" && corperPaymentMode() === "paystack") {
-    const v = await paystackRequest(`/transaction/verify/${encodeURIComponent(payment.reference)}`);
-    const data = v.body?.data;
-    if (!v.ok || !v.body?.status || !data) {
-      return res.status(502).json({ error: "Couldn't confirm the payment yet — please try again in a moment" });
+  let unreachable = false;
+  const { rows: gp } = await pool.query(`SELECT status, refusal_reason FROM gateway_payments WHERE reference = $1`, [payment.reference]);
+  if (payment.provider === "paystack" && corperPaymentMode() === "paystack") {
+    if (gp[0]) {
+      if (["initiated", "pending"].includes(gp[0].status)) unreachable = !!(await verifyAndSettle(payment.reference)).unreachable;
+    } else if (["pending", "failed"].includes(payment.status)) {
+      // A payment made before the shared ledger existed: the original check.
+      const v = await paystackRequest(`/transaction/verify/${encodeURIComponent(payment.reference)}`);
+      const data = v.body?.data;
+      if (!v.ok || !v.body?.status || !data) unreachable = true;
+      else {
+        const check = checkPaystackTransaction(data, payment);
+        if (check.ok) await confirmPayment(payment.id, { via: "paystack", providerReference: String(data.id ?? "") });
+      }
     }
-    const check = checkPaystackTransaction(data, payment);
-    if (!check.ok) {
-      if (check.code === "mismatch" || check.code === "reference") console.error("Paystack check failed", payment.reference, check.code);
-      return res.status(402).json({ error: check.message });
-    }
-    await confirmPayment(payment.id, { via: "paystack", providerReference: String(data.id ?? "") });
   }
 
-  const [access, { rows: fresh }] = await Promise.all([
+  const [access, { rows: fresh }, { rows: gp2 }] = await Promise.all([
     loadAccess(req.user.id),
     pool.query(`SELECT * FROM corper_payments WHERE id = $1`, [payment.id]),
+    pool.query(`SELECT status, refusal_reason FROM gateway_payments WHERE reference = $1`, [payment.reference]),
   ]);
-  res.json({ payment: mapPayment(fresh[0]), access });
+  const p = fresh[0];
+  let outcome = "pending";
+  if (gp2[0]?.status === "refused") outcome = "refused";
+  else if (p.status === "paid") outcome = "success";
+  else if (p.status === "failed" || gp2[0]?.status === "failed") outcome = "failed";
+  else if (p.status === "cancelled") outcome = "cancelled";
+  res.json({
+    outcome, unreachable, payment: mapPayment(p), access,
+    refusalReason: gp2[0]?.refusal_reason || null,
+    refusalText: gp2[0]?.refusal_reason ? refusalText(gp2[0].refusal_reason) : null,
+  });
 }
 
 // ---------------------------------------------------------------------
@@ -323,7 +413,7 @@ export async function paystackWebhook(req, res) {
   }
   await recordWebhookEvent("paystack", "ok", "corps webhook");
   try {
-    await applyCorpsPaystackEvent(req.body || {});
+    await processChargeSuccess(req.body || {});
   } catch (err) {
     await recordWebhookEvent("paystack", "error", err.message);
     throw err; // 5xx -> Paystack retries later
@@ -414,15 +504,102 @@ export async function adminPaymentSummary(req, res) {
 }
 
 // POST /api/rtc/admin/corps/payments/:id/confirm
+// A payment made through Paystack is checked WITH Paystack first. If Paystack says it was
+// received, it is confirmed through the normal (verified) path. If Paystack says it was not,
+// it cannot be confirmed by hand. Only if Paystack cannot be reached may an admin confirm by
+// hand: a reason (for example a transfer reference) is then mandatory, the confirmation is logged
+// and flagged for review, and a later Paystack report for the same payment is not credited twice.
 export async function adminConfirmPayment(req, res) {
   assertUuid(req.params.id);
-  const { payment, already } = await confirmPayment(req.params.id, { via: "admin", confirmedBy: req.user.id });
-  res.json({ payment: mapAdminPayment(payment), already });
+  const { rows } = await pool.query(`SELECT * FROM corper_payments WHERE id = $1`, [req.params.id]);
+  const p = rows[0];
+  if (!p) throw httpError("Payment not found", 404);
+  if (p.status === "paid") {
+    const { rows: full } = await pool.query(`${ADMIN_SELECT} WHERE p.id = $1`, [p.id]);
+    return res.json({ payment: mapAdminPayment(full[0]), already: true });
+  }
+
+  if (p.provider === "paystack" && paystackConfigured()) {
+    const data = await verifyTransaction(p.reference);
+    if (data) {
+      const { rows: gp } = await pool.query(`SELECT id FROM gateway_payments WHERE reference = $1`, [p.reference]);
+      let paid = false;
+      if (gp[0]) {
+        const out = await settlePayment(p.reference, data, { source: "admin-check" });
+        if (out.outcome === "refused") throw httpError(`Paystack received the money but it cannot be used because ${refusalText(out.refusalReason)}. It has been queued for refund.`, 409);
+        paid = out.outcome === "success" || out.already === true;
+      } else if (checkPaystackTransaction(data, p).ok) {
+        await confirmPayment(p.id, { via: "paystack", providerReference: String(data.id ?? "") });
+        paid = true;
+      }
+      if (!paid) throw httpError("Paystack says this payment has not been received, so it can't be confirmed by hand. Ask the member to finish paying, or re-check later.", 409);
+    } else {
+      // Paystack cannot be reached: confirm by hand, but only with a recorded reason, and flag it.
+      const reason = requireReason(req.body?.reason, "Paystack could not be reached. To confirm by hand, give the reason or the transfer reference");
+      await confirmManualFallback(p, req.user, reason);
+    }
+  } else {
+    await confirmPayment(req.params.id, { via: "admin", confirmedBy: req.user.id });
+  }
+  const { rows: full } = await pool.query(`${ADMIN_SELECT} WHERE p.id = $1`, [p.id]);
+  res.json({ payment: mapAdminPayment(full[0]), already: false });
 }
 
-function requireReason(raw) {
+async function confirmManualFallback(p, admin, reason) {
+  const client = await pool.connect();
+  let result;
+  try {
+    await client.query("BEGIN");
+    result = await confirmPaymentInTx(client, p.id, { via: "admin_fallback", confirmedBy: admin.id, manualReason: reason });
+    // Make the shared ledger agree, flagged for review. A later Paystack report for this
+    // reference finds it already settled and is not credited a second time.
+    const gross = Number(p.total_charged ?? p.amount);
+    await client.query(
+      `INSERT INTO gateway_payments (reference, type, user_id, subject_id, net_amount, fee_amount, gross_amount, status, paid_amount, paid_at, meta)
+       VALUES ($1, 'corps_fee', $2, $3, $4, $5, $6, 'success', $6, now(), $7::jsonb)
+       ON CONFLICT (reference) DO UPDATE SET status = 'success', paid_at = COALESCE(gateway_payments.paid_at, now()), updated_at = now(),
+         meta = gateway_payments.meta || $7::jsonb`,
+      [p.reference, p.user_id, p.id, p.amount, p.processing_fee || 0, gross, JSON.stringify({ manual: true, reason })]);
+    const { rows: g } = await client.query(`SELECT id FROM gateway_payments WHERE reference = $1`, [p.reference]);
+    await client.query(`INSERT INTO payment_flags (payment_id, kind, reason, detail) VALUES ($1, 'review', 'manual_confirmation', $2)`, [g[0].id, `Confirmed by hand while Paystack was unreachable: ${reason}`]);
+    await client.query(`INSERT INTO finance_audit_log (actor_id, action, entity_table, details) VALUES ($1, 'corps_payment_confirmed_without_paystack', 'corper_payments', $2)`,
+      [admin.id, JSON.stringify({ payment: p.reference, reason })]);
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+  if (!result.already) detached(() => afterCorpsConfirmed(result.payment).catch((e) => console.error("Corps receipt failed", e)));
+  // Exceptional case: every admin is told that a payment was confirmed without Paystack.
+  detached(() => notifyAttention("manual_confirmation_notice", { member: result.payment.member_name, reference: p.reference, reason }, null));
+}
+
+// POST /api/rtc/admin/corps/payments/:id/recheck — ask Paystack about a stuck pending payment.
+// (The scheduled re-check does the same automatically.)
+export async function adminRecheckPayment(req, res) {
+  assertUuid(req.params.id);
+  const { rows } = await pool.query(`SELECT * FROM corper_payments WHERE id = $1`, [req.params.id]);
+  const p = rows[0];
+  if (!p) throw httpError("Payment not found", 404);
+  let unreachable = false;
+  if (p.provider === "paystack" && p.status === "pending" && paystackConfigured()) {
+    const { rows: gp } = await pool.query(`SELECT id FROM gateway_payments WHERE reference = $1`, [p.reference]);
+    if (gp[0]) unreachable = !!(await verifyAndSettle(p.reference)).unreachable;
+    else {
+      const data = await verifyTransaction(p.reference);
+      if (!data) unreachable = true;
+      else if (checkPaystackTransaction(data, p).ok) await confirmPayment(p.id, { via: "paystack", providerReference: String(data.id ?? "") });
+    }
+  }
+  const { rows: full } = await pool.query(`${ADMIN_SELECT} WHERE p.id = $1`, [p.id]);
+  res.json({ payment: mapAdminPayment(full[0]), unreachable });
+}
+
+function requireReason(raw, message = "Please give a reason (at least a few words)") {
   const reason = String(raw ?? "").trim();
-  if (reason.length < 3) throw httpError("Please give a reason (at least a few words)");
+  if (reason.length < 3) throw httpError(message);
   if (reason.length > 500) throw httpError("The reason is too long (500 characters at most)");
   return reason;
 }
@@ -442,52 +619,8 @@ export async function adminRejectPayment(req, res) {
   res.json({ payment: mapAdminPayment(full[0]) });
 }
 
-// POST /api/rtc/admin/corps/payments/:id/refund — refund + revoke access,
-// with a recorded reason. Reverses the income in the Finance ledger. (If the
-// member paid through Paystack, return the money from the Paystack dashboard
-// — this action records it here and closes their access.)
-export async function adminRefundPayment(req, res) {
-  assertUuid(req.params.id);
-  const reason = requireReason(req.body?.reason);
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const { rows } = await client.query(
-      `SELECT p.*, u.name AS member_name FROM corper_payments p JOIN users u ON u.id = p.user_id
-       WHERE p.id = $1 FOR UPDATE OF p`,
-      [req.params.id]
-    );
-    const p = rows[0];
-    if (!p) throw httpError("Payment not found", 404);
-    if (p.status !== "paid") throw httpError("Only a paid payment can be refunded", 409);
-
-    // Negative income keeps the Finance revenue totals honest.
-    await client.query(
-      `INSERT INTO finance_income (reference, source, category, amount, description, received_from, recorded_by)
-       VALUES ($1, 'other', 'Corps access fee refund', $2, $3, $4, $5)`,
-      [generateReference(REF_PREFIX.financeIncome), -Number(p.amount), `Refund of corps access fee ${p.reference}: ${reason}`, p.member_name, req.user.id]
-    );
-    await client.query(
-      `INSERT INTO finance_transactions (reference, txn_type, amount, department, description, related_table, related_id, recorded_by)
-       VALUES ($1, 'refund', $2, 'TRC', $3, 'corper_payments', $4, $5)`,
-      [generateReference(REF_PREFIX.financeTransaction), p.amount, `Refund of corps access fee ${p.reference} — ${p.member_name}: ${reason}`, p.id, req.user.id]
-    );
-    await client.query(
-      `UPDATE corper_payments
-       SET status = 'refunded', refund_reason = $2, refunded_by = $3, refunded_at = now(), updated_at = now()
-       WHERE id = $1`,
-      [p.id, reason, req.user.id]
-    );
-    await client.query("COMMIT");
-  } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw err;
-  } finally {
-    client.release();
-  }
-  const { rows: full } = await pool.query(`${ADMIN_SELECT} WHERE p.id = $1`, [req.params.id]);
-  res.json({ payment: mapAdminPayment(full[0]) });
-}
+// There is NO refund action for the corps access fee: it is non-refundable once agreed and paid.
+// Payments refunded before this change stay visible as history (status "refunded").
 
 // GET /api/rtc/admin/corps/fee
 export async function adminGetFee(req, res) {

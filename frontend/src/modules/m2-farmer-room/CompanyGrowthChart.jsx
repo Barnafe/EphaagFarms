@@ -38,8 +38,8 @@ export default function CompanyGrowthChart() {
           const label = new Date(m.month).toLocaleDateString(undefined, { month: "short", year: "2-digit" });
           return (
             <g key={m.month}>
-              <rect x={x} y={y} width={barWidth} height={barHeight} rx="3" fill="#2c6b2f" />
-              <text x={x + barWidth / 2} y={height - padding + 14} textAnchor="middle" fontSize="9" fill="#6b6257">
+              <rect x={x} y={y} width={barWidth} height={barHeight} rx="3" fill="#7bb066" />
+              <text x={x + barWidth / 2} y={height - padding + 14} textAnchor="middle" fontSize="9" fill="#e6dccd">
                 {label}
               </text>
             </g>

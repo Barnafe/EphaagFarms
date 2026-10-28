@@ -155,13 +155,15 @@ export async function queueSms({ to, text, template = null, userId = null }) {
  * Send a templated notification to a member: email if they have one, SMS only
  * for phone-only members (key alerts only, so the template must carry `sms`).
  */
-export async function notifyUser(userId, templateName, data = {}) {
+export async function notifyUser(userId, templateName, data = {}, { allChannels = false } = {}) {
   const { rows } = await pool.query("SELECT id, name, email, phone FROM users WHERE id = $1", [userId]);
   const u = rows[0];
   if (!u) return null;
   const out = renderTemplate(templateName, { name: u.name, ...data });
   if (u.email) {
     const row = await queueEmail({ to: u.email, subject: out.subject, html: out.html, text: out.text, template: templateName, userId, raw: true });
+    // Critical notices (a share about to be taken down) go to every channel the member has.
+    if (allChannels && u.phone && out.sms) await queueSms({ to: u.phone, text: out.sms, template: templateName, userId }).catch(() => {});
     kick();
     return row;
   }
@@ -216,28 +218,34 @@ async function failOrRetry(msg, err) {
 }
 
 let draining = false;
+let rerun = false;
 export async function processQueue({ limit = 50, ids = null } = {}) {
-  if (draining) return { skipped: true };
+  // A drain already running may have just finished looking at the queue. Ask it to look again,
+  // so a message queued in that instant is picked up now instead of waiting for the next job run.
+  if (draining) { rerun = true; return { skipped: true }; }
   draining = true;
   const tally = { sent: 0, failed: 0, retry: 0, suppressed: 0 };
   try {
     // Messages stuck in 'sending' (server died mid-send) go back to the queue.
     await pool.query(`UPDATE messages SET status='queued' WHERE status='sending' AND next_attempt_at < now() - interval '10 minutes'`);
     const perSec = Math.max(1, Number(process.env.EMAIL_RATE_PER_SECOND || 5));
-    for (let i = 0; i < limit; i++) {
-      const { rows } = await pool.query(
-        `UPDATE messages SET status='sending', next_attempt_at = now()
-         WHERE id = (SELECT id FROM messages WHERE status='queued' AND next_attempt_at <= now() ${ids ? "AND id = ANY($1::uuid[])" : ""}
-                     ORDER BY next_attempt_at FOR UPDATE SKIP LOCKED LIMIT 1)
-         RETURNING *`,
-        ids ? [ids] : []
-      );
-      if (!rows[0]) break;
-      const outcome = await sendOne(rows[0]);
-      tally[outcome] = (tally[outcome] || 0) + 1;
-      await sleep(Math.floor(1000 / perSec));
-    }
-  } finally { draining = false; }
+    do {
+      rerun = false;
+      for (let i = 0; i < limit; i++) {
+        const { rows } = await pool.query(
+          `UPDATE messages SET status='sending', next_attempt_at = now()
+           WHERE id = (SELECT id FROM messages WHERE status='queued' AND next_attempt_at <= now() ${ids ? "AND id = ANY($1::uuid[])" : ""}
+                       ORDER BY next_attempt_at FOR UPDATE SKIP LOCKED LIMIT 1)
+           RETURNING *`,
+          ids ? [ids] : []
+        );
+        if (!rows[0]) break;
+        const outcome = await sendOne(rows[0]);
+        tally[outcome] = (tally[outcome] || 0) + 1;
+        await sleep(Math.floor(1000 / perSec));
+      }
+    } while (rerun);
+  } finally { draining = false; rerun = false; }
   return tally;
 }
 

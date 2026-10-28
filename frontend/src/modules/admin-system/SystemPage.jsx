@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../../api/client.js";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 const TABS = [
   { key: "status", label: "System status" },
   { key: "messages", label: "Messages" },
@@ -169,7 +170,7 @@ function SecurityTab() {
 }
 
 export default function SystemPage() {
-  const [tab, setTab] = useState("status");
+  const [tab, setTab] = useUrlState("tab", "status");
   return (
     <AdminDashboardShell>
       <div className="max-w-6xl">

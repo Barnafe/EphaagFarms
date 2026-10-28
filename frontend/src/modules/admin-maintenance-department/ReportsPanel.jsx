@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../api/client.js";
 
+import SectionStack from "../../components/SectionStack.jsx";
 export default function ReportsPanel() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -39,6 +40,14 @@ export default function ReportsPanel() {
         </div>
       </div>
 
+<SectionStack
+            className="space-y-4"
+            label="Report"
+            sections={[
+              {
+                key: "category",
+                label: "Spend by category",
+                node: (
       <div className="card">
         <p className="text-sm text-ink-600">Spend by category</p>
         <div className="mt-3 space-y-2">
@@ -59,7 +68,12 @@ export default function ReportsPanel() {
           ))}
         </div>
       </div>
-
+                ),
+              },
+              {
+                key: "month",
+                label: "Spend by month",
+                node: (
       <div className="card">
         <p className="text-sm text-ink-600">Spend by month</p>
         <div className="mt-3 space-y-2">
@@ -80,8 +94,12 @@ export default function ReportsPanel() {
           ))}
         </div>
       </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
+                ),
+              },
+              {
+                key: "assets",
+                label: "Work orders by asset",
+                node: (
         <div className="card">
           <p className="text-sm text-ink-600">Work orders by asset</p>
           <div className="mt-3 space-y-2">
@@ -102,7 +120,12 @@ export default function ReportsPanel() {
             ))}
           </div>
         </div>
-
+                ),
+              },
+              {
+                key: "tech",
+                label: "Technician load",
+                node: (
         <div className="card">
           <p className="text-sm text-ink-600">Technician load (completed orders)</p>
           <div className="mt-3 space-y-2">
@@ -115,7 +138,10 @@ export default function ReportsPanel() {
             ))}
           </div>
         </div>
-      </div>
+                ),
+              },
+            ]}
+          />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import PurchaseRequestList from "./PurchaseRequestList.jsx";
 import PurchaseRequestDetail from "./PurchaseRequestDetail.jsx";
 import SupplierManager from "./SupplierManager.jsx";
 
+import useUrlState from "../../hooks/useUrlState.js";
 const ACTIVE_STATUSES = [
   "pending_approval",
   "approved",
@@ -35,7 +36,7 @@ const SECTIONS = [
 ];
 
 export default function PurchasingPanel() {
-  const [section, setSection] = useState(null);
+  const [section, setSection] = useUrlState("section", null);
   const [requests, setRequests] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [selectedId, setSelectedId] = useState(null);

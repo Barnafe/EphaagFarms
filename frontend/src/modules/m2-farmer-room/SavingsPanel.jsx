@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../../api/client.js";
 
+import SectionStack from "../../components/SectionStack.jsx";
 const DEPOSIT_CHOICES = [
   { value: "2500", label: "₦2,500" },
   { value: "3500", label: "₦3,500" },
@@ -126,6 +127,15 @@ export default function SavingsPanel() {
         </div>
       )}
 
+<SectionStack
+            className="space-y-6"
+            label="Savings view"
+            urlKey="sec2"
+            sections={[
+              {
+                key: "balances",
+                label: "My balances",
+                node: (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="card">
           <p className="text-sm text-ink-600">Main savings</p>
@@ -148,7 +158,12 @@ export default function SavingsPanel() {
           <p className="mt-1 text-xs text-ink-600">Company-managed emergency/bridge fund.</p>
         </div>
       </div>
-
+                ),
+              },
+              {
+                key: "deposit",
+                label: "Make a deposit",
+                node: (
       <div className="card">
         {!showChoices ? (
           <button
@@ -215,7 +230,12 @@ export default function SavingsPanel() {
           </div>
         )}
       </div>
-
+                ),
+              },
+              {
+                key: "withdraw",
+                label: "Withdraw from main savings",
+                node: (
       <div className="card">
         <p className="text-sm text-ink-600">Withdraw from main savings</p>
         <form onSubmit={handleWithdraw} className="field mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -237,7 +257,12 @@ export default function SavingsPanel() {
           Requests are reviewed by Finance — insurance funds can't be withdrawn by farmers.
         </p>
       </div>
-
+                ),
+              },
+              {
+                key: "activity",
+                label: "Recent activity",
+                node: (
       <div className="card">
         <p className="text-sm text-ink-600">Recent activity</p>
         {(!data || (data.deposits.length === 0 && data.withdrawals.length === 0)) && (
@@ -265,6 +290,10 @@ export default function SavingsPanel() {
           ))}
         </div>
       </div>
+                ),
+              },
+            ]}
+          />
 
       {showConsent && (
         <ConsentModal

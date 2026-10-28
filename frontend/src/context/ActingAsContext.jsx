@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/client.js";
 
 const ActingAsContext = createContext(null);
@@ -16,48 +17,52 @@ const STORAGE_KEY = "ephaag_acting_as";
 // localStorage) so it clears itself when the browser tab closes, same
 // lifetime as "being inside" that department for this session.
 //
-// Back-button trap (2026-09-05 spec): once acting as a department, the
-// device back button must never surface any admin page — the Exit button
-// (ActingAsBanner.jsx) is the only sanctioned way out. While actingAs is
-// set, every popstate (back/forward) is caught and immediately cancelled by
-// re-pushing the current URL, so the browser's back gesture is inert for as
-// long as you're "inside" a department. Exiting clears actingAs first (see
+// Back-button guard (replaces the 2026-09-05 "trap"): once acting as a
+// department, the device back button must never surface an admin page — the
+// Exit button (ActingAsBanner.jsx) is the only sanctioned way out. The old
+// trap re-pushed the current URL on EVERY back press, which made back inert
+// after one step (Finance → Budget → Back → Back did nothing, and the router
+// had already rendered the previous page before the URL was put back). Now
+// back/forward move through the department's own tabs and sections normally
+// (see hooks/useUrlState.js); the guard only steps in when a back/forward
+// would land OUTSIDE the department page it started from, and sends the user
+// straight back into it (replace, before anything is painted).
+// Exiting clears actingAs and the stored department path first (see
 // handleExit), which lets the very next back/forward through normally.
+const PATH_KEY = "ephaag_acting_path";
+
 export function ActingAsProvider({ children }) {
   const [actingAs, setActingAsState] = useState(() => sessionStorage.getItem(STORAGE_KEY) || null);
-  const trapInstalled = useRef(false);
+  const navigate = useNavigate();
 
-  function setActingAs(department) {
+  // homePath: the department page being entered (e.g. "/admin/finance").
+  function setActingAs(department, homePath = null) {
     setActingAsState(department);
     if (department) {
       sessionStorage.setItem(STORAGE_KEY, department);
+      if (homePath) sessionStorage.setItem(PATH_KEY, homePath);
       // Written to the server's security log (best effort — never blocks the screen).
       apiFetch("/security/acting-as", { method: "POST", body: { department } }).catch(() => {});
+    } else {
+      sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(PATH_KEY);
     }
-    else sessionStorage.removeItem(STORAGE_KEY);
   }
 
   useEffect(() => {
-    if (!actingAs) {
-      trapInstalled.current = false;
-      return;
+    if (!actingAs) return undefined;
+
+    function guard() {
+      const home = sessionStorage.getItem(PATH_KEY);
+      if (!home) return; // path unknown (older session): leave back alone rather than trap it
+      const here = window.location.pathname;
+      if (here === home || here.startsWith(`${home}/`)) return; // still inside the department: normal back
+      navigate(home, { replace: true });
     }
 
-    // Establish one extra history entry to absorb the first back-press,
-    // then re-arm it on every subsequent popstate so back can never move
-    // past this point while actingAs is set.
-    if (!trapInstalled.current) {
-      window.history.pushState({ actingAsTrap: true }, "", window.location.href);
-      trapInstalled.current = true;
-    }
-
-    function reArmTrap() {
-      window.history.pushState({ actingAsTrap: true }, "", window.location.href);
-    }
-
-    window.addEventListener("popstate", reArmTrap);
-    return () => window.removeEventListener("popstate", reArmTrap);
-  }, [actingAs]);
+    window.addEventListener("popstate", guard);
+    return () => window.removeEventListener("popstate", guard);
+  }, [actingAs, navigate]);
 
   return (
     <ActingAsContext.Provider value={{ actingAs, setActingAs }}>{children}</ActingAsContext.Provider>
