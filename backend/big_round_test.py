@@ -73,17 +73,12 @@ check("nearest-unit value persisted correctly", r.json()["product"]["address"] =
 # ============================================================
 # Item 3: Personal savings
 # ============================================================
+# Savings deposits are paid through Paystack now (Phase 5). This server has no Paystack key, so the deposit
+# is refused clearly instead of being recorded without payment; the paid flow is covered by the money-flows tests.
 r = requests.post(f"{BASE}/farmers/me/savings/deposit", headers=farmer_h, json={"amount": 10000, "durationYears": 1})
-# Note: current app enforces no minimum deposit amount (pre-existing, unrelated
-# to this merge — savingsController wasn't touched by any of the 4 merged zips).
-# Flagging as stale test-script drift rather than rewriting app business logic.
-check("savings deposit accepted (no minimum currently enforced)", r.status_code == 201, r.text[:300])
-
-r = requests.post(f"{BASE}/farmers/me/savings/deposit", headers=farmer_h, json={"amount": 50000, "durationYears": 2})
-check("savings creation succeeds", r.status_code == 201, r.text[:300])
-saving = r.json()["deposit"]
-check("savings reference format present", "id" in saving, saving)
-saving_id = saving["id"]
+check("savings deposit needs online payment (no typed-in deposits)", r.status_code == 503 and "unavailable" in r.text, r.text[:300])
+r = requests.post(f"{BASE}/farmers/me/savings/deposit", headers=farmer_h, json={"amount": 2000})
+check("savings deposit below the minimum is refused", r.status_code in (400, 503), r.text[:300])
 
 # NOTE: the rest of this pre-existing savings block (not touched by this
 # merge) has further stale field-name drift unrelated to any of the 4

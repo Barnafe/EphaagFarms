@@ -1,3 +1,4 @@
+import { settleTransfer } from "../services/payouts.js";
 import { pool } from "../db/pool.js";
 import { verifyPaystackSignature, paystackConfigured, getFeeConfig, DEFAULT_FEE_CONFIG, calculateFee } from "../services/paystack.js";
 import { settlePayment, verifyAndSettle, refusalText, TYPE_LABEL } from "../services/payments.js";
@@ -20,6 +21,14 @@ export async function paystackWebhook(req, res) {
   }
   const event = req.body || {};
   try {
+    if (String(event.event || "").startsWith("transfer.")) {
+      // Money out: Paystack tells us how a transfer ended.
+      const d = event.data || {};
+      const status = event.event === "transfer.success" ? "success" : event.event === "transfer.reversed" ? "reversed" : "failed";
+      await settleTransfer(d.reference, status, { transfer_code: d.transfer_code, reason: d.reason || d.failures });
+      await recordWebhookEvent("paystack", "ok", event.event);
+      return res.json({ received: true });
+    }
     await processChargeSuccess(event); // the ledger first, then corps rows that pre-date it
     await recordWebhookEvent("paystack", "ok", event.event || "event");
     res.json({ received: true });

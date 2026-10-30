@@ -68,6 +68,7 @@ export function securityHeaders() {
 const blocked = [
   /^\/api\/payments\/admin\/(settings|ledger\/[^/]+\/recorded)/,
   /^\/api\/refunds\//,
+  /^\/api\/payouts\/(settings|run|[^/]+\/retry)/,
   /^\/api\/finance\/payments\/[^/]+\/pay$/,
   /^\/api\/orders\/[^/]+\/confirm-payment$/,
   /^\/api\/loans\/[^/]+\/disburse$/,

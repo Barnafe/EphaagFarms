@@ -33,7 +33,7 @@ export function requireFarmerRank(...allowedRanks) {
 // from the admin profile." Department-head screens were already fully
 // admin-accessible before this (they're gated by role_type='admin', not by
 // a specific department_head_of match) — the actual gap was here: Unit
-// Leader/Federal functions are gated by a FARMER's rank
+// Leader/3EI Governance functions are gated by a FARMER's rank
 // (farmer_profiles.rank), and an admin account has no farmer_profile at
 // all. This is the single combined middleware for that gap — it replaces
 // `attachFarmerProfile` + `requireFarmerRank(...)` wherever a route needs

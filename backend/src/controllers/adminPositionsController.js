@@ -1,3 +1,4 @@
+import { rankLabel } from "../utils/governance.js";
 import { pool } from "../db/pool.js";
 
 // Promotion/appointment tool (2026-08-13 spec) — "someone isn't supposed
@@ -5,7 +6,7 @@ import { pool } from "../db/pool.js";
 // a specific person, admin will have the tools to promote someone."
 // Covers two independent position systems:
 //   1. Farmer leadership ranks (Unit Leader -> Ward Leader -> LGA
-//      Coordinator -> State Coordinator -> Federal), stored on
+//      Coordinator -> State Coordinator -> 3EI Governance), stored on
 //      farmer_profiles.rank.
 //   2. Admin department heads (HOD of Production/Procurement/Transport/
 //      Store/Finance/Maintenance/TRC), stored on users.department_head_of.
@@ -22,6 +23,104 @@ import { pool } from "../db/pool.js";
 // Every change is logged to coordinator_appointments (existing table,
 // previously unused) as a durable, auditable history — never just an
 // in-place update with no trace.
+
+// --- Admin accounts -----------------------------------------------------
+// Exactly one MAIN admin exists (the seeded one). Only the main admin can add
+// or remove admins; every other admin has every other admin feature. Adding an
+// admin promotes an existing account (the same way a farmer is promoted to Unit
+// Leader); removing one gives the person their old account back.
+async function isMainAdmin(userId) {
+  const { rows } = await pool.query("SELECT 1 FROM users WHERE id = $1 AND role_type = 'admin' AND is_main_admin", [userId]);
+  return rows.length > 0;
+}
+
+export async function requireMainAdmin(req, res, next) {
+  if (!(await isMainAdmin(req.user.id))) {
+    return res.status(403).json({ error: "Only the main admin can add or remove admins" });
+  }
+  next();
+}
+
+export async function searchAdminCandidates(req, res) {
+  const q = String(req.query.q || "").trim();
+  if (q.length < 2) return res.json({ users: [] });
+  const { rows } = await pool.query(
+    `SELECT id, name, email, phone, role_type FROM users
+      WHERE role_type <> 'admin' AND (name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1)
+      ORDER BY name ASC LIMIT 20`,
+    [`%${q}%`]
+  );
+  res.json({ users: rows });
+}
+
+export async function promoteToAdmin(req, res) {
+  const { userId } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query("SELECT id, name, role_type FROM users WHERE id = $1 FOR UPDATE", [userId]);
+    const target = rows[0];
+    if (!target) { await client.query("ROLLBACK"); return res.status(404).json({ error: "User not found" }); }
+    if (target.role_type === "admin") { await client.query("ROLLBACK"); return res.status(400).json({ error: `${target.name} is already an admin` }); }
+    // token_version + 1 ends the person's old sessions, so their next login carries the admin role.
+    await client.query(
+      `UPDATE users SET previous_role_type = role_type, role_type = 'admin', department_head_of = NULL,
+              token_version = token_version + 1 WHERE id = $1`,
+      [userId]
+    );
+    await client.query(
+      `INSERT INTO coordinator_appointments (user_id, rank, jurisdiction, approved_by) VALUES ($1, $2, $3, $4)`,
+      [userId, "Admin", "Admin", req.user.name]
+    );
+    await client.query("COMMIT");
+    res.json({ userId, name: target.name, role: "admin" });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error(err);
+    res.status(500).json({ error: "Could not promote to admin" });
+  } finally {
+    client.release();
+  }
+}
+
+export async function removeAdmin(req, res) {
+  const { userId } = req.params;
+  if (userId === req.user.id) return res.status(400).json({ error: "You can't remove yourself" });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query(
+      "SELECT id, name, is_main_admin, previous_role_type FROM users WHERE id = $1 AND role_type = 'admin' FOR UPDATE", [userId]);
+    const target = rows[0];
+    if (!target) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Admin not found" }); }
+    if (target.is_main_admin) { await client.query("ROLLBACK"); return res.status(400).json({ error: "The main admin can't be removed" }); }
+    let outcome;
+    if (target.previous_role_type) {
+      await client.query(
+        `UPDATE users SET role_type = previous_role_type, previous_role_type = NULL, department_head_of = NULL,
+                token_version = token_version + 1 WHERE id = $1`, [userId]);
+      outcome = `back to a ${target.previous_role_type} account`;
+    } else {
+      // This admin never had another account to go back to, so the account is locked instead.
+      await client.query(
+        `UPDATE users SET locked_until = now() + interval '100 years', department_head_of = NULL,
+                token_version = token_version + 1 WHERE id = $1`, [userId]);
+      outcome = "locked (there was no earlier account to return to)";
+    }
+    await client.query(
+      `INSERT INTO coordinator_appointments (user_id, rank, jurisdiction, approved_by) VALUES ($1, $2, $3, $4)`,
+      [userId, "Admin removed", "Admin", req.user.name]
+    );
+    await client.query("COMMIT");
+    res.json({ userId, name: target.name, outcome });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error(err);
+    res.status(500).json({ error: "Could not remove admin" });
+  } finally {
+    client.release();
+  }
+}
 
 const FARMER_RANKS = ["Member", "Unit Leader", "Ward Leader", "LGA Coordinator", "State Coordinator", "Federal"];
 const DEPARTMENTS = ["Production", "Procurement", "Transport", "Store", "Finance", "Maintenance", "TRC"];
@@ -47,7 +146,7 @@ export async function promoteFarmerRank(req, res) {
   const { userId } = req.params;
   const { rank } = req.body;
   if (!FARMER_RANKS.includes(rank)) {
-    return res.status(400).json({ error: `rank must be one of: ${FARMER_RANKS.join(", ")}` });
+    return res.status(400).json({ error: `rank must be one of: ${FARMER_RANKS.map(rankLabel).join(", ")}` });
   }
   const check = await pool.query(`SELECT id, name, state, lga, ward, unit FROM users WHERE id = $1 AND role_type = 'farmer'`, [userId]);
   const farmer = check.rows[0];
@@ -75,9 +174,9 @@ export async function demoteFarmerRank(req, res) {
 
 export async function listAdminsForHod(req, res) {
   const { rows } = await pool.query(
-    `SELECT id, name, email, department_head_of FROM users WHERE role_type = 'admin' ORDER BY name ASC`
+    `SELECT id, name, email, department_head_of, is_main_admin FROM users WHERE role_type = 'admin' ORDER BY is_main_admin DESC, name ASC`
   );
-  res.json({ admins: rows, departments: DEPARTMENTS });
+  res.json({ admins: rows, departments: DEPARTMENTS, canManageAdmins: await isMainAdmin(req.user.id) });
 }
 
 export async function promoteHod(req, res) {

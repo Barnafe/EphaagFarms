@@ -1,4 +1,5 @@
 import { pool } from "../db/pool.js";
+import { profileStatus } from "../services/farmerIdentity.js";
 import { mapCorperProfile, computeCompletion } from "./corperProfile.js";
 
 // Loads the role-specific profile row for a user and merges it onto the
@@ -11,11 +12,13 @@ export async function attachProfile(user) {
       `SELECT rank, crops, attendance_pct, course_pct,
               marital_status, date_of_birth, id_type, id_number, home_address, nationality,
               farm_type, farm_size, years_experience, keeps_inventory_records, annual_farm_income,
-              additional_income_type, additional_income
+              additional_income_type, additional_income,
+              permanent_address, residential_community, residential_street, residential_lat, residential_lng, unit_match_method
        FROM farmer_profiles WHERE user_id = $1`,
       [user.id]
     );
     const p = rows[0];
+    const status = await profileStatus(user.id);
     return {
       ...user,
       rank: p?.rank ?? "Member",
@@ -35,6 +38,14 @@ export async function attachProfile(user) {
       annualFarmIncome: p?.annual_farm_income ?? null,
       additionalIncomeType: p?.additional_income_type ?? null,
       additionalIncome: p?.additional_income ?? null,
+      permanentAddress: p?.permanent_address ?? null,
+      residentialCommunity: p?.residential_community ?? null,
+      residentialStreet: p?.residential_street ?? null,
+      residentialLat: p?.residential_lat == null ? null : Number(p.residential_lat),
+      residentialLng: p?.residential_lng == null ? null : Number(p.residential_lng),
+      unitMatchMethod: p?.unit_match_method ?? null,
+      ninVerified: status?.ninVerified ?? false,
+      profileStatus: status,
     };
   }
 

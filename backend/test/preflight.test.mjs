@@ -4,7 +4,7 @@ import { checkEnvironment, summarise, formatReport } from "../src/utils/prefligh
 
 const good = {
   NODE_ENV: "production", DATABASE_URL: "postgresql://u:p@ep-x.neon.tech/db?sslmode=require", JWT_SECRET: "k9fj2Lq8xZp0Rt5vWb7nYc3mHs6uDa1E4gQ",
-  ADMIN_SETUP_CODE: "kestrel-lantern-77", FRONTEND_ORIGIN: "https://ephaag-farms.onrender.com",
+  FRONTEND_ORIGIN: "https://ephaag-farms.onrender.com",
   R2_ACCOUNT_ID: "abc", R2_ACCESS_KEY_ID: "k", R2_SECRET_ACCESS_KEY: "s", R2_PUBLIC_BUCKET: "pub", R2_PRIVATE_BUCKET: "priv", R2_PUBLIC_BASE_URL: "https://pub-abc.r2.dev",
   SES_REGION: "eu-west-1", AWS_ACCESS_KEY_ID: "a", AWS_SECRET_ACCESS_KEY: "b", FROM_EMAIL: "EPHAAG <no-reply@ephaag.com>",
   SMS_API_KEY: "k", SMS_SENDER_ID: "EPHAAG", ALERT_SMS_PHONE: "08031234567", PAYSTACK_SECRET_KEY: "sk_live_abc", JOB_TICK_SECRET: "tick", CSP_MODE: "enforce",
@@ -32,7 +32,6 @@ test("test keys and placeholder secrets are warned about; live keys are not", ()
   assert.ok(names(checkEnvironment({ ...good, PAYSTACK_SECRET_KEY: "sk_test_abc" }), "warn").includes("PAYSTACK_SECRET_KEY"));
   assert.ok(names(checkEnvironment({ ...good, JWT_SECRET: "change-me-change-me-change-me-change-me" }), "warn").includes("JWT_SECRET"));
   assert.ok(names(checkEnvironment({ ...good, JWT_SECRET: "short" }), "fail").includes("JWT_SECRET"));
-  assert.ok(names(checkEnvironment({ ...good, ADMIN_SETUP_CODE: "test-setup-code" }), "warn").includes("ADMIN_SETUP_CODE"));
 });
 
 test("production safety: simulated payments, loosened rate limits and a non-https site are flagged", () => {

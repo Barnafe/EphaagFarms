@@ -1,3 +1,5 @@
+import { startSavingsPayment } from "../services/moneyIn.js";
+import { createPayout, kickPayouts } from "../services/payouts.js";
 import { pool } from "../db/pool.js";
 import { computeAndStoreIndices } from "../utils/indicesEngine.js";
 
@@ -51,7 +53,7 @@ async function getBalances(userId) {
   const { rows: withdrawalRows } = await pool.query(
     `SELECT account_type,
        COALESCE(SUM(amount) FILTER (WHERE status = 'paid'), 0) AS paid,
-       COALESCE(SUM(amount) FILTER (WHERE status = 'requested'), 0) AS pending
+       COALESCE(SUM(amount) FILTER (WHERE status IN ('requested','approved')), 0) AS pending
      FROM savings_withdrawals WHERE user_id = $1 GROUP BY account_type`,
     [userId]
   );
@@ -102,49 +104,10 @@ export async function mySavings(req, res) {
   });
 }
 
+// Savings deposits are paid through Paystack (the fee is added). The deposit is recorded when Paystack confirms.
 export async function deposit(req, res) {
-  const { amount } = req.body;
-  const amt = Number(amount);
-
-  if (!isWithinDepositWindow()) {
-    return res.status(400).json({
-      error: `Deposits are only accepted between the ${DEPOSIT_WINDOW_START_DAY}st and ${DEPOSIT_WINDOW_END_DAY}th of each month`,
-    });
-  }
-  if (!amt || amt < 2500) {
-    return res.status(400).json({ error: "Minimum deposit is ₦2,500" });
-  }
-  if (amt % 500 !== 0) {
-    return res.status(400).json({ error: "Amount must end in 500" });
-  }
-
-  const insurancePortion = 500;
-  const mainPortion = amt - insurancePortion;
-
-  try {
-    const { rows } = await pool.query(
-      `INSERT INTO savings_deposits (user_id, amount, insurance_portion, main_portion)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [req.user.id, amt, insurancePortion, mainPortion]
-    );
-    const balances = await getBalances(req.user.id);
-    // Real-time indices recompute (2026-08-11 spec) — fire-and-forget,
-    // never blocks the deposit response.
-    computeAndStoreIndices(req.user.id).catch((err) => console.error("indices recompute failed", err));
-    res.status(201).json({
-      deposit: {
-        id: rows[0].id,
-        amount: amt,
-        insurancePortion,
-        mainPortion,
-        createdAt: rows[0].created_at,
-      },
-      ...balances,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Could not record deposit" });
-  }
+  const payment = await startSavingsPayment(req.user, req.body?.amount, isWithinDepositWindow());
+  res.json({ payment });
 }
 
 export async function requestWithdrawal(req, res) {
@@ -217,15 +180,21 @@ export async function adminListSavings(req, res) {
 export async function adminDecideWithdrawal(req, res) {
   const { id } = req.params;
   const { decision } = req.body;
-  if (!["paid", "declined"].includes(decision)) {
-    return res.status(400).json({ error: "decision must be 'paid' or 'declined'" });
+  if (!["approved", "paid", "declined"].includes(decision)) {
+    return res.status(400).json({ error: "decision must be 'approved' or 'declined'" });
   }
+  // Approving sends the money by itself: the withdrawal becomes 'paid' when the transfer completes.
+  const next = decision === "declined" ? "declined" : "approved";
   const { rows } = await pool.query(
     `UPDATE savings_withdrawals SET status = $1, handled_at = now(), handled_by = $2
      WHERE id = $3 AND status = 'requested' RETURNING *`,
-    [decision, req.user.id, id]
+    [next, req.user.id, id]
   );
   if (!rows[0]) return res.status(400).json({ error: "Withdrawal not found or already handled" });
+  if (next === "approved") {
+    await createPayout({ kind: "savings_withdrawal", userId: rows[0].user_id, subjectId: rows[0].id, amount: Number(rows[0].amount) });
+    kickPayouts();
+  }
   res.json({ withdrawal: rows[0] });
 }
 

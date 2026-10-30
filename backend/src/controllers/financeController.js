@@ -274,19 +274,7 @@ export async function listFarmerPayments(req, res) {
   res.json({ payments: rows });
 }
 
+// Farmer settlements are paid automatically by Paystack transfer when Procurement sources the produce.
 export async function markPaymentPaid(req, res) {
-  const { id } = req.params;
-  // Only an UNPAID settlement can be marked paid — previously this
-  // overwrote any row unconditionally, so a double click (or a second
-  // admin) could "pay" the same settlement twice with nothing to show it.
-  const { rows } = await pool.query(
-    `UPDATE payments SET status = 'paid' WHERE id = $1 AND payee_type = 'farmer' AND status = 'unpaid' RETURNING *`,
-    [id]
-  );
-  if (!rows[0]) {
-    const { rows: exists } = await pool.query(`SELECT status FROM payments WHERE id = $1 AND payee_type = 'farmer'`, [id]);
-    if (!exists[0]) return res.status(404).json({ error: "Payment not found" });
-    return res.status(409).json({ error: "This settlement has already been paid" });
-  }
-  res.json({ payment: rows[0] });
+  res.status(410).json({ error: "Farmer settlements are paid automatically. Follow them in Finance > Payouts." });
 }

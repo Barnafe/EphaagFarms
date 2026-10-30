@@ -1,6 +1,8 @@
 import { pool } from "../db/pool.js";
 import { generateReference, REF_PREFIX } from "../utils/reference.js";
 import { sendMail } from "../utils/email.js";
+import { queueLoanPayout, startRepaymentPayment, startBoostPayment } from "../services/moneyIn.js";
+import { kickPayouts } from "../services/payouts.js";
 import { getIndicesSnapshot, getIndicesHistory, computeAndStoreIndices } from "../utils/indicesEngine.js";
 import { getBalances as getSavingsBalances } from "./savingsController.js";
 
@@ -132,7 +134,7 @@ async function notifyFinance(loan) {
   }
 }
 
-async function notifyFederal(loan) {
+async function notifyTopRank(loan) {
   const { rows } = await pool.query(
     `SELECT u.email FROM users u JOIN farmer_profiles fp ON fp.user_id = u.id
      WHERE fp.rank = 'Federal' AND u.email IS NOT NULL`
@@ -217,24 +219,10 @@ export async function myBoostDeposits(req, res) {
   res.json({ deposits: rows.map(mapDeposit) });
 }
 
-export async function adminPendingBoostDeposits(req, res) {
-  const { rows } = await pool.query(
-    `SELECT bcd.*, u.name AS farmer_name FROM boost_cash_deposits bcd
-     JOIN users u ON u.id = bcd.farmer_id
-     WHERE bcd.verified_at IS NULL ORDER BY bcd.created_at ASC`
-  );
-  res.json({ deposits: rows.map((d) => ({ ...mapDeposit(d), farmerName: d.farmer_name })) });
-}
-
+// The 25% deposit is paid through Paystack, which confirms it: nothing is left for Finance to verify.
+export async function adminPendingBoostDeposits(req, res) { res.json({ deposits: [] }); }
 export async function adminVerifyBoostDeposit(req, res) {
-  const { id } = req.params;
-  const { rows } = await pool.query(
-    `UPDATE boost_cash_deposits SET verified_at = now(), verified_by = $1
-     WHERE id = $2 AND verified_at IS NULL RETURNING *`,
-    [req.user.id, id]
-  );
-  if (!rows[0]) return res.status(400).json({ error: "Deposit not found or already verified" });
-  res.json({ deposit: mapDeposit(rows[0]) });
+  res.status(410).json({ error: "Boost Cash deposits are verified automatically through Paystack." });
 }
 
 // --- Recommendation tickets (2026-09-06 spec) ---------------------------
@@ -497,60 +485,18 @@ export async function myLoanRepayments(req, res) {
 }
 
 export async function logRepayment(req, res) {
-  const { loanId } = req.params;
-  const { method } = req.body;
-  const amount = Number(req.body.amount);
-  // Before the 2026-10-20 payment audit this only checked "is it truthy":
-  // a NEGATIVE amount was accepted (and once verified it LOWERED the
-  // farmer's repaid total), "abc" came back as a 500, and a farmer could
-  // log more than the loan was worth.
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return res.status(400).json({ error: "amount must be a number greater than zero" });
-  }
+  res.status(410).json({ error: "Repayments are paid online now. Use Pay with Paystack on your loan." });
+}
 
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const loan = await client.query("SELECT * FROM loans WHERE id = $1 AND farmer_id = $2 FOR UPDATE", [
-      loanId,
-      req.user.id,
-    ]);
-    if (!loan.rows[0]) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Loan not found" });
-    }
-    if (loan.rows[0].status !== "disbursed") {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: "This loan isn't active yet" });
-    }
+// POST /api/loans/:loanId/repay { amount } — any part of what is owed, never more.
+export async function payRepayment(req, res) {
+  const r = await startRepaymentPayment(req.user, req.params.loanId, req.body?.amount);
+  res.json({ payment: r });
+}
 
-    const owed = repayableTotal(loan.rows[0]);
-    const { rows: sumRows } = await client.query(
-      `SELECT COALESCE(SUM(amount), 0) AS logged FROM loan_repayments WHERE loan_id = $1`,
-      [loanId]
-    );
-    const outstanding = owed - Number(sumRows[0].logged);
-    if (outstanding <= 0) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: "This loan has already been fully repaid" });
-    }
-    if (amount > outstanding) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: `That's more than the ${fmtN(outstanding)} still outstanding on this loan` });
-    }
-
-    const { rows } = await client.query(
-      `INSERT INTO loan_repayments (loan_id, amount, method) VALUES ($1, $2, $3) RETURNING *`,
-      [loanId, amount, method || null]
-    );
-    await client.query("COMMIT");
-    res.status(201).json({ repayment: rows[0] });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+// POST /api/loans/boost-deposits/:id/pay
+export async function payBoostDeposit(req, res) {
+  res.json({ payment: await startBoostPayment(req.user, req.params.id) });
 }
 
 // --- Unit Leader actions ----------------------------------------------
@@ -681,7 +627,7 @@ export async function recommendedLoans(req, res) {
   res.json({ loans: rows });
 }
 
-// Federal's queue — loans Finance has already verified, awaiting final approval.
+// 3EI Governance's queue — loans Finance has already verified, awaiting final approval.
 export async function financeVerifiedLoans(req, res) {
   const { rows } = await pool.query(
     `SELECT l.*, u.name AS farmer_name, r.name AS recommended_by_name
@@ -714,7 +660,7 @@ export async function financeVerifyLoan(req, res) {
     );
     await logTransition(client, id, "recommended", "finance_verified", req.user.id, "Financial standing verified");
     await client.query("COMMIT");
-    notifyFederal(rows[0]).catch(() => {});
+    notifyTopRank(rows[0]).catch(() => {});
     res.json({ loan: rows[0] });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -734,11 +680,12 @@ export async function loanApplicantIndices(req, res) {
   res.json(indices);
 }
 
-// --- Federal (final approval) actions -----------------------------------
+// --- 3EI Governance (final approval) actions -----------------------------------
 
 export async function approveLoan(req, res) {
   const { id } = req.params;
   const client = await pool.connect();
+  let released = false;
   try {
     await client.query("BEGIN");
     const check = await client.query(`SELECT * FROM loans WHERE id = $1 AND status = 'finance_verified' FOR UPDATE`, [id]);
@@ -751,16 +698,19 @@ export async function approveLoan(req, res) {
       [id]
     );
     await logTransition(client, id, "finance_verified", "approved", req.user.id, "Final approval granted");
+    await queueLoanPayout(rows[0], client); // the money goes out by itself, in the same transaction as the approval
     await client.query("COMMIT");
-    notifyFinanceClearToDisburse(rows[0]).catch(() => {});
+    client.release(); // hand the connection back before anything else uses the pool
+    released = true;
+    kickPayouts();
     notifyFarmerDecision(rows[0], "approved").catch(() => {});
     res.json({ loan: rows[0] });
   } catch (err) {
-    await client.query("ROLLBACK");
+    if (!released) await client.query("ROLLBACK");
     console.error(err);
     res.status(500).json({ error: "Could not approve loan" });
   } finally {
-    client.release();
+    if (!released) client.release();
   }
 }
 
@@ -775,64 +725,15 @@ export async function awaitingDisbursement(req, res) {
   res.json({ loans: rows });
 }
 
+// Loans are paid out automatically (by Paystack transfer) once the last approval is given.
 export async function disburseLoan(req, res) {
-  const { id } = req.params;
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const check = await client.query(`SELECT * FROM loans WHERE id = $1 AND status = 'approved' FOR UPDATE`, [id]);
-    const loan = check.rows[0];
-    if (!loan) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: "Loan not found or not awaiting disbursement" });
-    }
-    if (loan.loan_type === "boost_cash" && !loan.deposit_verified) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({
-        error: "Boost Cash loans require the 25% upfront deposit to be verified before disbursement",
-      });
-    }
-    const { rows } = await client.query(
-      `UPDATE loans SET status = 'disbursed' WHERE id = $1 RETURNING *`,
-      [id]
-    );
-    await logTransition(client, id, "approved", "disbursed", req.user.id, "Funds disbursed");
-    await client.query("COMMIT");
-    res.json({ loan: rows[0] });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error(err);
-    res.status(500).json({ error: "Could not disburse loan" });
-  } finally {
-    client.release();
-  }
+  res.status(410).json({ error: "Loans are paid out automatically after final approval. Follow the payout in Finance > Payouts." });
 }
 
-export async function unverifiedRepayments(req, res) {
-  const { rows } = await pool.query(
-    `SELECT r.*, l.reference AS loan_reference, u.name AS farmer_name
-     FROM loan_repayments r
-     JOIN loans l ON l.id = r.loan_id
-     JOIN users u ON u.id = l.farmer_id
-     WHERE r.verified = FALSE ORDER BY r.paid_at ASC`
-  );
-  res.json({ repayments: rows });
-}
-
+// Repayments are paid through Paystack and verified by it, so there is nothing to verify by hand.
+export async function unverifiedRepayments(req, res) { res.json({ repayments: [] }); }
 export async function verifyRepayment(req, res) {
-  const { id } = req.params;
-  const { rows } = await pool.query(
-    `UPDATE loan_repayments SET verified = TRUE WHERE id = $1 RETURNING *`,
-    [id]
-  );
-  if (!rows[0]) return res.status(404).json({ error: "Repayment not found" });
-
-  // Real-time indices recompute (2026-08-11 spec) — fire-and-forget.
-  const { rows: loanRows } = await pool.query(`SELECT farmer_id FROM loans WHERE id = $1`, [rows[0].loan_id]);
-  if (loanRows[0]) {
-    computeAndStoreIndices(loanRows[0].farmer_id).catch((err) => console.error("indices recompute failed", err));
-  }
-  res.json({ repayment: rows[0] });
+  res.status(410).json({ error: "Repayments are verified automatically through Paystack." });
 }
 
 // --- Grading indices (loan-eligibility prerequisite) --------------------
@@ -840,7 +741,7 @@ export async function verifyRepayment(req, res) {
 // is a TRANSPARENT SCORE DISPLAY only, it does NOT gate loan applications
 // — index (v) has no assigned point value and there's no stated total-
 // points threshold yet. Real eligibility gating still runs through the
-// human pipeline above (Unit Leader -> Finance -> Federal).
+// human pipeline above (Unit Leader -> Finance -> 3EI Governance).
 export async function myEligibilityIndices(req, res) {
   const indices = await getIndicesSnapshot(req.user.id);
   res.json(indices);

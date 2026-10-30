@@ -16,7 +16,7 @@ import {
 } from "../utils/corperLearning.js";
 
 // ---------------------------------------------------------------------
-// Corps member learning (phase 4). Every route here sits behind
+// NYSC AGROALLIED SAED member learning (phase 4). Every route here sits behind
 // requireCorperPaid (routes/corpers.js), so an unpaid or refunded member
 // gets 402 PAYMENT_REQUIRED before any of this runs. What a member did is
 // always stored; it only COUNTS while the access fee is paid (see
@@ -32,10 +32,10 @@ function assertUuid(id, what = "Not found") {
 }
 
 // ---------------------------------------------------------------------
-// The one progress query. One row per currently-live corps course for each
+// The one progress query. One row per currently-live NYSC AGROALLIED SAED course for each
 // requested member, with that member's counters joined in. The member
 // screens, the admin Corps progress view and (later) the certificate and
-// NYSC export all read progress through this + summariseProgress(), so
+// NYSC AGROALLIED SAED export all read progress through this + summariseProgress(), so
 // they cannot disagree.
 //
 // "Live" = audience 'corps' AND approved. Lessons the member completed
@@ -80,7 +80,7 @@ async function maybeIssueCertificate(userId) {
 
 const overallOf = (s) => ({ total: s.total, completed: s.completed, percent: s.percent });
 
-// A live corps course by id, or 404. Draft/unapproved courses are invisible
+// A live NYSC AGROALLIED SAED course by id, or 404. Draft/unapproved courses are invisible
 // to members exactly as before.
 async function loadLiveCourse(courseId, runner = pool) {
   assertUuid(courseId, "Course not found");

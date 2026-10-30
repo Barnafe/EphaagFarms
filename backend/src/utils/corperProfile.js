@@ -1,4 +1,4 @@
-// Corps member (NYSC) profile — one place that knows which fields exist,
+// NYSC AGROALLIED SAED member profile — one place that knows which fields exist,
 // how each is validated, which section ("tab") it belongs to, and which
 // ones count toward the profile-completeness percentage. Shared by
 // registration (authController), the profile endpoints (corperController)
@@ -113,7 +113,7 @@ const LABELS = {
   discipline: "Discipline", educationLevel: "Education level", institution: "Institution",
   courseOfStudy: "Course of study", graduationYear: "Graduation year", skillLevel: "Skill level",
   employmentStatus: "Employment status", learningMode: "Learning mode", motivation: "Motivation",
-  goals: "Goals", consentTerms: "Terms and conditions", consentData: "Consent to share your details with NYSC",
+  goals: "Goals", consentTerms: "Terms and conditions", consentData: "Consent to share your details with NYSC AGROALLIED SAED",
 };
 const label = (k) => LABELS[k] || k;
 

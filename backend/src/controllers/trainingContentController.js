@@ -5,7 +5,7 @@ import { MATERIALS_DIR } from "../middleware/upload.js";
 import { sendFileRef, discardFileRef } from "../utils/fileRefs.js";
 
 // ---------------------------------------------------------------------
-// Corps training content (admin side) — lessons + one quiz per course.
+// NYSC AGROALLIED SAED training content (admin side) — lessons + one quiz per course.
 // Only courses with audience = 'corps' carry lessons/quiz questions; the
 // general (farmer "Seminar") courses keep their single-material model.
 // Everything here is admin-only (see routes/rtc.js). The corps-member
@@ -59,7 +59,7 @@ function mapQuestion(q, options) {
   };
 }
 
-// Looks up a course and makes sure it is a corps course. Sends the error
+// Looks up a course and makes sure it is a NYSC AGROALLIED SAED course. Sends the error
 // response itself and returns null when it isn't usable.
 async function requireCorpsCourse(db, id, res) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) {
@@ -73,7 +73,7 @@ async function requireCorpsCourse(db, id, res) {
     return null;
   }
   if (course.audience !== "corps") {
-    res.status(400).json({ error: "Lessons and quizzes belong to Corps courses only" });
+    res.status(400).json({ error: "Lessons and quizzes belong to NYSC AGROALLIED SAED courses only" });
     return null;
   }
   return course;
@@ -400,7 +400,7 @@ export async function adminDeleteQuestion(req, res) {
   res.json({ deleted: true });
 }
 
-// A corps course may only go live once it can actually be taken: at least
+// A NYSC AGROALLIED SAED course may only go live once it can actually be taken: at least
 // one lesson and at least one quiz question. Used by adminApproveCourse.
 export async function corpsCourseReadiness(courseId) {
   const { rows } = await pool.query(

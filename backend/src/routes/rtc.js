@@ -29,7 +29,7 @@ router.get("/admin/courses", requireRole("admin"), rtc.adminListCourses);
 router.post("/admin/courses", requireRole("admin"), uploadCourseMaterial.single("material"), rtc.adminCreateCourse);
 router.post("/admin/courses/:id/approve", requireRole("admin"), rtc.adminApproveCourse);
 
-// Admin (TRC department) — Corps courses: lessons + quiz.
+// Admin (TRC department) — NYSC AGROALLIED SAED courses: lessons + quiz.
 router.get("/admin/courses/:id/content", requireRole("admin"), content.adminGetCourseContent);
 router.post("/admin/courses/:id/lessons", requireRole("admin"), uploadCourseMaterial.single("material"), content.adminAddLesson);
 router.put("/admin/courses/:id/lessons/:lessonId", requireRole("admin"), uploadCourseMaterial.single("material"), content.adminUpdateLesson);
@@ -40,7 +40,7 @@ router.post("/admin/courses/:id/questions", requireRole("admin"), content.adminA
 router.put("/admin/courses/:id/questions/:questionId", requireRole("admin"), content.adminUpdateQuestion);
 router.delete("/admin/courses/:id/questions/:questionId", requireRole("admin"), content.adminDeleteQuestion);
 
-// Admin (TRC department) — Corps access-fee payments + the fee itself.
+// Admin (TRC department) — NYSC AGROALLIED SAED access-fee payments + the fee itself.
 router.get("/admin/corps/fee", requireRole("admin"), corpsPayments.adminGetFee);
 router.put("/admin/corps/fee", requireRole("admin"), corpsPayments.adminSetFee);
 router.get("/admin/corps/payments/summary", requireRole("admin"), corpsPayments.adminPaymentSummary);
@@ -49,10 +49,10 @@ router.post("/admin/corps/payments/:id/confirm", requireRole("admin"), corpsPaym
 router.post("/admin/corps/payments/:id/reject", requireRole("admin"), corpsPayments.adminRejectPayment);
 router.post("/admin/corps/payments/:id/recheck", requireRole("admin"), corpsPayments.adminRecheckPayment);
 
-// Admin (TRC department) — Corps member progress (phase 4).
+// Admin (TRC department) — NYSC AGROALLIED SAED member progress (phase 4).
 router.get("/admin/corps/progress", requireRole("admin"), corpsProgress.adminCorpsProgress);
 
-// Batches, certificates and the NYSC export
+// Batches, certificates and the NYSC AGROALLIED SAED export
 router.get("/admin/corps/batches", requireRole("admin"), corpsAdmin.adminListBatches);
 router.put("/admin/corps/batches/:id", requireRole("admin"), corpsAdmin.adminSetDueDate);
 router.post("/admin/corps/batches/:id/complete", requireRole("admin"), corpsAdmin.adminCompleteBatch);

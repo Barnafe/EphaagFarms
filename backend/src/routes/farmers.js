@@ -5,13 +5,20 @@ import { uploadSheet } from "../middleware/upload.js";
 import * as farmers from "../controllers/farmerController.js";
 import * as savings from "../controllers/savingsController.js";
 import * as shares from "../controllers/farmerSharesController.js";
+import { requireVerifiedFarmer } from "../services/farmerIdentity.js";
+import * as identity from "../controllers/farmerIdentityController.js";
 
 const router = Router();
 
 router.use(requireAuth);
 
 // Farmer-only
-router.put("/me", requireRole("farmer"), farmers.updateMyProfile);
+router.put("/me", requireRole("farmer"), identity.updateMyProfile);
+router.put("/me/residence", requireRole("farmer"), identity.changeResidence);
+router.post("/me/verify-nin", requireRole("farmer"), identity.verifyMyNin);
+router.get("/me/profile-status", requireRole("farmer"), identity.myProfileStatus);
+router.get("/admin/identity-settings", requireRole("admin"), identity.adminIdentitySettings);
+router.put("/admin/identity-settings", requireRole("admin"), identity.adminSetIdentitySettings);
 
 router.get("/me/products", requireRole("farmer"), farmers.listMyProducts);
 router.post("/me/products", requireRole("farmer"), farmers.createMyProduct);
@@ -27,7 +34,7 @@ router.get("/me/transactions", requireRole("farmer"), farmers.myTransactions);
 
 router.get("/me/savings", requireRole("farmer"), savings.mySavings);
 router.post("/me/savings/deposit", requireRole("farmer"), savings.deposit);
-router.post("/me/savings/withdraw", requireRole("farmer"), savings.requestWithdrawal);
+router.post("/me/savings/withdraw", requireRole("farmer"), requireVerifiedFarmer, savings.requestWithdrawal);
 
 router.get("/me/ranking", requireRole("farmer"), farmers.myRanking);
 router.get("/me/jurisdiction-report", requireRole("farmer", "admin"), farmers.myJurisdictionReport);
@@ -39,13 +46,13 @@ router.get("/me/shares/:id", requireRole("farmer"), shares.shareDetail);
 // Buying: checkout (creates a pending purchase) -> pay -> verify (the
 // system confirms the payment, creates one separate share per unit bought).
 // There is deliberately no direct "create a share" endpoint any more.
-router.post("/me/shares/checkout", requireRole("farmer"), shares.checkout);
+router.post("/me/shares/checkout", requireRole("farmer"), requireVerifiedFarmer, shares.checkout);
 router.get("/shares/quote", requireRole("farmer"), shares.quote);
 router.post("/me/shares/purchases/:reference/verify", requireRole("farmer"), shares.verifyPurchase);
 router.post("/me/shares/purchases/:reference/pay", requireRole("farmer"), shares.payPurchase);
 router.post("/me/shares/purchases/:reference/cancel", requireRole("farmer"), shares.cancelPurchase);
-router.post("/me/shares/:id/withdraw-interest", requireRole("farmer"), shares.withdrawInterest);
-router.post("/me/shares/:id/withdraw-capital", requireRole("farmer"), shares.withdrawCapital);
+router.post("/me/shares/:id/withdraw-interest", requireRole("farmer"), requireVerifiedFarmer, shares.withdrawInterest);
+router.post("/me/shares/:id/withdraw-capital", requireRole("farmer"), requireVerifiedFarmer, shares.withdrawCapital);
 
 router.get("/me/feedback", requireRole("farmer"), farmers.listMyFeedback);
 router.post("/me/feedback", requireRole("farmer"), farmers.submitFeedback);

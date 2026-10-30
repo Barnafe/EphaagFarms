@@ -22,9 +22,6 @@ export function checkEnvironment(env = process.env) {
   else if (String(env.JWT_SECRET).length < 32) add("fail", "JWT_SECRET", "JWT secret is shorter than 32 characters.", "Use a long random value (at least 32 characters).");
   else if (/change[-_ ]?me|secret|test|example/i.test(env.JWT_SECRET)) add("warn", "JWT_SECRET", "JWT secret looks like a placeholder.", "Use a freshly generated random value.");
   else add("ok", "JWT_SECRET", "Set and long enough.");
-  if (!has("ADMIN_SETUP_CODE")) add("warn", "ADMIN_SETUP_CODE", "No admin setup code: nobody can register an Admin account from the Register page (fine after you have created yours).");
-  else if (/change[-_ ]?me|test|example|1234/i.test(env.ADMIN_SETUP_CODE)) add("warn", "ADMIN_SETUP_CODE", "Admin setup code looks guessable.", "Use something private.");
-  else add("ok", "ADMIN_SETUP_CODE", "Set.");
 
   // --- site address / CORS / links ---
   if (!has("FRONTEND_ORIGIN")) add(prod ? "fail" : "warn", "FRONTEND_ORIGIN", "Your site address is not set: Paystack return links and password-reset links will point at localhost.", "Set it to your real address, e.g. https://ephaag-farms.onrender.com");

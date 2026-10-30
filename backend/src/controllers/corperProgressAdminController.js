@@ -3,7 +3,7 @@ import { loadProgressRows } from "./corperLearningController.js";
 import { summariseProgress } from "../utils/corperLearning.js";
 
 // ---------------------------------------------------------------------
-// Admin (TRC department, Corps tab) — corps member progress.
+// Admin (TRC department, Corps tab) — NYSC AGROALLIED SAED member progress.
 // Reads progress through the SAME loadProgressRows() + summariseProgress()
 // the members' own dashboards use, so the two can never disagree.
 // Spreadsheet export arrives in phase 5.
@@ -104,7 +104,7 @@ export async function adminCorpsProgress(req, res) {
   });
 }
 
-// What approving a corps course would do to people who are already
+// What approving a NYSC AGROALLIED SAED course would do to people who are already
 // learning: the total grows, so their percentage drops. Used by
 // adminApproveCourse to ask the admin to confirm first.
 export async function approvalImpact() {

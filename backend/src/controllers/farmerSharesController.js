@@ -2,6 +2,7 @@ import { pool } from "../db/pool.js";
 import { generateReference, REF_PREFIX } from "../utils/reference.js";
 import { getSetting } from "../utils/settings.js";
 import { paystackConfigured, calculateFee, getFeeConfig } from "../services/paystack.js";
+import { createPayout, kickPayouts } from "../services/payouts.js";
 import { createPayment, startCheckout, verifyAndSettle, registerPaymentType, reviewThreshold, notifyFinance, TYPE_LABEL, refusalText } from "../services/payments.js";
 import { notifyUser } from "../services/messaging.js";
 import "../services/paymentTemplates.js";
@@ -656,7 +657,10 @@ export async function withdrawInterest(req, res) {
        VALUES ($1, $2, $3) RETURNING *`,
       [id, yearNum, annualInterest]
     );
-    res.status(201).json({ withdrawal: rows[0] });
+    // No approval step: the money is sent by itself, as soon as it is asked for (the due date was checked above).
+    await createPayout({ kind: "share_interest", userId: req.user.id, subjectId: rows[0].id, amount: annualInterest, meta: { shareId: id, year: yearNum } });
+    kickPayouts();
+    res.status(201).json({ withdrawal: rows[0], payout: "queued" });
   } catch (err) {
     if (err.code === "23505") {
       return res.status(400).json({ error: `Year ${yearNum}'s interest has already been withdrawn` });
@@ -693,7 +697,9 @@ export async function withdrawCapital(req, res) {
     `SELECT * FROM share_interest_withdrawals WHERE share_id = $1`,
     [id]
   );
-  res.json({ share: mapShare(rows[0], withdrawals) });
+  await createPayout({ kind: "share_capital", userId: req.user.id, subjectId: share.id, amount: Number(share.amount), meta: { shareId: share.id } });
+  kickPayouts();
+  res.json({ share: mapShare(rows[0], withdrawals), payout: "queued" });
 }
 
 export const YEAR_RATES = YEAR_RATE_PCT;

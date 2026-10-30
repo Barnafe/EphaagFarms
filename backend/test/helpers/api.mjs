@@ -75,6 +75,8 @@ export const paystack = {
   down: (on) => ps(`/__down?on=${on ? 1 : 0}`),
   refundFail: (on) => ps(`/__refundfail?on=${on ? 1 : 0}`),
   chargeFail: (on) => ps(`/__chargefail?on=${on ? 1 : 0}`),
+  transferMode: (mode) => ps(`/__transfermode?mode=${mode}`),
+  setTransfer: (reference, status) => ps(`/__transfer?reference=${encodeURIComponent(reference)}&status=${status}`),
   webhook: (reference, { bad = false, target = `${PAY}/api/payments/paystack-webhook`, event } = {}) =>
     ps(`/__webhook?reference=${encodeURIComponent(reference)}&target=${encodeURIComponent(target)}${bad ? "&bad=1" : ""}${event ? `&event=${event}` : ""}`),
 };

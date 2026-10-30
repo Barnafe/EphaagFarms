@@ -22,7 +22,7 @@ def rand():
 
 # ============================================================
 # Setup: admin, a Procurement HOD, a Finance HOD, a farmer, a buyer,
-# a processor, a distributor.
+# a second Buyers/Processor account (does the processing), a distributor.
 # ============================================================
 r = requests.post(f"{BASE}/auth/login", json={"email": "admin@ephaag.test", "password": "Admin1234"})
 check("main admin login", r.status_code == 200, r.text[:300])
@@ -30,7 +30,7 @@ main_admin = r.json()
 main_h = auth(main_admin)
 
 
-def register(role, extra=None, code=None):
+def register(role, extra=None):
     tag = rand()
     body = {
         "name": f"{role.title()} {tag}", "email": f"{role}{tag}@test.com", "password": "Passw0rd1",
@@ -41,29 +41,31 @@ def register(role, extra=None, code=None):
         body.update({"ward": "A", "unit": "A", "crops": "Maize,Cassava"})
     if role == "buyer":
         body.update({"buyerType": "individual", "address": "12 Test Close, Lagos"})
-    if role == "admin" and code:
-        body["setupCode"] = code
     if extra:
         body.update(extra)
     return requests.post(f"{BASE}/auth/register", json=body)
 
 
-setup_code = os.environ.get("ADMIN_SETUP_CODE")
-env_file = os.path.join(os.path.dirname(__file__), ".env")
-if not setup_code and os.path.exists(env_file):
-    with open(env_file) as f:
-        for line in f:
-            if not setup_code and line.startswith("ADMIN_SETUP_CODE="):
-                setup_code = line.strip().split("=", 1)[1]
+def make_admin(label):
+    """Admin cannot be registered: register a normal account, then the MAIN admin promotes it."""
+    r = register("buyer")
+    check(f"{label}: base account register", r.status_code == 201, r.text[:300])
+    base = r.json()
+    r = requests.post(f"{BASE}/admin/positions/admins/{base['user']['id']}/promote", headers=main_h)
+    check(f"{label}: main admin promotes it to admin", r.status_code == 200, r.text[:300])
+    email = base["user"]["email"]
+    r = requests.post(f"{BASE}/auth/login", json={"email": email, "password": "Passw0rd1"})
+    check(f"{label}: logs in again as admin", r.status_code == 200 and r.json()["user"]["role_type"] == "admin", r.text[:300])
+    return r.json()
 
-r = register("admin", code=setup_code)
-check("procurement hod admin register", r.status_code == 201, r.text[:300])
-procurement_hod = r.json()
+
+r = register("admin")
+check("admin cannot be registered", r.status_code == 400, r.text[:300])
+
+procurement_hod = make_admin("procurement hod")
 procurement_h = auth(procurement_hod)
 
-r = register("admin", code=setup_code)
-check("finance hod admin register", r.status_code == 201, r.text[:300])
-finance_hod = r.json()
+finance_hod = make_admin("finance hod")
 finance_h = auth(finance_hod)
 
 r = register("farmer")
@@ -76,8 +78,13 @@ check("buyer register", r.status_code == 201, r.text[:300])
 buyer = r.json()
 buyer_h = auth(buyer)
 
+# There is no separate Processor profile any more: processing is done by a
+# second Buyers/Processor account (role_type "buyer"), and the API refuses a
+# brand-new "processor" registration.
 r = register("processor")
-check("processor register", r.status_code == 201, r.text[:300])
+check("processor registration is refused (profile retired)", r.status_code == 400, r.text[:300])
+r = register("buyer")
+check("Buyers/Processor (processing) account register", r.status_code == 201, r.text[:300])
 processor = r.json()
 processor_h = auth(processor)
 
@@ -91,6 +98,39 @@ check("promote procurement HOD", r.status_code == 200, r.text[:300])
 
 r = requests.post(f"{BASE}/admin/positions/hods/{finance_hod['user']['id']}/promote", headers=main_h, json={"department": "Finance"})
 check("promote finance HOD", r.status_code == 200, r.text[:300])
+
+# ---- Admin management: only the main admin adds/removes admins ----
+r = requests.get(f"{BASE}/admin/positions/hods", headers=main_h)
+check("main admin sees canManageAdmins", r.status_code == 200 and r.json()["canManageAdmins"] is True, r.text[:300])
+r = requests.get(f"{BASE}/admin/positions/hods", headers=procurement_h)
+check("other admin sees canManageAdmins=false", r.status_code == 200 and r.json()["canManageAdmins"] is False, r.text[:300])
+r = requests.post(f"{BASE}/admin/positions/admins/{farmer['user']['id']}/promote", headers=procurement_h)
+check("non-main admin cannot add an admin", r.status_code == 403, r.text[:300])
+r = requests.post(f"{BASE}/admin/positions/admins/{finance_hod['user']['id']}/remove", headers=procurement_h)
+check("non-main admin cannot remove an admin", r.status_code == 403, r.text[:300])
+r = requests.get(f"{BASE}/admin/positions/admins/candidates?q=zz", headers=procurement_h)
+check("non-main admin cannot search candidates", r.status_code == 403, r.text[:300])
+r = requests.post(f"{BASE}/admin/positions/admins/{main_admin['user']['id']}/promote", headers=main_h)
+check("promoting an existing admin is refused", r.status_code == 400, r.text[:300])
+r = requests.post(f"{BASE}/admin/positions/admins/{main_admin['user']['id']}/remove", headers=main_h)
+check("main admin cannot remove itself", r.status_code == 400, r.text[:300])
+r = requests.post(f"{BASE}/finance/prices", headers=procurement_h, json={})
+check("non-main admin still has admin features (not 403)", r.status_code != 403, r.text[:200])
+r = requests.post(f"{BASE}/admin/positions/admins/{finance_hod['user']['id']}/promote", headers=main_h)
+check("promoting someone already admin is refused", r.status_code == 400, r.text[:300])
+
+r = register("farmer")
+temp = r.json()
+r = requests.get(f"{BASE}/admin/positions/admins/candidates?q={temp['user']['name'][:8]}", headers=main_h)
+check("main admin finds a candidate by name", r.status_code == 200 and any(u["id"] == temp["user"]["id"] for u in r.json()["users"]), r.text[:300])
+r = requests.post(f"{BASE}/admin/positions/admins/{temp['user']['id']}/promote", headers=main_h)
+check("main admin promotes a farmer to admin", r.status_code == 200, r.text[:300])
+r = requests.get(f"{BASE}/auth/me", headers=auth(temp))
+check("old farmer session ends after promotion", r.status_code == 401, r.text[:200])
+r = requests.post(f"{BASE}/admin/positions/admins/{temp['user']['id']}/remove", headers=main_h)
+check("main admin removes that admin", r.status_code == 200 and "farmer" in r.json()["outcome"], r.text[:300])
+r = requests.post(f"{BASE}/auth/login", json={"email": temp["user"]["email"], "password": "Passw0rd1"})
+check("removed admin is a farmer again", r.status_code == 200 and r.json()["user"]["role_type"] == "farmer", r.text[:300])
 
 # ============================================================
 # Non-admin roles cannot touch Store admin endpoints

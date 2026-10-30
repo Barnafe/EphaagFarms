@@ -115,3 +115,51 @@ export async function chargeAuthorization({ email, amountNaira, reference, autho
   }
   throw Object.assign(new Error("Paystack did not answer"), { status: 502 });
 }
+
+// ---------------------------------------------------------------------------
+// Banks, account-name check and transfers (money out)
+// ---------------------------------------------------------------------------
+let bankCache = { at: 0, banks: null };
+export async function listBanks() {
+  if (!paystackConfigured()) throw unavailable();
+  if (bankCache.banks && Date.now() - bankCache.at < 24 * 3600 * 1000) return bankCache.banks;
+  const r = await paystackRequest("/bank?country=nigeria&perPage=200&use_cursor=false", { method: "GET" });
+  if (!r.ok || !Array.isArray(r.body?.data)) throw Object.assign(new Error("Could not load the list of banks. Please try again."), { status: 502, expose: true });
+  bankCache = { at: Date.now(), banks: r.body.data.filter((b) => b.active !== false).map((b) => ({ code: String(b.code), name: b.name })) };
+  return bankCache.banks;
+}
+
+/** The account holder's name as the bank gives it. */
+export async function resolveAccount(accountNumber, bankCode) {
+  if (!paystackConfigured()) throw unavailable();
+  const r = await paystackRequest(`/bank/resolve?account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`, { method: "GET" });
+  if (r.ok && r.body?.data?.account_name) return String(r.body.data.account_name);
+  if (r.status && r.status >= 500) throw Object.assign(new Error("Could not check the account right now. Please try again."), { status: 502, expose: true });
+  throw Object.assign(new Error("We could not find that account. Check the bank and the 10-digit account number."), { status: 422, expose: true });
+}
+
+export async function createTransferRecipient({ name, accountNumber, bankCode }) {
+  if (!paystackConfigured()) throw unavailable();
+  const r = await paystackRequest("/transferrecipient", {
+    method: "POST", body: JSON.stringify({ type: "nuban", name, account_number: accountNumber, bank_code: bankCode, currency: "NGN" }),
+  });
+  if (!r.ok || !r.body?.data?.recipient_code) throw Object.assign(new Error("Could not save that bank account. Please try again."), { status: 502, expose: true });
+  return r.body.data.recipient_code;
+}
+
+/** Send money. Throws when Paystack cannot be reached (nothing was sent); otherwise returns Paystack's data. */
+export async function initiateTransfer({ amountNaira, recipientCode, reference, reason }) {
+  if (!paystackConfigured()) throw unavailable();
+  const r = await paystackRequest("/transfer", {
+    method: "POST", body: JSON.stringify({ source: "balance", amount: toKobo(amountNaira), recipient: recipientCode, reference, reason, currency: "NGN" }),
+  });
+  if (r.body?.data) return { ...r.body.data, ok: r.ok };
+  if (r.status && r.status < 500) return { status: "failed", reference, ok: false, message: r.body?.message || "Paystack refused the transfer" };
+  throw Object.assign(new Error("Paystack did not answer"), { status: 502 });
+}
+
+export async function fetchTransfer(reference) {
+  if (!paystackConfigured()) throw unavailable();
+  const r = await paystackRequest(`/transfer/verify/${encodeURIComponent(reference)}`, { method: "GET" });
+  return r.ok ? r.body?.data || null : null;
+}

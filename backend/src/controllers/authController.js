@@ -2,6 +2,9 @@ import { coerceSection } from "../utils/corperProfile.js";
 import bcrypt from "bcrypt";
 import crypto from "node:crypto";
 import jwt from "jsonwebtoken";
+import { readIdentityToken } from "../services/nin.js";
+import { matchUnit } from "../services/unitMatching.js";
+import { notifyAttention } from "../jobs/alerts.js";
 import { pool } from "../db/pool.js";
 import { generateReference } from "../utils/reference.js";
 import { attachProfile } from "../utils/profileLoader.js";
@@ -38,16 +41,26 @@ function hashToken(raw) {
 // creation must never depend on receiving a code. The account is usable
 // the moment it's created; a token is issued right away.
 //
-// Admin is included as a selectable role here too, but gated behind a
-// setup code (ADMIN_SETUP_CODE in .env) so it isn't a wide-open "anyone
-// can become admin" hole — admin has access to Finance/Loan approvals and
-// other sensitive internal tools.
+// Admin is NOT a registrable role. The main admin is created with the
+// seed script, and the main admin promotes existing accounts to admin from
+// Admin -> Positions (see adminPositionsController).
 // ---------------------------------------------------------------------
 export async function register(req, res) {
-  const { name, email, phone, password, role_type, sex, state, lga, ward, unit, setupCode, referralCode, ...extra } = req.body;
+  const { name, email, phone, password, role_type, sex, state, lga, ward, unit, referralCode, ...extra } = req.body;
 
   if (!name || !password || !role_type) {
     return res.status(400).json({ error: "name, password, and role_type are required" });
+  }
+
+  if (role_type === "admin") {
+    return res.status(400).json({ error: "Admin accounts can't be created from registration. The main admin promotes an existing account from Admin → Positions." });
+  }
+
+  // The separate Processor profile was retired: processing is done by the
+  // single "Buyers/Processor" profile (role_type "buyer"). Existing processor
+  // accounts were converted by the migration; nobody can create a new one.
+  if (role_type === "processor") {
+    return res.status(400).json({ error: "There is no separate Processor account. Register as Buyers/Processor instead." });
   }
 
   // Email is deliberately NOT required — a lot of farmers in villages
@@ -84,21 +97,14 @@ export async function register(req, res) {
     }
   }
 
-  if (role_type === "admin") {
-    const expected = process.env.ADMIN_SETUP_CODE?.trim();
-    if (!expected || (setupCode || "").trim() !== expected) {
-      return res.status(403).json({ error: "Incorrect admin setup code" });
-    }
-  }
-
-  // Corps members (NYSC): email is mandatory (certificate-ready emails go
-  // there), and the NYSC identity fields + terms acceptance must be valid
+  // NYSC AGROALLIED SAED members: email is mandatory (certificate-ready emails go
+  // there), and the NYSC AGROALLIED SAED identity fields + terms acceptance must be valid
   // up front. Validated BEFORE any insert so a bad form never half-creates
   // an account.
   let corperCols = null;
   if (role_type === "corper") {
-    if (!email) return res.status(400).json({ error: "Email is required for corps members" });
-    if (!phone) return res.status(400).json({ error: "Phone number is required for corps members" });
+    if (!email) return res.status(400).json({ error: "Email is required for NYSC AGROALLIED SAED members" });
+    if (!phone) return res.status(400).json({ error: "Phone number is required for NYSC AGROALLIED SAED members" });
     const nysc = coerceSection("nysc", extra, {
       requireKeys: ["callUpNumber", "stateCode", "serviceYear", "batch", "stream", "stateOfDeployment", "ppa", "discipline"],
     });
@@ -115,6 +121,16 @@ export async function register(req, res) {
     }
   }
 
+  // Farmers: a verified NIN (signed proof from /auth/verify-nin) supplies name, gender, date of birth and
+  // permanent address from NIMC. Those values override anything typed in the form.
+  let nimc = null;
+  if (role_type === "farmer" && extra.ninToken) {
+    nimc = readIdentityToken(extra.ninToken);
+    if (!nimc) return res.status(400).json({ error: "Your NIN verification has expired. Please verify again, or continue without it.", code: "NIN_TOKEN_INVALID" });
+    const { rows: dupNin } = await pool.query("SELECT 1 FROM users WHERE nin_hash = $1", [nimc.hash]);
+    if (dupNin[0]) return res.status(409).json({ error: "An account already exists for this NIN. Please log in instead.", code: "NIN_ALREADY_REGISTERED" });
+  }
+
   // Hash BEFORE taking a database connection: hashing is slow, and holding a
   // connection (inside a transaction) while waiting on it starves the pool.
   const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
@@ -125,13 +141,28 @@ export async function register(req, res) {
   try {
     await client.query("BEGIN");
 
+    // Farmers' unit is found from their residential address, never typed (a typed unit is only a fallback
+    // for older clients that send no address details).
+    let place = { state, lga, ward, unit: unit || null, method: unit ? "typed" : "none" };
+    if (role_type === "farmer") {
+      const lat = extra.lat === undefined || extra.lat === null || extra.lat === "" ? NaN : Number(extra.lat);
+      const lng = extra.lng === undefined || extra.lng === null || extra.lng === "" ? NaN : Number(extra.lng);
+      if (extra.community || extra.street || Number.isFinite(lat)) {
+        const m = await matchUnit(client, { state, lga, ward, community: extra.community, street: extra.street, lat, lng });
+        if (m.unit) place = { state: m.unit.state, lga: m.unit.lga, ward: m.unit.ward, unit: m.unit.name, method: m.method };
+        else place = { state, lga, ward, unit: null, method: "none" };
+      }
+    }
+    const ident = nimc?.identity;
     const { rows } = await client.query(
-      `INSERT INTO users (name, email, phone, password_hash, role_type, sex, state, lga, ward, unit, email_verified)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE)
+      `INSERT INTO users (name, email, phone, password_hash, role_type, sex, state, lga, ward, unit, email_verified, nin_verified, nin_verified_at, nin_hash, nin_last4)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11,$12,$13,$14)
        RETURNING id, name, email, role_type, sex, state, lga, ward, unit`,
-      [name, email || null, phone || null, password_hash, role_type, sex || null, state, lga, ward, unit]
+      [ident?.fullName || name, email || null, phone || null, password_hash, role_type, ident?.gender || sex || null, place.state, place.lga, place.ward, place.unit,
+        !!nimc, nimc ? new Date().toISOString() : null, nimc?.hash || null, nimc?.last4 || null]
     );
     const user = rows[0];
+    user._place = place;
 
     // Universal referral code — deterministic from the new row's own id,
     // so it's guaranteed unique with no retry loop needed. Referral entry
@@ -203,13 +234,14 @@ export async function register(req, res) {
         `INSERT INTO farmer_profiles
            (user_id, crops, marital_status, date_of_birth, id_type, id_number, home_address, nationality,
             farm_type, farm_size, years_experience, keeps_inventory_records, annual_farm_income,
-            additional_income_type, additional_income)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+            additional_income_type, additional_income,
+            permanent_address, residential_community, residential_street, residential_lat, residential_lng, unit_match_method, unit_matched_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,now())`,
         [
           user.id,
           crops,
           extra.maritalStatus || null,
-          extra.dateOfBirth || null,
+          ident?.dateOfBirth || extra.dateOfBirth || null,
           extra.idType || null,
           extra.idNumber || null,
           extra.homeAddress || null,
@@ -221,6 +253,12 @@ export async function register(req, res) {
           extra.annualFarmIncome || null,
           extra.additionalIncomeType || null,
           additionalIncome ? JSON.stringify(additionalIncome) : null,
+          ident?.permanentAddress || String(extra.permanentAddress || "").trim() || null,
+          extra.community || null,
+          extra.street || null,
+          Number.isFinite(Number(extra.lat)) && extra.lat !== "" && extra.lat !== null && extra.lat !== undefined ? Number(extra.lat) : null,
+          Number.isFinite(Number(extra.lng)) && extra.lng !== "" && extra.lng !== null && extra.lng !== undefined ? Number(extra.lng) : null,
+          user._place.method,
         ]
       );
     } else if (role_type === "buyer") {
@@ -279,6 +317,10 @@ export async function register(req, res) {
       sendMail({ to: user.email, subject: welcome.subject, html: welcome.html, text: welcome.text, raw: true, template: "welcome", userId: user.id });
     }
 
+    if (role_type === "farmer" && !user.unit) {
+      notifyAttention("unit_not_found", { name: user.name, address: extra.homeAddress || "", area: `${ward || ""}, ${lga || ""}, ${state || ""}` }, null);
+    }
+    delete user._place;
     const fullUser = await attachProfile(user);
     res.status(201).json({ user: fullUser, token: signToken(user) });
   } catch (err) {

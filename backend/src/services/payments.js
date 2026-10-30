@@ -19,7 +19,7 @@ export function registerPaymentType(type, handler) { handlers.set(type, handler)
 export const PAYMENT_PREFIX = { order: "OPR", commitment: "CMT", share: "SPR", investment: "IPR", consultancy: "CNS", savings: "SVP", repayment: "RPY", boost_deposit: "BDP" };
 
 export const TYPE_LABEL = {
-  order: "Order", share: "Share", commitment: "Commitment", corps_fee: "Corps fee", investment: "Investment",
+  order: "Order", share: "Share", commitment: "Commitment", corps_fee: "NYSC AGROALLIED SAED fee", investment: "Investment",
   consultancy: "Consultancy", savings: "Savings", repayment: "Repayment", boost_deposit: "Boost deposit",
 };
 
@@ -174,6 +174,8 @@ const REFUSAL_TEXT = {
   quote_expired: "the late fee had increased since you agreed to it",
   payment_closed: "the payment had already been closed",
   investment_closed: "the investment is no longer waiting for this payment",
+  loan_closed: "the loan is not open for repayment (it is fully repaid or not active)",
+  amount_exceeds_balance: "the amount is more than what is still owed",
 };
 export const refusalText = (code) => REFUSAL_TEXT[code] || "the payment could not be applied";
 

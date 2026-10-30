@@ -69,8 +69,9 @@ CREATE TABLE IF NOT EXISTS password_resets (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Only the Farmer network carries the Federal/State/LGA/Ward/Unit rank
--- hierarchy — every other role is flat, so no ranks table for them.
+-- Only the Farmer network carries the 3EI Governance rank hierarchy (the top rank's
+-- stored value is still 'Federal' — naming only) — every other role is flat, so no
+-- ranks table for them.
 CREATE TABLE IF NOT EXISTS farmer_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -266,7 +267,7 @@ CREATE TABLE IF NOT EXISTS farmer_declarations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Coordinator rank changes always go through Federal committee → CEO →
+-- Coordinator rank changes always go through 3EI Governance committee → CEO →
 -- tech team, per the business rules — this table is the audit trail.
 CREATE TABLE IF NOT EXISTS coordinator_appointments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -353,7 +354,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS one_unused_ticket_per_farmer
   ON loan_recommendation_tickets (farmer_id) WHERE used_at IS NULL;
 
 -- Loan approval workflow v2 (2026-08-11 spec): inserts a Finance
--- verification stage between Unit Leader recommendation and Federal final
+-- verification stage between Unit Leader recommendation and 3EI Governance final
 -- approval. pending -> recommended -> finance_verified -> approved ->
 -- disbursed (rejected reachable from pending/recommended/finance_verified).
 ALTER TABLE loans DROP CONSTRAINT IF EXISTS loans_status_check;

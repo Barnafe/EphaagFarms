@@ -2,9 +2,9 @@
 // Corps learning rules (phase 4) — PURE functions only, no database.
 // Everything that decides a number or a verdict lives here so it can be
 // tested on its own, and so the member dashboard, the admin screens and
-// (later) the certificate and NYSC export all call the very same code:
+// (later) the certificate and NYSC AGROALLIED SAED export all call the very same code:
 //
-//   percentOf()         dashboard % = courses completed / live corps courses
+//   percentOf()         dashboard % = courses completed / live NYSC AGROALLIED SAED courses
 //   summariseProgress() one member's course list + totals from SQL rows
 //   validateAnswers()   checks a quiz submission and grades it
 //   quizLock()          lessons-before-quiz rule
@@ -87,7 +87,7 @@ export function isCourseEarned({ lessonCount, lessonsDone, attempts }) {
 
 // ---------------------------------------------------------------------
 // One member's progress. `rows` come from loadProgressRows() (one row per
-// currently-live corps course, with this member's counters joined in).
+// currently-live NYSC AGROALLIED SAED course, with this member's counters joined in).
 // `paid` is whether the access fee is paid right now.
 // ---------------------------------------------------------------------
 export function summariseProgress(rows, paid) {

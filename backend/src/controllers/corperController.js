@@ -26,7 +26,7 @@ async function loadProfileBundle(userId) {
 export async function getMyProfile(req, res) {
   try {
     const bundle = await loadProfileBundle(req.user.id);
-    if (!bundle) return res.status(404).json({ error: "Corps member profile not found" });
+    if (!bundle) return res.status(404).json({ error: "NYSC AGROALLIED SAED member profile not found" });
     res.json(bundle);
   } catch (err) {
     console.error(err);
@@ -51,11 +51,11 @@ export async function updateMySection(req, res) {
   for (const c of ["consent_terms", "consent_data", "consent_media"]) {
     if (cols[c] === null) delete cols[c];
   }
-  // Sharing details with NYSC is required for every corps member (data
-  // protection: NYSC only ever gets consenting members). An explicit "no" is
+  // Sharing details with NYSC AGROALLIED SAED is required for every NYSC AGROALLIED SAED member (data
+  // protection: NYSC AGROALLIED SAED only ever gets consenting members). An explicit "no" is
   // refused; leaving the field out leaves it as it was.
   if (cols.consent_data === false) {
-    return res.status(400).json({ error: "Consent to share your details with NYSC is required for corps members" });
+    return res.status(400).json({ error: "Consent to share your details with NYSC AGROALLIED SAED is required for NYSC AGROALLIED SAED members" });
   }
   if (!Object.keys(cols).length) return res.status(400).json({ error: "Nothing to update" });
 
@@ -72,7 +72,7 @@ export async function updateMySection(req, res) {
       `UPDATE corper_profiles SET ${sets.join(", ")}, updated_at = now() WHERE user_id = $${values.length}`,
       values
     );
-    if (!rowCount) return res.status(404).json({ error: "Corps member profile not found" });
+    if (!rowCount) return res.status(404).json({ error: "NYSC AGROALLIED SAED member profile not found" });
     res.json(await loadProfileBundle(req.user.id));
   } catch (err) {
     if (err.code === "23505") {

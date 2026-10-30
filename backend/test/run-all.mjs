@@ -88,9 +88,10 @@ async function main() {
     POOL_GUARD: "1", POOL_GUARD_LOG: GUARD_LOG,
     DATABASE_URL: DB_URL, DB_SSL: "false", JWT_SECRET: "test-secret-test-secret-test-secret",
     NODE_ENV: "development", SMTP_HOST: "", SAVINGS_DEPOSIT_WINDOW_OVERRIDE: "true", PAYSTACK_SECRET_KEY: "", PAYMENT_ALLOW_SIMULATED: "true",
-    ADMIN_SETUP_CODE: "test-setup-code", FRONTEND_ORIGIN: "http://localhost:5173",
+    FRONTEND_ORIGIN: "http://localhost:5173",
     CERT_EMAIL_DELAY_MS: "50", EMAIL_RATE_PER_SECOND: "1000",
     // stand-ins
+    FARMER_GATE_DEFAULT: "off", DOJAH_BASE_URL: paystack.url, DOJAH_APP_ID: "test-app", DOJAH_SECRET_KEY: "test-secret",
     R2_ENDPOINT: s3.url, R2_ACCESS_KEY_ID: "test", R2_SECRET_ACCESS_KEY: "test",
     R2_PUBLIC_BUCKET: "pub", R2_PRIVATE_BUCKET: "priv", R2_PUBLIC_BASE_URL: `${s3.url}/pub`,
     EMAIL_DRIVER: "ses", SES_REGION: "us-east-1", SES_ENDPOINT: mail.url, AWS_ACCESS_KEY_ID: "test", AWS_SECRET_ACCESS_KEY: "test",

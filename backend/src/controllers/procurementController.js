@@ -1,3 +1,4 @@
+import { createPayout, kickPayouts } from "../services/payouts.js";
 import { pool } from "../db/pool.js";
 
 async function withItems(orders) {
@@ -72,6 +73,7 @@ export async function sourceOrder(req, res) {
     return res.status(400).json({ error: "sourcing must be a non-empty array of { farmerId, productId, quantity }" });
   }
 
+  const settlements = []; // farmer settlements created below; paid by Paystack transfer once the sourcing is saved
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -128,14 +130,17 @@ export async function sourceOrder(req, res) {
         [product.crop]
       );
       const buyPrice = priceRows[0] ? Number(priceRows[0].buy_price) : 0;
-      await client.query(
+      const { rows: pay } = await client.query(
         `INSERT INTO payments (order_id, payee_type, payee_id, amount, status)
-         VALUES ($1, 'farmer', $2, $3, 'unpaid')`,
+         VALUES ($1, 'farmer', $2, $3, 'unpaid') RETURNING id`,
         [id, farmerId, qty * buyPrice]
       );
+      if (qty * buyPrice > 0) settlements.push({ id: pay[0].id, farmerId, amount: qty * buyPrice });
     }
 
+    for (const st of settlements) await createPayout({ kind: "produce_settlement", userId: st.farmerId, subjectId: st.id, amount: st.amount, runner: client });
     await client.query("COMMIT");
+    if (settlements.length) kickPayouts();
     res.json({ order: rows[0] });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -168,16 +173,19 @@ export async function assignmentQueue(req, res) {
   });
 }
 
-// --- Processors, for assignment ---------------------------------------------
+// --- Buyer accounts, for processing assignment -------------------------------
+// A buyer is a buyer: processing can be assigned to ANY buyer account, with no
+// split between organization / individual or processor / consumer. The response
+// key stays "processors" so the screen's contract is unchanged.
 
 export async function processorDirectory(req, res) {
   const { rows } = await pool.query(
-    "SELECT id, name, phone, state, lga FROM users WHERE role_type = 'processor' ORDER BY name ASC"
+    "SELECT id, name, phone, state, lga FROM users WHERE role_type = 'buyer' ORDER BY name ASC"
   );
   res.json({ processors: rows });
 }
 
-// --- Assign a processor: creates the job, moves order to 'processing' -----
+// --- Assign processing: creates the job, moves order to 'processing' -------
 
 export async function assignProcessor(req, res) {
   const { id } = req.params;
@@ -188,12 +196,21 @@ export async function assignProcessor(req, res) {
   try {
     await client.query("BEGIN");
 
+    // The job can go to any buyer account (no other restriction).
+    const { rows: target } = await client.query(
+      "SELECT id FROM users WHERE id = $1 AND role_type = 'buyer'",
+      [processorId]
+    );
+    if (!target[0]) {
+      throw Object.assign(new Error("Choose a buyer account for processing"), { status: 400 });
+    }
+
     const { rows } = await client.query(
       "UPDATE orders SET status = 'processing' WHERE id = $1 AND status = 'sourcing' RETURNING *",
       [id]
     );
     if (!rows[0]) {
-      throw Object.assign(new Error("Order not found or not ready for processor assignment"), {
+      throw Object.assign(new Error("Order not found or not ready for processing assignment"), {
         status: 400,
       });
     }
@@ -209,7 +226,7 @@ export async function assignProcessor(req, res) {
     await client.query("ROLLBACK");
     if (err.status) return res.status(err.status).json({ error: err.message });
     console.error(err);
-    res.status(500).json({ error: "Could not assign processor" });
+    res.status(500).json({ error: "Could not assign processing" });
   } finally {
     client.release();
   }

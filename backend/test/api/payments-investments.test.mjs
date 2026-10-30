@@ -242,3 +242,116 @@ test("validation and access: only investors pay; nothing to pay is a clear 409; 
   assert.equal((await pay("/investments/me/payment-mode", { method: "PATCH", token: u.token, body: { paymentMode: "auto" } })).status, 404);
   assert.ok(a.data.application.id);
 });
+
+// ---------------------------------------------------------------------------------------------
+// Late monthly payments: reminders, daily notices, 2% penalty per month unpaid, deducted from ROI
+// ---------------------------------------------------------------------------------------------
+const withPhone = (u) => db.query("UPDATE users SET phone=$2 WHERE id=$1", [u.id, `0803${String(Math.floor(1000000 + Math.random() * 8999999))}`]);
+const chans = async (u, template) => (await db.query("SELECT channel FROM messages WHERE to_user_id=$1 AND template=$2", [u.id, template])).rows.map((r) => r.channel).sort();
+const runDaily = () => pay("/investments/admin/run-reminder-check", { method: "POST", token: admin, body: {} });
+const penalties = async (id) => (await db.query("SELECT period_no, amount, base_amount, percent, deducted_amount FROM investment_late_penalties WHERE application_id=$1 ORDER BY period_no", [id])).rows;
+const dueRow = async (id) => (await rows(id)).find((x) => x.status === "due");
+
+test("reminder goes out 2 days before the due date by email and SMS, once, with the 2% warning", async () => {
+  const c = await awaiting({ planType: "monthly", amount: 10000, years: 1, mode: "manual" });
+  await activate(c); await withPhone(c.u);
+  await runDaily();
+  assert.deepEqual(await chans(c.u, "investment_due_reminder"), [], "the next month is ~30 days away: no reminder yet");
+  await db.query("UPDATE investment_payments SET due_date = CURRENT_DATE + 3 WHERE id=$1", [(await dueRow(c.id)).id]);
+  await runDaily();
+  assert.deepEqual(await chans(c.u, "investment_due_reminder"), [], "3 days before is too early");
+  await db.query("UPDATE investment_payments SET due_date = CURRENT_DATE + 2 WHERE id=$1", [(await dueRow(c.id)).id]);
+  const run = await runDaily();
+  assert.ok(run.data.sent >= 1);
+  assert.deepEqual(await chans(c.u, "investment_due_reminder"), ["email", "sms"]);
+  const m = await db.query("SELECT body_text FROM messages WHERE to_user_id=$1 AND template='investment_due_reminder' AND channel='sms'", [c.u.id]);
+  assert.match(m.rows[0].body_text, /2%/); assert.match(m.rows[0].body_text, /₦200/);
+  await runDaily();
+  assert.equal((await chans(c.u, "investment_due_reminder")).length, 2, "not sent twice");
+  assert.equal((await penalties(c.id)).length, 0, "no penalty before the due date");
+});
+
+test("after the due date: a notice every day (email + SMS) and a 2% penalty on the overdue share's capital for each month unpaid", async () => {
+  const c = await awaiting({ planType: "monthly", amount: 10000, years: 1, mode: "manual" });
+  await activate(c); await withPhone(c.u);
+  const id = (await dueRow(c.id)).id;
+  await db.query("UPDATE investment_payments SET due_date = CURRENT_DATE WHERE id=$1", [id]);
+  await runDaily();
+  assert.equal((await penalties(c.id)).length, 0, "due today is not late yet");
+  assert.deepEqual(await chans(c.u, "investment_overdue_notice"), []);
+
+  await db.query("UPDATE investment_payments SET due_date = CURRENT_DATE - 1 WHERE id=$1", [id]);
+  await runDaily();
+  let p = await penalties(c.id);
+  assert.equal(p.length, 1); assert.equal(Number(p[0].amount), 200, "2% of the 10,000 capital"); assert.equal(Number(p[0].base_amount), 10000); assert.equal(Number(p[0].percent), 2);
+  assert.deepEqual(await chans(c.u, "investment_overdue_notice"), ["email", "sms"]);
+  const m = (await me(c.u)).data.application;
+  assert.equal(m.overdue.daysLate, 1); assert.equal(m.latePenaltyOutstanding, 200);
+  await runDaily();
+  assert.equal((await chans(c.u, "investment_overdue_notice")).length, 2, "one notice per day");
+  assert.equal((await penalties(c.id)).length, 1, "the same month is never charged twice");
+  await db.query("UPDATE investment_payments SET due_date = CURRENT_DATE - 2, last_overdue_notice_on = CURRENT_DATE - 1 WHERE id=$1", [id]);
+  await runDaily();
+  assert.equal((await chans(c.u, "investment_overdue_notice")).length, 4, "the next day's notice goes out");
+  const body = await db.query("SELECT body_text FROM messages WHERE to_user_id=$1 AND template='investment_overdue_notice' AND channel='sms' ORDER BY created_at DESC LIMIT 1", [c.u.id]);
+  assert.match(body.rows[0].body_text, /2 day/);
+
+  // a second month unpaid: charged once more; still unpaid at 61+ days: a third
+  await db.query("UPDATE investment_payments SET due_date = CURRENT_DATE - 31 WHERE id=$1", [id]);
+  await runDaily();
+  p = await penalties(c.id);
+  assert.deepEqual(p.map((x) => x.period_no), [1, 2]);
+  assert.equal((await me(c.u)).data.application.latePenaltyOutstanding, 400);
+
+  // paying stops it
+  const r = await payNow(c.u); await settle(r.data.payment.reference);
+  assert.equal((await rows(c.id)).find((x) => x.id === id).status, "late");
+  await db.query("UPDATE investment_payments SET due_date = CURRENT_DATE - 100 WHERE id=$1", [id]);
+  await runDaily();
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM investment_late_penalties WHERE payment_id=$1", [id])).rows[0].n, 2, "no more penalties on the month he has paid");
+  const next = await dueRow(c.id);
+  assert.ok(next, "the following month carries on as normal");
+  assert.ok((await me(c.u)).data.application.latePenaltyOutstanding >= 400, "what was charged stays owed against the ROI");
+});
+
+test("penalties are deducted from the ROI payout when Finance approves it; what a payout cannot cover carries to the next payout", async () => {
+  const c = await awaiting({ planType: "monthly", amount: 10000, years: 2, mode: "manual" });
+  await activate(c);
+  const first = (await dueRow(c.id)).id;
+  await db.query("UPDATE investment_payments SET due_date = CURRENT_DATE - 31 WHERE id=$1", [first]);
+  await runDaily();
+  assert.equal((await penalties(c.id)).length, 2);
+  const recs = (await db.query("SELECT id, year_number, roi_amount FROM roi_records WHERE application_id=$1 ORDER BY year_number", [c.id])).rows;
+  assert.equal(Number(recs[0].roi_amount), 1000); assert.equal(Number(recs[1].roi_amount), 2000);
+
+  const list = (await pay("/investments/roi-payouts", { token: admin })).data.payouts.find((x) => x.id === recs[0].id);
+  assert.equal(list.latePenalty, 400); assert.equal(list.netPayout, 600, "Finance sees the deduction before approving");
+  const ok = await pay(`/investments/roi-payouts/${recs[0].id}/approve`, { method: "POST", token: admin, body: {} });
+  assert.equal(ok.status, 200);
+  const r1 = (await db.query("SELECT * FROM roi_records WHERE id=$1", [recs[0].id])).rows[0];
+  assert.equal(Number(r1.penalty_amount), 400); assert.equal(Number(r1.net_payout), 600); assert.equal(Number(r1.penalty_percent), 40);
+  assert.deepEqual((await penalties(c.id)).map((x) => Number(x.deducted_amount)), [200, 200]);
+  const roiPayout = (await db.query("SELECT * FROM payouts WHERE kind='roi_payout' AND subject_id=$1", [recs[0].id])).rows[0];
+  assert.equal(Number(roiPayout.amount), 600, "the investor is paid the ROI after the penalty deduction, by Paystack transfer"); assert.equal(roiPayout.user_id, c.u.id);
+  const mine = (await pay("/investments/me/roi", { token: c.u.token })).data;
+  assert.equal(mine.records[0].penaltyAmount, 400); assert.equal(mine.records[0].netPayout, 600); assert.equal(mine.latePenaltyOutstanding, 0);
+  assert.equal((await pay(`/investments/roi-payouts/${recs[0].id}/approve`, { method: "POST", token: admin, body: {} })).status, 400, "approved once");
+  assert.equal((await pay("/investments/roi-payouts/not-a-uuid/approve", { method: "POST", token: admin, body: {} })).status, 400);
+  assert.equal((await pay(`/investments/roi-payouts/${recs[1].id}/approve`, { method: "POST", token: c.u.token, body: {} })).status, 403);
+
+  // a big penalty that the first payout cannot cover
+  await db.query("INSERT INTO investment_late_penalties (application_id, payment_id, period_no, base_amount, percent, amount) VALUES ($1,$2,9,10000,2,2500)", [c.id, first]);
+  const ok2 = await pay(`/investments/roi-payouts/${recs[1].id}/approve`, { method: "POST", token: admin, body: {} });
+  assert.equal(ok2.status, 200);
+  const r2 = (await db.query("SELECT * FROM roi_records WHERE id=$1", [recs[1].id])).rows[0];
+  assert.equal(Number(r2.penalty_amount), 2000); assert.equal(Number(r2.net_payout), 0);
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM payouts WHERE kind='roi_payout' AND subject_id=$1", [recs[1].id])).rows[0].n, 0, "nothing to send when the penalties take the whole payout");
+  assert.equal((await pay("/investments/me/roi", { token: c.u.token })).data.latePenaltyOutstanding, 500, "the rest stays owed");
+});
+
+test("bulk plans have no monthly penalties", async () => {
+  const c = await awaiting({ planType: "bulk", amount: 100000, years: 1 });
+  await activate(c);
+  await runDaily();
+  assert.equal((await penalties(c.id)).length, 0);
+});

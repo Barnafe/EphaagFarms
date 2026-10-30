@@ -45,10 +45,10 @@ export async function dashboardSummary(req, res) {
     // General (farmer "Seminar") courses — same meaning as before.
     approvedCourses: countOf("general", true),
     draftCourses: countOf("general", false),
-    // Corps (NYSC) training courses.
+    // NYSC AGROALLIED SAED training courses.
     corpsApprovedCourses: countOf("corps", true),
     corpsDraftCourses: countOf("corps", false),
-    // Corps access-fee payments (phase 3).
+    // NYSC AGROALLIED SAED access-fee payments (phase 3).
     corpsPaymentsPending: corpsPay.find((r) => r.status === "pending")?.count || 0,
     corpsPaidMembers: corpsPay.find((r) => r.status === "paid")?.count || 0,
     publishedResearch: researchCount[0].count,
@@ -68,7 +68,7 @@ function mapCourseForAdmin(c) {
     onlineLink: c.online_link,
     scheduledAt: c.scheduled_at,
     createdAt: c.created_at,
-    // Only meaningful for corps courses (general courses have none).
+    // Only meaningful for NYSC AGROALLIED SAED courses (general courses have none).
     lessonCount: c.lesson_count ?? 0,
     questionCount: c.question_count ?? 0,
   };
@@ -110,7 +110,7 @@ export async function adminCreateCourse(req, res) {
     return res.status(400).json({ error: "audience must be general or corps" });
   }
 
-  // Corps courses are built from lessons + a quiz (added after creation),
+  // NYSC AGROALLIED SAED courses are built from lessons + a quiz (added after creation),
   // so the single material / hosting link / schedule of the general
   // "Seminar" model don't apply to them.
   if (audience === "corps") discardUpload();
@@ -154,7 +154,7 @@ export async function adminApproveCourse(req, res) {
       const impact = await approvalImpact();
       if (impact.membersWithProgress > 0) {
         return res.status(409).json({
-          error: `${impact.membersWithProgress} corps member${impact.membersWithProgress === 1 ? " has" : "s have"} already completed courses. Approving this one adds it to their total, so their percentage will drop${impact.membersAtHundred > 0 ? ` (${impact.membersAtHundred} currently at 100% will drop below it)` : ""}.`,
+          error: `${impact.membersWithProgress} NYSC AGROALLIED SAED member${impact.membersWithProgress === 1 ? " has" : "s have"} already completed courses. Approving this one adds it to their total, so their percentage will drop${impact.membersAtHundred > 0 ? ` (${impact.membersAtHundred} currently at 100% will drop below it)` : ""}.`,
           code: "APPROVAL_IMPACT",
           details: impact,
         });
@@ -246,7 +246,7 @@ export async function downloadMaterial(req, res) {
     .catch(() => ({ rows: [] }));
   const course = rows[0];
   if (!course || !course.materials_url) return res.status(404).json({ error: "No materials on this course" });
-  // Corps courses keep their documents on lessons (not here), and farmers
+  // NYSC AGROALLIED SAED courses keep their documents on lessons (not here), and farmers
   // must never reach anything about them.
   if (course.audience !== "general" && req.user.role_type !== "admin") {
     return res.status(404).json({ error: "No materials on this course" });

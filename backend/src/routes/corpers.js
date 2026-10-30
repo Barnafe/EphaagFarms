@@ -17,7 +17,7 @@ router.use(requireAuth, requireRole("corper"));
 router.get("/me", corpers.getMyProfile);
 router.put("/me/profile/:section", corpers.updateMySection);
 
-// Phase 3 — access-fee payments (always open to a signed-in corps member).
+// Phase 3 — access-fee payments (always open to a signed-in NYSC AGROALLIED SAED member).
 router.get("/payments", payments.myPayments);
 router.post("/payments/initiate", payments.initiatePayment);
 router.post("/payments/:id/cancel", payments.cancelPayment);

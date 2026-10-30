@@ -499,7 +499,7 @@ export async function myAttendanceRecord(req, res) {
 }
 
 // --- Jurisdiction report (2026-08-13 spec) --------------------------
-// Unit/Ward/LGA/State Coordinators (and Federal, nationally) can pull a
+// Unit/Ward/LGA/State Coordinators (and 3EI Governance, nationally) can pull a
 // report scoped to their own jurisdiction on demand — same shape as the
 // admin Analytics department's farmer/produce/savings/loan/training
 // sections, just pre-filtered to what that leader actually oversees.
@@ -514,7 +514,7 @@ function jurisdictionFilter(rank, u) {
 }
 
 export async function myJurisdictionReport(req, res) {
-  // Admin: company-wide, same as Federal rank — no jurisdiction of their
+  // Admin: company-wide, same as 3EI Governance rank — no jurisdiction of their
   // own to filter by (2026-08-30 admin-universal-access spec).
   let filter, scope;
   if (req.user.role_type === "admin") {

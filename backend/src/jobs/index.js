@@ -2,6 +2,8 @@ import { registerJob } from "./runner.js";
 import { processQueue } from "../services/messaging.js";
 import { purgeExpiredFiles } from "../services/storage.js";
 import { runDueDateReminders } from "../controllers/investmentController.js";
+import { runPayouts, recheckProcessingPayouts } from "../services/payouts.js";
+import { runInvestmentLatePenalties } from "../services/investmentPenalties.js";
 import { runInvestmentAutoCharge } from "../services/investmentPayments.js";
 import { pool } from "../db/pool.js";
 import { expireUnpaidOrders, recheckStuckPayments } from "../services/orderPayments.js";
@@ -16,6 +18,12 @@ export function registerAllJobs() {
 
   registerJob({ name: "investment-reminders", description: "Investment payment due-date reminder emails", daily: "08:00" },
     async () => { await runDueDateReminders(); return { ok: true }; });
+
+  registerJob({ name: "run-payouts", description: "Send queued payouts by Paystack transfer (pause switch and daily cap apply) and settle pending transfers", every: 2 },
+    async () => ({ ...(await runPayouts()), ...(await recheckProcessingPayouts()) }));
+
+  registerJob({ name: "investment-late-penalties", description: "Charge the late-payment penalty (2% of the overdue share per month unpaid); it is deducted from the ROI payout", daily: "06:30" },
+    () => runInvestmentLatePenalties());
 
   registerJob({ name: "investment-auto-charge", description: "Charge saved cards for investment payments that fall due (one attempt; a decline notifies the investor and Finance, no retry)", daily: "07:00" },
     () => runInvestmentAutoCharge());

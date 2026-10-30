@@ -2,6 +2,7 @@ import { Router } from "../utils/asyncRouter.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { requireFarmerRankOrAdmin } from "../middleware/farmerRank.js";
 import * as loans from "../controllers/loanController.js";
+import { requireVerifiedFarmer } from "../services/farmerIdentity.js";
 
 const router = Router();
 
@@ -10,9 +11,10 @@ router.use(requireAuth);
 // Farmer — Boost Cash deposits (declared before any loan application exists)
 router.post("/boost-deposits", requireRole("farmer"), loans.declareBoostDeposit);
 router.get("/boost-deposits/me", requireRole("farmer"), loans.myBoostDeposits);
+router.post("/boost-deposits/:id/pay", requireRole("farmer"), loans.payBoostDeposit);
 
 // Farmer — apply, view own, log repayments
-router.post("/", requireRole("farmer"), loans.applyForLoan);
+router.post("/", requireRole("farmer"), requireVerifiedFarmer, loans.applyForLoan);
 router.get("/me", requireRole("farmer"), loans.myLoans);
 router.get("/me/eligibility", requireRole("farmer"), loans.myEligibilityIndices);
 router.get("/me/aided-terms", requireRole("farmer"), loans.myAidedLoanTerms);
@@ -20,6 +22,7 @@ router.get("/me/eligibility/history", requireRole("farmer"), loans.myEligibility
 router.get("/me/recommendation-ticket", requireRole("farmer"), loans.myRecommendationTicket);
 router.get("/:loanId/repayments", requireRole("farmer"), loans.myLoanRepayments);
 router.post("/:loanId/repayments", requireRole("farmer"), loans.logRepayment);
+router.post("/:loanId/repay", requireRole("farmer"), loans.payRepayment);
 router.get("/:loanId/history", requireRole("farmer"), loans.myLoanHistory);
 
 // Unit Leader — recommend/reject. Admin bypasses the jurisdiction check
@@ -35,16 +38,16 @@ router.post("/:id/reject", requireFarmerRankOrAdmin("Unit Leader", "Federal"), l
 router.post("/recommendation-tickets", requireFarmerRankOrAdmin("Unit Leader"), loans.issueRecommendationTicket);
 router.get("/recommendation-tickets/issued", requireFarmerRankOrAdmin("Unit Leader"), loans.myIssuedTickets);
 
-// Federal — final approval (also admin, same pattern)
+// 3EI Governance — final approval (also admin, same pattern)
 router.get("/recommended", requireFarmerRankOrAdmin("Federal"), loans.financeVerifiedLoans);
 router.post("/:id/approve", requireFarmerRankOrAdmin("Federal"), loans.approveLoan);
 
 // Finance Department (admin) — verification stage (NEW 2026-08-11, sits
-// between Unit Leader recommend and Federal final approval), disbursement,
+// between Unit Leader recommend and 3EI Governance final approval), disbursement,
 // repayment reconciliation, Boost Cash deposit verification
 router.get("/finance-review", requireRole("admin"), loans.recommendedLoans);
 router.post("/:id/finance-verify", requireRole("admin"), loans.financeVerifyLoan);
-// Used by Unit Leader review and Federal approval (both farmer ranks) as
+// Used by Unit Leader review and 3EI Governance approval (both farmer ranks) as
 // well as admin/Finance — same access pattern as recommend/reject/approve
 // above, not admin-only like the rest of this Finance block.
 router.get("/:id/applicant-indices", requireFarmerRankOrAdmin("Unit Leader", "Federal"), loans.loanApplicantIndices);

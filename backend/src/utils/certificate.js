@@ -76,7 +76,7 @@ export async function renderCertificatePdf(cert) {
   doc.rect(18, 18, W - 36, H - 36).lineWidth(3).stroke(GREEN);
   doc.rect(26, 26, W - 52, H - 52).lineWidth(0.8).stroke(RED);
 
-  // Logos: EPHAAG centred; NYSC top-left only if the file has been supplied.
+  // Logos: EPHAAG centred; NYSC AGROALLIED SAED top-left only if the file has been supplied.
   const logo = assetPath("ephaag-logo.png");
   if (logo) doc.image(logo, W / 2 - 32, 42, { fit: [64, 64], align: "center" });
   const nysc = assetPath("nysc-logo.png");

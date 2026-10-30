@@ -22,6 +22,19 @@ async function drain(admin) {
   for (let i = 0; i < 3; i++) { await api("/system/jobs/message-queue/run", { method: "POST", token: admin }); await sleep(250); }
 }
 
+// Earlier suites (and the Python suites that run before this one) leave messages waiting, and the sender
+// works through them a few per second. Wait for that backlog to clear so these tests time what they mean to.
+test("setup: messages left by earlier suites are sent first", async () => {
+  const admin = await loginAdmin();
+  const end = Date.now() + 120000;
+  while (Date.now() < end) {
+    const { rows } = await db.query("SELECT count(*)::int AS n FROM messages WHERE status = 'queued'");
+    if (rows[0].n === 0) return;
+    await api("/system/jobs/message-queue/run", { method: "POST", token: admin });
+    await sleep(500);
+  }
+});
+
 test("an email is queued, sent through the provider and recorded", async () => {
   await mailReset();
   const u = await newUser();

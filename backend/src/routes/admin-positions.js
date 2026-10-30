@@ -14,6 +14,11 @@ router.get("/hods", positions.listAdminsForHod);
 router.post("/hods/:userId/promote", positions.promoteHod);
 router.post("/hods/:userId/demote", positions.demoteHod);
 
+// Adding / removing admins: main admin only.
+router.get("/admins/candidates", positions.requireMainAdmin, positions.searchAdminCandidates);
+router.post("/admins/:userId/promote", positions.requireMainAdmin, positions.promoteToAdmin);
+router.post("/admins/:userId/remove", positions.requireMainAdmin, positions.removeAdmin);
+
 router.get("/history", positions.appointmentHistory);
 
 export default router;

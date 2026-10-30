@@ -25,7 +25,17 @@ async function seedAdmin() {
     [name, email, password_hash]
   );
 
-  console.log(`Admin account ready: ${rows[0].email} (password: ${password})`);
+  // The first admin ever seeded is the MAIN admin (the only one who can add or
+  // remove other admins). Seeding again never moves that title to someone else.
+  const main = await pool.query(
+    `UPDATE users SET is_main_admin = TRUE
+      WHERE id = $1 AND role_type = 'admin' AND NOT EXISTS (SELECT 1 FROM users WHERE is_main_admin AND id <> $1)
+      RETURNING id`,
+    [rows[0].id]
+  );
+  const isMain = !!main.rows[0] || (await pool.query("SELECT 1 FROM users WHERE id = $1 AND is_main_admin", [rows[0].id])).rows.length > 0;
+
+  console.log(`Admin account ready: ${rows[0].email} (password: ${password})${isMain ? " [main admin]" : ""}`);
   await pool.end();
 }
 

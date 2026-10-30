@@ -46,9 +46,9 @@ registerTemplate("refund_sent", (d) => ({
 }), { name: "Amina", amount: 50000, reference: "OPR-1", reason: "Goods delivered did not match the order" });
 
 registerTemplate("manual_confirmation_notice", (d) => ({
-  subject: "[Needs attention] A corps payment was confirmed by hand",
+  subject: "[Needs attention] An NYSC AGROALLIED SAED payment was confirmed by hand",
   title: "Confirmed without Paystack",
-  html: `<p>Paystack could not be reached, so a corps access-fee payment was confirmed by hand.</p>
+  html: `<p>Paystack could not be reached, so a NYSC AGROALLIED SAED access-fee payment was confirmed by hand.</p>
 <table role="presentation">${row("Member", d.member)}${row("Reference", d.reference)}${row("Reason given", d.reason)}</table>
 <p>It is flagged for review. If Paystack later reports the same payment it will not be credited twice.</p>`,
 }), { member: "Chidi", reference: "CPAY-1", reason: "Transfer TRF-1" });
@@ -78,10 +78,10 @@ registerTemplate("share_receipt", (d) => ({
 registerTemplate("corps_receipt", (d) => ({
   subject: `EPHAAG Farms — payment received (${d.reference})`,
   title: "Payment received",
-  html: `<p>Hello ${escapeHtml(d.name)}, we have received your one-time access fee. Your corps training is now unlocked: sign in and open <em>My Training</em> to begin.</p>
+  html: `<p>Hello ${escapeHtml(d.name)}, we have received your one-time access fee. Your NYSC AGROALLIED SAED training is now unlocked: sign in and open <em>My Training</em> to begin.</p>
 <table role="presentation">${row("Access fee", naira(d.accessFee))}${d.fee > 0 ? row("Payment processing fee", naira(d.fee)) : ""}${row("Total paid", naira(d.totalCharged))}${row("Receipt reference", d.reference)}</table>
 <p>This fee is non-refundable once paid.</p>`,
-  sms: `EPHAAG: payment of ${naira(d.totalCharged)} received. Your corps training is unlocked. Ref ${d.reference}.`,
+  sms: `EPHAAG: payment of ${naira(d.totalCharged)} received. Your NYSC AGROALLIED SAED training is unlocked. Ref ${d.reference}.`,
 }), { name: "Chidi", accessFee: 5000, fee: 100, totalCharged: 5100, reference: "CPAY-20261024-ABCD" });
 
 registerTemplate("share_late_started", (d) => ({
@@ -153,3 +153,21 @@ registerTemplate("investment_offline_notice", (d) => ({
   html: `<p>An admin recorded an investment payment received outside Paystack (for example a bank transfer). It is flagged for review.</p>
 <table role="presentation">${row("Investor", d.investor)}${row("Investment", d.reference)}${row("Amount", naira(d.amount))}${row("Reason given", d.reason)}</table>`,
 }), { investor: "Aliyu", reference: "INV-1", amount: 10000, reason: "Bank transfer TRF-1" });
+
+registerTemplate("investment_due_reminder", (d) => ({
+  subject: `Reminder: your investment payment of ${naira(d.amount)} is due ${d.dueDate}`,
+  title: "Investment payment due soon",
+  html: `<p>This is a reminder that your payment of <strong>${naira(d.amount)}</strong> on investment <strong>${escapeHtml(d.reference)}</strong> is due on <strong>${escapeHtml(d.dueDate)}</strong>.</p>
+${d.auto ? `<p>It will be charged automatically to your saved card ending ${escapeHtml(d.last4)}. Please make sure the card has enough funds.</p>` : "<p>Open your Investor Room and use <strong>Pay now</strong>.</p>"}
+<p><strong>Warning:</strong> after the due date, a penalty of ${d.percent}% of the share's capital (${naira(d.penalty)}) is charged for each month it stays unpaid, and it is deducted from your ROI payout.</p>`,
+  sms: `EPHAAG: your investment payment of ${naira(d.amount)} (${d.reference}) is due ${d.dueDate}. If unpaid, a ${d.percent}% penalty (${naira(d.penalty)}) per month is deducted from your ROI.`,
+}), { reference: "INV-1", amount: 10000, dueDate: "2026-11-28", percent: 2, penalty: 200, auto: false, last4: "" });
+
+registerTemplate("investment_overdue_notice", (d) => ({
+  subject: `Overdue: investment payment of ${naira(d.amount)} (${d.daysLate} day${d.daysLate === 1 ? "" : "s"} late)`,
+  title: "Your investment payment is overdue",
+  html: `<p>Your payment of <strong>${naira(d.amount)}</strong> on investment <strong>${escapeHtml(d.reference)}</strong> was due on ${escapeHtml(d.dueDate)} and is now <strong>${d.daysLate} day${d.daysLate === 1 ? "" : "s"} late</strong>.</p>
+<p>A penalty of ${d.percent}% of the share's capital (${naira(d.penalty)}) is charged for each month it stays unpaid. Penalties charged on this payment so far: <strong>${naira(d.charged)}</strong>. They are deducted from your ROI payout.</p>
+<p>Open your Investor Room and use <strong>Pay now</strong> to stop further penalties.</p>`,
+  sms: `EPHAAG: investment payment of ${naira(d.amount)} (${d.reference}) is ${d.daysLate} day(s) overdue. Penalty so far ${naira(d.charged)} (${d.percent}%/month), deducted from your ROI. Pay now in your Investor Room.`,
+}), { reference: "INV-1", amount: 10000, dueDate: "2026-11-28", daysLate: 3, percent: 2, penalty: 200, charged: 200 });

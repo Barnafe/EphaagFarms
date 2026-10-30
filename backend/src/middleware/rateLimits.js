@@ -32,3 +32,4 @@ export const resetPasswordLimiter = limiter("reset-password", { windowMs: HOUR, 
 export const ninLookupLimiter = limiter("nin-lookup", { windowMs: HOUR, max: 10 });          // Phase 8
 export const publicBookingLimiter = limiter("public-booking", { windowMs: HOUR, max: 5 });    // Phase 7
 export const certificateVerifyLimiter = limiter("certificate-verify", { windowMs: HOUR, max: 60 });
+export const ninLimiter = limiter("nin-lookup", { windowMs: HOUR, max: 10 }); // each lookup costs money

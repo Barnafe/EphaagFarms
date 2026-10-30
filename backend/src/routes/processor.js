@@ -4,7 +4,9 @@ import * as processor from "../controllers/processorController.js";
 
 const router = Router();
 
-router.use(requireAuth, requireRole("processor"));
+// Processing jobs are worked by Buyers/Processor accounts (role_type "buyer").
+// "processor" is kept only so a not-yet-converted legacy account still works.
+router.use(requireAuth, requireRole("buyer", "processor"));
 
 router.get("/jobs/me", processor.myJobs);
 router.post("/jobs/:id/advance", processor.advanceJob);

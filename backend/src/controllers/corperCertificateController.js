@@ -11,7 +11,7 @@ import {
 
 // Learning progress, certificates and the "batch complete" release all meet
 // here. Rules (2026-10-21 spec):
-//  * when a PAID member has completed EVERY approved corps course, a
+//  * when a PAID member has completed EVERY approved NYSC AGROALLIED SAED course, a
 //    certificate record is created at once (unique number + long code) but
 //    stays HIDDEN;
 //  * marking the member's batch complete makes the batch's certificates
@@ -25,7 +25,7 @@ function httpError(message, status = 400) {
 // ---------------------------------------------------------------------
 // Progress — read through the SAME loader the member dashboard, the admin
 // progress table and the export use (v27 learning), so they cannot disagree.
-// "Completed every course" = paid now AND every live corps course earned.
+// "Completed every course" = paid now AND every live NYSC AGROALLIED SAED course earned.
 // ---------------------------------------------------------------------
 export async function courseProgressSummary(userId, runner = pool) {
   const s = await loadMemberProgress(userId, runner);

@@ -128,13 +128,13 @@ export async function confirmPaymentInTx(client, paymentId, { via, confirmedBy =
   // Finance income is the ACCESS FEE only; the processing fee is not income (it goes to Paystack).
   const { rows: incomeRows } = await client.query(
     `INSERT INTO finance_income (reference, source, category, amount, description, received_from, recorded_by)
-     VALUES ($1, 'customer_payment', 'Corps access fee', $2, $3, $4, $5) RETURNING id`,
-    [incomeRef, p.amount, `Corps access fee ${p.reference}`, p.member_name, confirmedBy]
+     VALUES ($1, 'customer_payment', 'NYSC AGROALLIED SAED access fee', $2, $3, $4, $5) RETURNING id`,
+    [incomeRef, p.amount, `NYSC AGROALLIED SAED access fee ${p.reference}`, p.member_name, confirmedBy]
   );
   await client.query(
     `INSERT INTO finance_transactions (reference, txn_type, amount, department, description, related_table, related_id, recorded_by)
      VALUES ($1, 'income', $2, 'TRC', $3, 'corper_payments', $4, $5)`,
-    [generateReference(REF_PREFIX.financeTransaction), p.amount, `Corps access fee ${p.reference} — ${p.member_name}`, p.id, confirmedBy]
+    [generateReference(REF_PREFIX.financeTransaction), p.amount, `NYSC AGROALLIED SAED access fee ${p.reference} — ${p.member_name}`, p.id, confirmedBy]
   );
   const { rows: updated } = await client.query(
     `UPDATE corper_payments
@@ -188,7 +188,7 @@ async function afterCorpsConfirmed(p, { finance = true } = {}) {
   }
 }
 
-// What a verified Paystack payment means for a corps access fee.
+// What a verified Paystack payment means for a NYSC AGROALLIED SAED access fee.
 registerPaymentType("corps_fee", {
   async apply(gp, client) {
     const { rows } = await client.query(
@@ -619,7 +619,7 @@ export async function adminRejectPayment(req, res) {
   res.json({ payment: mapAdminPayment(full[0]) });
 }
 
-// There is NO refund action for the corps access fee: it is non-refundable once agreed and paid.
+// There is NO refund action for the NYSC AGROALLIED SAED access fee: it is non-refundable once agreed and paid.
 // Payments refunded before this change stay visible as history (status "refunded").
 
 // GET /api/rtc/admin/corps/fee

@@ -6,7 +6,7 @@ import { renderCertificatePdf } from "../utils/certificate.js";
 import { runBatchNotifications, isNotifyRunning } from "./corperCertificateController.js";
 
 // Admin (TRC -> Corps): batches, certificate release, members table and the
-// NYSC spreadsheet. Progress numbers come from the same loader the members'
+// NYSC AGROALLIED SAED spreadsheet. Progress numbers come from the same loader the members'
 // dashboards use (loadProgressRows + summariseProgress).
 
 const httpError = (message, status = 400, code) => Object.assign(new Error(message), { status, clientCode: code });
@@ -157,7 +157,7 @@ const lagosDate = (d) => (d ? new Date(d).toLocaleDateString("en-CA", { timeZone
 const cap = (s) => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : "");
 
 // GET /api/rtc/admin/corps/members/export?...same filters... (&includeNoConsent=true)
-// Decision 2: NYSC only receives members who consented to sharing — unless
+// Decision 2: NYSC AGROALLIED SAED only receives members who consented to sharing — unless
 // the admin explicitly asks otherwise. The consent column is always there.
 // Certificate numbers are only listed for RELEASED certificates.
 export async function adminExportMembers(req, res) {
@@ -166,14 +166,14 @@ export async function adminExportMembers(req, res) {
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "EPHAAG Farms";
-  const ws = wb.addWorksheet("Corps members");
+  const ws = wb.addWorksheet("NYSC AGROALLIED SAED members");
   const columns = [
     ["Name", "name", 28], ["Gender", "gender", 9], ["Email", "email", 30], ["Phone", "phone", 16],
     ["Call-up number", "callUpNumber", 20], ["State code", "stateCode", 14], ["Service year", "serviceYear", 12],
     ["Batch", "batch", 8], ["Stream", "stream", 8], ["State of deployment", "stateOfDeployment", 20],
     ["PPA", "ppa", 30], ["Discipline", "discipline", 24], ["Paid", "paid", 8],
     ["Courses completed", "courses", 18], ["Completion date", "completionDate", 16],
-    ["Certificate number", "certificateNumber", 24], ["Consent to share with NYSC", "consent", 16],
+    ["Certificate number", "certificateNumber", 24], ["Consent to share with NYSC AGROALLIED SAED", "consent", 16],
   ];
   ws.columns = columns.map(([header, key, width]) => ({ header, key, width }));
   ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -207,7 +207,7 @@ export async function adminExportMembers(req, res) {
   const stamp = new Date().toISOString().slice(0, 10);
   res.set({
     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "Content-Disposition": `attachment; filename="nysc-corps-members-${stamp}.xlsx"`,
+    "Content-Disposition": `attachment; filename="nysc-agroallied-saed-members-${stamp}.xlsx"`,
     "Content-Length": buf.length,
     "Cache-Control": "private, no-store",
   });

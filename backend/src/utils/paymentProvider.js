@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 
-// Corps access-fee payment provider (phase 3).
+// NYSC AGROALLIED SAED access-fee payment provider (phase 3).
 //
 // Paystack (NGN) when PAYSTACK_SECRET_KEY is set. Without it the provider is
 // "manual": the member's payment stays pending until an admin confirms it by

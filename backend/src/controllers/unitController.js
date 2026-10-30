@@ -52,5 +52,11 @@ export async function adminDecideUnit(req, res) {
     [decision, req.user.id, note || null, id]
   );
   if (!rows[0]) return res.status(404).json({ error: "Unit request not found or already decided" });
+  if (decision === "approved") {
+    // An approved unit becomes an official unit that farmers can be placed in (its pin is added later).
+    await pool.query(
+      `INSERT INTO unit_catalog (name, state, lga, ward, source) VALUES ($1,$2,$3,$4,'approved_proposal') ON CONFLICT DO NOTHING`,
+      [rows[0].name, rows[0].state, rows[0].lga, rows[0].ward]);
+  }
   res.json({ unit: rows[0] });
 }

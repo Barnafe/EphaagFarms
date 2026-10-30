@@ -5,6 +5,8 @@ import { sendMail } from "../utils/email.js";
 import { AGREEMENTS_DIR } from "../middleware/upload.js";
 import { sendFileRef, refFromUrl } from "../utils/fileRefs.js";
 import { notifyUser } from "../services/messaging.js";
+import { createPayout, kickPayouts } from "../services/payouts.js";
+import { runInvestmentLatePenalties, runInvestmentPaymentNotices, outstandingPenalty, deductPenaltiesFromRoi } from "../services/investmentPenalties.js";
 import { ROI_SCHEDULE, currentObligation, quote, startInvestmentPayment, runInvestmentAutoCharge, recordOfflinePayment } from "../services/investmentPayments.js";
 
 // The ROI schedule (see services/investmentPayments.js) matches the delivered investment proposal exactly.
@@ -106,11 +108,13 @@ export async function myApplication(req, res) {
   const application = mapApplication(rows[0]);
 
   if (rows[0]) {
+    application.latePenaltyOutstanding = await outstandingPenalty(pool, rows[0].id);
     const ob = await currentObligation(pool, rows[0]);
     if (!ob.none) {
       application.obligation = { kind: ob.kind, dueDate: ob.dueDate || null, ...(await quote(ob.net)) };
       if (ob.row?.auto_charge_error) application.autoChargeFailed = { error: ob.row.auto_charge_error, at: ob.row.auto_charge_attempted_at };
       if (ob.kind === "monthly") application.nextDueDate = ob.dueDate;
+      if (ob.kind === "monthly") { const today = new Date().toISOString().slice(0, 10); if (ob.dueDate < today) application.overdue = { dueDate: ob.dueDate, daysLate: Math.round((new Date(today) - new Date(ob.dueDate)) / 86400000) }; }
     }
   }
 
@@ -208,9 +212,11 @@ export async function myRoi(req, res) {
       year: r.year_number,
       roiPercent: Number(r.roi_percent),
       penaltyPercent: Number(r.penalty_percent),
+      penaltyAmount: Number(r.penalty_amount || 0),
       netPayout: Number(r.net_payout),
       adminApproved: r.admin_approved,
     })),
+    latePenaltyOutstanding: await outstandingPenalty(pool, appRows[0].id),
   });
 }
 
@@ -459,70 +465,66 @@ export async function approvePartner(req, res) {
 
 export async function roiPayouts(req, res) {
   const { rows } = await pool.query(
-    `SELECT rr.*, u.name AS investor_name FROM roi_records rr
-     JOIN investment_applications a ON a.id = rr.application_id
-     JOIN users u ON u.id = a.investor_id
-     WHERE rr.admin_approved = FALSE
-     ORDER BY rr.id ASC`
+    `SELECT rr.*, u.name AS investor_name,
+            COALESCE((SELECT SUM(p.amount - p.deducted_amount) FROM investment_late_penalties p WHERE p.application_id = rr.application_id), 0) AS penalty_due
+       FROM roi_records rr
+       JOIN investment_applications a ON a.id = rr.application_id
+       JOIN users u ON u.id = a.investor_id
+      WHERE rr.admin_approved = FALSE
+      ORDER BY rr.id ASC`
   );
   res.json({
-    payouts: rows.map((r) => ({
-      id: r.id,
-      investorName: r.investor_name,
-      year: r.year_number,
-      netPayout: Number(r.net_payout),
-      status: "pending",
-    })),
+    payouts: rows.map((r) => {
+      const penalty = Math.min(Number(r.penalty_due), Number(r.roi_amount));
+      return {
+        id: r.id,
+        investorName: r.investor_name,
+        year: r.year_number,
+        roiAmount: Number(r.roi_amount),
+        latePenalty: penalty,
+        netPayout: Math.round((Number(r.roi_amount) - penalty) * 100) / 100,
+        status: "pending",
+      };
+    }),
   });
 }
 
+// Approving a payout deducts the investor's outstanding late-payment penalties from it.
 export async function approveRoiPayout(req, res) {
   const { id } = req.params;
-  const { rows } = await pool.query(
-    `UPDATE roi_records SET admin_approved = TRUE WHERE id = $1 AND admin_approved = FALSE RETURNING *`,
-    [id]
-  );
-  if (!rows[0]) return res.status(400).json({ error: "Payout not found or already approved" });
-  res.json({ roi: rows[0] });
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id))) return res.status(400).json({ error: "Payout not found or already approved" });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query(`SELECT * FROM roi_records WHERE id = $1 AND admin_approved = FALSE FOR UPDATE`, [id]);
+    if (!rows[0]) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Payout not found or already approved" }); }
+    const { deducted } = await deductPenaltiesFromRoi(client, rows[0]);
+    const roi = Number(rows[0].roi_amount);
+    const net = Math.round((roi - deducted) * 100) / 100;
+    const pct = roi > 0 ? Math.round((deducted / roi) * 10000) / 100 : 0;
+    const { rows: done } = await client.query(
+      `UPDATE roi_records SET admin_approved = TRUE, penalty_amount = $2, penalty_percent = $3, net_payout = $4 WHERE id = $1 RETURNING *`, [id, deducted, pct, net]);
+    const { rows: inv } = await client.query(`SELECT investor_id FROM investment_applications WHERE id = $1`, [rows[0].application_id]);
+    if (net > 0 && inv[0]) await createPayout({ kind: "roi_payout", userId: inv[0].investor_id, subjectId: rows[0].id, amount: net, runner: client });
+    await client.query("COMMIT");
+    kickPayouts();
+    res.json({ roi: done[0] });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
-// --- Daily reminder job: payments due tomorrow ---------------------------
+// --- Daily job: reminders 2 days before, overdue notices every day, late penalties ---------------------------
 // Runs on a schedule (see server.js) and is also exposed via a manual
 // admin-only trigger endpoint for testing without waiting a real day.
 
 export async function runDueDateReminders() {
-  const { rows } = await pool.query(
-    `SELECT ip.*, a.reference, a.investor_id, a.payment_mode, a.card_last4, u.name AS investor_name, u.email AS investor_email
-     FROM investment_payments ip
-     JOIN investment_applications a ON a.id = ip.application_id
-     JOIN users u ON u.id = a.investor_id
-     WHERE ip.status = 'due' AND ip.reminder_sent = FALSE
-       AND ip.due_date = CURRENT_DATE + INTERVAL '1 day'`
-  );
-
-  let sent = 0;
-  for (const row of rows) {
-    if (!row.investor_email) continue;
-    await sendMail({
-      to: row.investor_email,
-      subject: `Reminder — your EPHAAG Farms investment payment is due tomorrow`,
-      html: `
-        <p>Hi ${row.investor_name},</p>
-        <p>This is a reminder that your next payment of
-        <strong>₦${Number(row.amount).toLocaleString()}</strong> on investment
-        <strong>${row.reference}</strong> is due <strong>tomorrow (${row.due_date})</strong>,
-        as agreed and signed in your investment agreement.</p>
-        ${row.payment_mode === "auto" && row.card_last4 ? `<p>It will be charged automatically to your saved card ending ${row.card_last4}. Please make sure it has enough funds.</p>` : `<p>Open your Investor Room and use <strong>Pay now</strong>.</p>`}
-        <p>Please make your payment on time to stay in good standing. As a reminder, the
-        agreed terms note that inconsistent payments carry a penalty of 2% of profit per
-        month, so we'd encourage settling this before the due date.</p>
-        <p>— EPHAAG Farms</p>
-      `,
-    });
-    await pool.query(`UPDATE investment_payments SET reminder_sent = TRUE WHERE id = $1`, [row.id]);
-    sent++;
-  }
-  return { checked: rows.length, sent };
+  const penalties = await runInvestmentLatePenalties(); // so today's overdue notices show today's penalty
+  const notices = await runInvestmentPaymentNotices();
+  return { ...notices, penaltiesCharged: penalties.charged };
 }
 
 // Admin-only manual trigger, for testing/ops use — same logic the daily
