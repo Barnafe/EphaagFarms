@@ -1,7 +1,7 @@
 import ProfilePhotoUploader from "./ProfilePhotoUploader.jsx";
 
 // Read-only account summary + passport photo uploader, shared across
-// Buyer/Processor/Investor rooms (Farmer's Room has its own editable
+// Buyers/Processor and Investor rooms (Farmer's Room has its own editable
 // version — FarmerProfileCard — since farmers can edit crops/location
 // inline; the other roles don't have an edit flow yet, just display +
 // photo upload).

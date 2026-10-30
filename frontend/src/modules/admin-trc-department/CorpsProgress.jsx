@@ -6,7 +6,7 @@ const FILTERS = [["all", "All"], ["paid", "Paid"], ["unpaid", "Not paid"]];
 
 // TRC -> Corps -> Progress. Numbers come from the same shared calculation
 // the members' own dashboards use. Only PAID members count (an unpaid or
-// refunded member's progress is kept but doesn't count). The NYSC spreadsheet
+// refunded member's progress is kept but doesn't count). The NYSC AGROALLIED SAED spreadsheet
 // export lives in the Members sub-tab.
 export default function CorpsProgress() {
   const [data, setData] = useState(null);
@@ -45,9 +45,9 @@ export default function CorpsProgress() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-medium text-white">Corps member progress</h1>
+        <h1 className="text-xl font-medium text-white">NYSC AGROALLIED SAED member progress</h1>
         <p className="mt-1 text-sm text-canopy-100">
-          Percent = courses completed out of all live corps courses. A course is complete when every lesson is done and the quiz has been submitted at least once.
+          Percent = courses completed out of all live NYSC AGROALLIED SAED courses. A course is complete when every lesson is done and the quiz has been submitted at least once.
         </p>
       </div>
 
@@ -56,7 +56,7 @@ export default function CorpsProgress() {
       {data && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {[
-            ["Corps members", data.totalMembers],
+            ["NYSC AGROALLIED SAED members", data.totalMembers],
             ["Paid (counted)", data.paidMembers],
             ["Live courses", data.courses.length],
             ["Completions", data.courses.reduce((n, c) => n + c.completed, 0)],
@@ -80,7 +80,7 @@ export default function CorpsProgress() {
             <h2 className="font-medium text-ink-900">By course</h2>
             <p className="text-xs text-ink-600">Paid members only. “Started” = at least one lesson done or a quiz attempt.</p>
             {!data && <p className="mt-3 text-sm text-ink-600">Loading…</p>}
-            {data && data.courses.length === 0 && <p className="mt-3 text-sm text-ink-600">No corps course is live yet.</p>}
+            {data && data.courses.length === 0 && <p className="mt-3 text-sm text-ink-600">No NYSC AGROALLIED SAED course is live yet.</p>}
             {data && data.courses.length > 0 && (
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full min-w-[520px] text-left text-sm" data-testid="course-stats">
@@ -133,7 +133,7 @@ export default function CorpsProgress() {
             </div>
 
             {!data && <p className="mt-3 text-sm text-ink-600">Loading…</p>}
-            {data && data.members.length === 0 && <p className="mt-3 text-sm text-ink-600">No corps members match.</p>}
+            {data && data.members.length === 0 && <p className="mt-3 text-sm text-ink-600">No NYSC AGROALLIED SAED members match.</p>}
             {data && data.members.length > 0 && (
               <div className="mt-3 overflow-x-auto">
                 <table className="w-full min-w-[560px] text-left text-sm" data-testid="member-progress">

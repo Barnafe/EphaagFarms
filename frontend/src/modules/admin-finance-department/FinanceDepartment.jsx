@@ -10,11 +10,8 @@ import AccountProfileCard from "../../components/AccountProfileCard.jsx";
 import DeptDashboardCards from "../../components/DeptDashboardCards.jsx";
 import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.jsx";
 import PaymentsWorkspace from "./PaymentsWorkspace.jsx";
-import LoanDisbursementPanel from "./LoanDisbursementPanel.jsx";
 import FinanceReviewPanel from "./FinanceReviewPanel.jsx";
-import BoostDepositReviewPanel from "./BoostDepositReviewPanel.jsx";
-import RepaymentReconciliationPanel from "./RepaymentReconciliationPanel.jsx";
-import SettlementPanel from "./SettlementPanel.jsx";
+import PayoutsNotice from "./PayoutsNotice.jsx";
 import LoanPipelinePanel from "./LoanPipelinePanel.jsx";
 import { ApplicationReviewPanel, PartnerStatusPanel, ROIPayoutPanel } from "./InvestmentPanels.jsx";
 import InsuranceApplyControl from "./InsuranceApplyControl.jsx";
@@ -463,7 +460,7 @@ export default function FinanceDepartment() {
             </div>
           )}
           <p className="text-xs text-ink-600">
-            Recommend and final-approval are normally a Unit Leader's and Federal's own rank-gated steps —
+            Recommend and final-approval are normally a Unit Leader's and 3EI Governance's own rank-gated steps —
             admin can perform them too for now, company-wide, until those roles are staffed.
           </p>
           <SectionStack
@@ -492,11 +489,11 @@ export default function FinanceDepartment() {
               },
               {
                 key: "approve",
-                label: "Final approval (Federal step)",
+                label: "Final approval (3EI Governance step)",
                 badge: awaitingApprovalLoans.length,
                 node: (
                   <LoanPipelinePanel
-                    title="Final approval (Federal step)"
+                    title="Final approval (3EI Governance step)"
                     blurb="Finance-verified loans awaiting final sign-off before disbursement."
                     loans={awaitingApprovalLoans}
                     primaryLabel="Approve"
@@ -506,20 +503,11 @@ export default function FinanceDepartment() {
                 ),
               },
               {
-                key: "boost",
-                label: "Boost deposits",
-                badge: pendingDeposits.length,
-                node: <BoostDepositReviewPanel deposits={pendingDeposits} onVerify={handleVerifyBoostDeposit} />,
-              },
-              {
-                key: "disburse",
-                label: "Disbursement",
-                node: <LoanDisbursementPanel loans={loans} onDisburse={handleDisburse} />,
-              },
-              {
-                key: "repayments",
-                label: "Repayment reconciliation",
-                node: <RepaymentReconciliationPanel repayments={repayments} onVerify={handleVerifyRepayment} />,
+                key: "payouts",
+                label: "Payouts & repayments",
+                node: (
+                  <PayoutsNotice text="Loans are paid out automatically by Paystack transfer as soon as the final approval is given, and repayments and Boost Cash deposits are confirmed by Paystack, so there is nothing to verify or disburse by hand. Follow every payout under Payouts." />
+                ),
               },
             ]}
           />
@@ -533,7 +521,7 @@ export default function FinanceDepartment() {
               <p className="text-sm text-red-700">{settlementError}</p>
             </div>
           )}
-          <SettlementPanel payments={settlements} onPay={handlePaySettlement} />
+          <PayoutsNotice text="Farmer settlements are paid automatically by Paystack transfer when Procurement sources the produce." />
         </div>
       )}
 

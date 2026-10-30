@@ -19,6 +19,8 @@ import AnalyticsSectionNav from "./AnalyticsSectionNav.jsx";
 import { BarChartCard, HorizontalBarChartCard, PieChartCard, LineChartCard, CHART_COLORS } from "./AnalyticsCharts.jsx";
 
 import useUrlState from "../../hooks/useUrlState.js";
+import { rankLabel } from "../../utils/governance.js";
+import { roleLabel } from "../../utils/roleLabels.js";
 const nairaFormatter = (v) => `₦${Number(v).toLocaleString()}`;
 const countFormatter = (v) => Number(v).toLocaleString();
 
@@ -46,7 +48,7 @@ function RankingTable({ rows }) {
               <tr key={f.userId} className="border-t border-soil-100">
                 <td className="py-1 text-ink-900">{f.name}</td>
                 <td className="py-1 text-ink-600">{[f.unit, f.ward, f.lga, f.state].filter(Boolean).join(", ")}</td>
-                <td className="py-1 text-ink-600">{f.leadershipRank || "—"}</td>
+                <td className="py-1 text-ink-600">{f.leadershipRank ? rankLabel(f.leadershipRank) : "—"}</td>
                 <td className="py-1 text-right text-canopy-800">{f.quartersEngaged}</td>
                 <td className="py-1 text-right text-canopy-800">{f.trainingRankLabel}</td>
               </tr>
@@ -246,7 +248,7 @@ export default function AnalyticsDepartment() {
                 node: (
             <BarChartCard
               title="Users by role"
-              data={overview.usersByRole.map((r) => ({ key: r.role, value: r.count }))}
+              data={overview.usersByRole.map((r) => ({ key: roleLabel(r.role), value: r.count }))}
               valueFormatter={countFormatter}
             />
                 ),
@@ -643,7 +645,7 @@ export default function AnalyticsDepartment() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <BarChartCard
               title="By leadership rank"
-              data={training.byLeadershipRank.map((r) => ({ key: r.rank, value: r.count }))}
+              data={training.byLeadershipRank.map((r) => ({ key: rankLabel(r.rank), value: r.count }))}
               valueFormatter={countFormatter}
             />
             <BarChartCard

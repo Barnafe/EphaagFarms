@@ -16,7 +16,7 @@ function initials(name = "") {
 }
 
 // Shared "everything lives behind one constant left menu" shell used by
-// every member room (Farmer, Buyer, Processor, Investor, ...). Matches the
+// every member room (Farmer, Buyers/Processor, Investor, ...). Matches the
 // reference layout: logo at the top, a fixed list of rooms down the left
 // that never changes no matter what's open, and the active room's content
 // on the right. Clicking a menu item swaps the content in place — no more
@@ -34,7 +34,7 @@ function initials(name = "") {
 // AdminDashboardShell's own sidebar (TRC, most commonly) previously had
 // no banner and therefore no way back at all. This is unconditional
 // regardless of how the department was reached. Never passed by member
-// rooms (Farmer/Buyer/Processor/Investor/Transporter/Distributor), which
+// rooms (Farmer/Buyers-Processor/Investor/Transporter/Distributor), which
 // only ever show "Log out".
 export default function DashboardShell({ items, activeKey, onSelect, exitTo, children }) {
   const { session, logout } = useAuth();

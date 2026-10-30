@@ -27,7 +27,7 @@ import useUrlState from "../../hooks/useUrlState.js";
 const items = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "training", label: "Training", icon: GraduationCap },
-  { key: "corps", label: "Corps", icon: Users, description: "NYSC corps member access-fee payments, the fee itself, and member progress." },
+  { key: "corps", label: "NYSC AGROALLIED SAED", icon: Users, description: "NYSC AGROALLIED SAED member access-fee payments, the fee itself, and member progress." },
   { key: "research", label: "Research", icon: BookOpen },
   { key: "consultancy", label: "Consultancy", icon: Handshake },
   {
@@ -56,7 +56,7 @@ export default function TrcDepartment() {
   const [scheduledAt, setScheduledAt] = useState("");
   const [material, setMaterial] = useState(null);
   // Training has two audiences: "general" (farmers' free Seminar tab) and
-  // "corps" (NYSC corps members). The admin picks one when creating a course.
+  // "corps" (NYSC AGROALLIED SAED members). The admin picks one when creating a course.
   const [courseAudience, setCourseAudience] = useState("general");
   const [audienceFilter, setAudienceFilter] = useState("all");
   const [editingCourse, setEditingCourse] = useState(null);
@@ -134,7 +134,7 @@ export default function TrcDepartment() {
       setScheduledAt("");
       setMaterial(null);
       await loadCourses();
-      // A corps course is empty until lessons + a quiz are added, so go
+      // A NYSC AGROALLIED SAED course is empty until lessons + a quiz are added, so go
       // straight to its editor.
       if (created?.audience === "corps") setEditingCourse(created);
     } catch (err) {
@@ -256,7 +256,7 @@ export default function TrcDepartment() {
             <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
             <h1 className="text-xl font-medium text-white">TRC — Training, Research & Consultancy</h1>
             <p className="mt-1 text-sm text-canopy-100">
-              Farmer courses are free; corps members pay a one-time access fee (see Corps). Use the sidebar to open Training, Research, or Consultancy.
+              Farmer courses are free; NYSC AGROALLIED SAED members pay a one-time access fee (see NYSC AGROALLIED SAED). Use the sidebar to open Training, Research, or Consultancy.
             </p>
           </div>
           <DeptDashboardCards
@@ -265,10 +265,10 @@ export default function TrcDepartment() {
             buildCards={(d) => [
               { label: "Approved courses", value: d.approvedCourses, hint: "General (farmers)", nav: "training" },
               { label: "Draft courses", value: d.draftCourses, hint: "General — awaiting approval", nav: "training" },
-              { label: "Corps courses live", value: d.corpsApprovedCourses, hint: "NYSC corps members", nav: "training" },
-              { label: "Corps drafts", value: d.corpsDraftCourses, hint: "Awaiting lessons, quiz or approval", nav: "training" },
-              { label: "Corps payments to confirm", value: d.corpsPaymentsPending, hint: "Access fees awaiting confirmation", nav: "corps" },
-              { label: "Corps members paid", value: d.corpsPaidMembers, hint: "Training unlocked", nav: "corps" },
+              { label: "NYSC AGROALLIED SAED courses live", value: d.corpsApprovedCourses, hint: "NYSC AGROALLIED SAED members", nav: "training" },
+              { label: "NYSC AGROALLIED SAED drafts", value: d.corpsDraftCourses, hint: "Awaiting lessons, quiz or approval", nav: "training" },
+              { label: "NYSC AGROALLIED SAED payments to confirm", value: d.corpsPaymentsPending, hint: "Access fees awaiting confirmation", nav: "corps" },
+              { label: "NYSC AGROALLIED SAED members paid", value: d.corpsPaidMembers, hint: "Training unlocked", nav: "corps" },
               { label: "Published research", value: d.publishedResearch, nav: "research" },
               {
                 label: "Pending consultancy requests",
@@ -298,7 +298,7 @@ export default function TrcDepartment() {
             <h1 className="text-xl font-medium text-white">Training courses</h1>
             <p className="mt-1 text-sm text-canopy-100">
               Choose who a course is for. <strong>General</strong> courses are free for farmers and appear in
-              their "Seminar" tab once approved. <strong>Corps</strong> courses are NYSC corps member training,
+              their "Seminar" tab once approved. <strong>NYSC AGROALLIED SAED</strong> courses are NYSC AGROALLIED SAED member training,
               built from lessons and a quiz, and never appear to farmers.
             </p>
           </div>
@@ -314,7 +314,7 @@ export default function TrcDepartment() {
                 <p className="text-sm text-ink-600">Upload a training course</p>
                 <form onSubmit={handleSubmitCourse} className="field mt-3 space-y-2">
                   <div role="group" aria-label="Course audience" className="flex gap-2">
-                    {[["general", "General (farmers)"], ["corps", "Corps (NYSC corps members)"]].map(([value, label]) => (
+                    {[["general", "General (farmers)"], ["corps", "NYSC AGROALLIED SAED (members)"]].map(([value, label]) => (
                       <button
                         key={value}
                         type="button"
@@ -350,12 +350,12 @@ export default function TrcDepartment() {
                     </>
                   ) : (
                     <p className="text-xs text-ink-600">
-                      After creating a corps course you add its lessons (video, document or live session) and its quiz,
+                      After creating a NYSC AGROALLIED SAED course you add its lessons (video, document or live session) and its quiz,
                       then approve it.
                     </p>
                   )}
                   <button className="btn-primary" type="submit" disabled={submittingCourse}>
-                    {submittingCourse ? "Saving…" : courseAudience === "corps" ? "Create corps course" : "Upload course"}
+                    {submittingCourse ? "Saving…" : courseAudience === "corps" ? "Create NYSC AGROALLIED SAED course" : "Upload course"}
                   </button>
                 </form>
               </div>
@@ -369,7 +369,7 @@ export default function TrcDepartment() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm text-ink-600">All courses</p>
                   <div role="group" aria-label="Filter courses" className="flex gap-2 text-xs">
-                    {[["all", "All"], ["general", "General"], ["corps", "Corps"]].map(([value, label]) => (
+                    {[["all", "All"], ["general", "General"], ["corps", "NYSC AGROALLIED SAED"]].map(([value, label]) => (
                       <button
                         key={value}
                         type="button"
@@ -393,7 +393,7 @@ export default function TrcDepartment() {
                           <p className="font-medium text-ink-900">
                             {c.title}{" "}
                             <span className="ml-1 rounded-full bg-canopy-50 px-2 py-0.5 text-xs font-medium text-canopy-800">
-                              {c.audience === "corps" ? "Corps" : "General"}
+                              {c.audience === "corps" ? "NYSC AGROALLIED SAED" : "General"}
                             </span>
                           </p>
                           {c.description && <p className="text-sm text-ink-600">{c.description}</p>}
@@ -455,7 +455,7 @@ export default function TrcDepartment() {
 
       {tab === "corps" && (
         <div className="max-w-6xl space-y-6">
-          <div className="flex flex-wrap gap-2 text-sm" role="tablist" aria-label="Corps sections">
+          <div className="flex flex-wrap gap-2 text-sm" role="tablist" aria-label="NYSC AGROALLIED SAED sections">
             {[["payments", "Payments"], ["progress", "Progress"], ["batches", "Batches"], ["members", "Members"]].map(([key, label]) => (
               <button key={key} type="button" role="tab" aria-selected={corpsView === key} onClick={() => setCorpsView(key)}
                 className={`rounded-card border px-3 py-2 ${corpsView === key ? "border-canopy-600 bg-canopy-600 text-white" : "border-soil-200 text-ink-900 bg-white"}`}>

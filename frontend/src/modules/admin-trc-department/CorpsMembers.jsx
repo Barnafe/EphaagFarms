@@ -5,7 +5,7 @@ const YES_NO = [["", "Any"], ["yes", "Yes"], ["no", "No"]];
 const EMAIL_LABEL = { sent: "Emailed", pending: "Email waiting", failed: "Email failed", not_configured: "Not emailed (no SMTP)", no_email: "No email address" };
 const day = (d) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
 
-// TRC -> Corps -> Members: the NYSC table. Filters + a spreadsheet export.
+// TRC -> Corps -> Members: the NYSC AGROALLIED SAED table. Filters + a spreadsheet export.
 export default function CorpsMembers() {
   const [f, setF] = useState({ year: "", batch: "", stream: "", state: "", paid: "", completed: "", consent: "", q: "" });
   const [offset, setOffset] = useState(0);
@@ -47,7 +47,7 @@ export default function CorpsMembers() {
     setBusy("export");
     setError(null);
     try {
-      await apiDownload(`/rtc/admin/corps/members/export?${qs(includeNoConsent ? { includeNoConsent: "true" } : {})}`, `nysc-corps-members-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      await apiDownload(`/rtc/admin/corps/members/export?${qs(includeNoConsent ? { includeNoConsent: "true" } : {})}`, `nysc-agroallied-saed-members-${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -84,8 +84,8 @@ export default function CorpsMembers() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-medium text-white">NYSC members</h1>
-        <p className="mt-1 text-sm text-canopy-100">Filter the corps members and export the spreadsheet for NYSC.</p>
+        <h1 className="text-xl font-medium text-white">NYSC AGROALLIED SAED members</h1>
+        <p className="mt-1 text-sm text-canopy-100">Filter the NYSC AGROALLIED SAED members and export the spreadsheet for NYSC AGROALLIED SAED.</p>
       </div>
 
       {error && <div className="card border-red-200 bg-red-50" role="alert"><p className="text-sm text-red-700">{error}</p></div>}
@@ -101,7 +101,7 @@ export default function CorpsMembers() {
           {select("State of deployment", "state", [["", "Any"], ...(data?.states || []).map((s) => [s, s])])}
           {select("Paid", "paid", YES_NO)}
           {select("Completed all courses", "completed", YES_NO)}
-          {select("Consent to share with NYSC", "consent", YES_NO)}
+          {select("Consent to share with NYSC AGROALLIED SAED", "consent", YES_NO)}
           <label className="text-xs text-ink-600">Search
             <input value={f.q} onChange={(e) => set("q", e.target.value)} placeholder="Name, email, phone, state code, certificate no." className="mt-1 block h-9 w-full rounded-card border border-soil-200 bg-white px-2 text-sm text-ink-900" />
           </label>
@@ -112,7 +112,7 @@ export default function CorpsMembers() {
           </button>
           <label className="flex items-center gap-2 text-xs text-ink-800">
             <input type="checkbox" className="!w-auto" checked={includeNoConsent} onChange={(e) => setIncludeNoConsent(e.target.checked)} />
-            Include members who have not consented to share their details with NYSC
+            Include members who have not consented to share their details with NYSC AGROALLIED SAED
           </label>
         </div>
         <p className="text-xs text-ink-600">The export uses the filters above. By default only members who consented are included; certificate numbers appear only once released.</p>
@@ -120,7 +120,7 @@ export default function CorpsMembers() {
 
       <div className="card">
         <p className="text-xs text-ink-600">{data ? `${data.total} member${data.total === 1 ? "" : "s"}` : "Loading…"}</p>
-        {data && data.members.length === 0 && <p className="mt-3 text-sm text-ink-600">No corps members match.</p>}
+        {data && data.members.length === 0 && <p className="mt-3 text-sm text-ink-600">No NYSC AGROALLIED SAED members match.</p>}
         {data && data.members.length > 0 && (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[900px] text-left text-sm" data-testid="nysc-members">

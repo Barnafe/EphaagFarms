@@ -116,8 +116,8 @@ export default function CorpsPayments() {
   return (
     <div className="max-w-5xl space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-wide text-canopy-300">TRC — Corps</p>
-        <h1 className="text-xl font-medium text-white">Corps access-fee payments</h1>
+        <p className="text-xs uppercase tracking-wide text-canopy-300">TRC — NYSC AGROALLIED SAED</p>
+        <h1 className="text-xl font-medium text-white">NYSC AGROALLIED SAED access-fee payments</h1>
         <p className="mt-1 text-sm text-canopy-100">
           {summary?.mode === "paystack"
             ? "Paystack is connected: payments are confirmed automatically and listed in Finance. If one is stuck, Re-check asks Paystack again. You can confirm by hand only if Paystack cannot be reached, with a reason. The access fee is non-refundable once paid, so there is no refund action."
@@ -146,7 +146,7 @@ export default function CorpsPayments() {
       )}
 
       <form onSubmit={saveFee} className="card field">
-        <p className="text-sm text-ink-600">Access fee (one-time, per corps member)</p>
+        <p className="text-sm text-ink-600">Access fee (one-time, per NYSC AGROALLIED SAED member)</p>
         <div className="mt-2 flex flex-wrap items-end gap-2">
           <div>
             <label htmlFor="corps-fee" className="text-xs text-ink-600">Amount (₦)</label>

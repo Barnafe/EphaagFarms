@@ -32,7 +32,7 @@ export default function Poultry() {
             <li>• Vaccination and health checks on a fixed schedule, with a resident farm attendant per house.</li>
             <li>• Feed formulated for growth stage — starter, grower and finisher for broilers; layer mash for egg birds.</li>
             <li>• Biosecurity controls at every house entry point to limit disease spread across flocks.</li>
-            <li>• Output moves straight into the same supply pool as sourced produce, ready for Processor and Store handling.</li>
+            <li>• Output moves straight into the same supply pool as sourced produce, ready for processing and onward handling.</li>
           </ul>
         </div>
 

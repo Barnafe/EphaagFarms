@@ -15,7 +15,7 @@ import {
   ArrowUpCircle,
   CreditCard,
   ArrowLeftRight,
-  Undo2,
+  Undo2, MapPin, Send,
   Scale,
   Building2,
   BarChart3,
@@ -407,6 +407,14 @@ export default function AdminHub() {
                 <Link to="/admin/add-catalog" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
                   <PackagePlus size={20} className="text-canopy-300" />
                   <span className="text-xs text-white">Add catalog item</span>
+                </Link>
+                <Link to="/admin/payouts" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
+                  <Send size={20} className="text-canopy-300" />
+                  <span className="text-xs text-white">Payouts</span>
+                </Link>
+                <Link to="/admin/units" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
+                  <MapPin size={20} className="text-canopy-300" />
+                  <span className="text-xs text-white">Units &amp; identity</span>
                 </Link>
                 <Link to="/admin/refunds" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
                   <Undo2 size={20} className="text-canopy-300" />

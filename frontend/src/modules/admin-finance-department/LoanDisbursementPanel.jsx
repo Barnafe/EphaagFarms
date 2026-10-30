@@ -9,7 +9,7 @@ export default function LoanDisbursementPanel({ loans, onDisburse }) {
   return (
     <div className="card">
       <p className="text-sm text-ink-600">Loan disbursements</p>
-      <p className="mt-1 text-xs text-ink-600">Federal-approved loans awaiting funds release.</p>
+      <p className="mt-1 text-xs text-ink-600">3EI Governance-approved loans awaiting funds release.</p>
       <div className="mt-3 space-y-2">
         {approved.length === 0 && <p className="text-sm text-ink-600">Nothing awaiting disbursement.</p>}
         {approved.map((l) => (

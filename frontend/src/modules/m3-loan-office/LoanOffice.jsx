@@ -7,9 +7,10 @@ import BoostDepositPanel from "./BoostDepositPanel.jsx";
 import LoanStatusPanel from "./LoanStatusPanel.jsx";
 import RepaymentTracker from "./RepaymentTracker.jsx";
 import UnitLeaderReview from "./UnitLeaderReview.jsx";
-import FederalApproval from "./FederalApproval.jsx";
+import GovernanceApproval from "./GovernanceApproval.jsx";
 import SectionStack from "../../components/SectionStack.jsx";
 
+import { TOP_RANK_VALUE, rankLabel } from "../../utils/governance.js";
 // --- Backend → frontend shape mapping ------------------------------------
 
 function mapMyLoan(l) {
@@ -77,7 +78,7 @@ export default function LoanOffice() {
   const { session } = useAuth();
   const rank = session?.user?.rank || "Member";
   const isUnitLeader = rank === "Unit Leader";
-  const isFederal = rank === "Federal";
+  const isTopRank = rank === TOP_RANK_VALUE; // the 3EI Governance rank (stored as "Federal")
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -124,7 +125,7 @@ export default function LoanOffice() {
         const { loans: unitLoans } = await apiFetch("/loans/pending/my-unit");
         setPending(unitLoans.map(mapPendingApp));
       }
-      if (isFederal) {
+      if (isTopRank) {
         const { loans: recLoans } = await apiFetch("/loans/recommended");
         setRecommended(recLoans.map(mapRecommendedApp));
       }
@@ -133,7 +134,7 @@ export default function LoanOffice() {
     } finally {
       setLoading(false);
     }
-  }, [isUnitLeader, isFederal]);
+  }, [isUnitLeader, isTopRank]);
 
   useEffect(() => {
     loadAll();
@@ -174,13 +175,19 @@ export default function LoanOffice() {
     }
   }
 
-  async function handleLogRepayment({ amount, method }) {
+  async function handlePayRepayment(amount) {
     try {
-      await apiFetch(`/loans/${loan.id}/repayments`, {
-        method: "POST",
-        body: { amount, method },
-      });
-      await loadAll();
+      const r = await apiFetch(`/loans/${loan.id}/repay`, { method: "POST", body: { amount } });
+      window.location.assign(r.payment.authorizationUrl);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handlePayDeposit(id) {
+    try {
+      const r = await apiFetch(`/loans/boost-deposits/${id}/pay`, { method: "POST", body: {} });
+      window.location.assign(r.payment.authorizationUrl);
     } catch (err) {
       setError(err.message);
     }
@@ -199,7 +206,7 @@ export default function LoanOffice() {
     }
   }
 
-  async function handleFederalDecision(id, decision) {
+  async function handleGovernanceDecision(id, decision) {
     try {
       if (decision === "active") {
         await apiFetch(`/loans/${id}/approve`, { method: "POST" });
@@ -227,7 +234,7 @@ export default function LoanOffice() {
       <div>
         <p className="text-xs uppercase tracking-wide text-canopy-600">Module 3</p>
         <h1 className="text-xl font-medium text-ink-900">Loan Office</h1>
-        <p className="mt-1 text-sm text-ink-600">Signed in as {rank}.</p>
+        <p className="mt-1 text-sm text-ink-600">Signed in as {rankLabel(rank)}.</p>
       </div>
 
       {error && (
@@ -267,7 +274,7 @@ export default function LoanOffice() {
                 key: "boost",
                 label: "Boost deposit",
                 hidden: !canApply,
-                node: <BoostDepositPanel deposits={deposits} onDeclare={handleDeclareDeposit} />,
+                node: <BoostDepositPanel deposits={deposits} onDeclare={handleDeclareDeposit} onPay={handlePayDeposit} />,
               },
               {
                 key: "status",
@@ -279,7 +286,7 @@ export default function LoanOffice() {
                 key: "repayments",
                 label: "Repayments",
                 hidden: loan.status !== "active",
-                node: <RepaymentTracker loan={loan} onLogRepayment={handleLogRepayment} />,
+                node: <RepaymentTracker loan={loan} onPay={handlePayRepayment} />,
               },
               {
                 key: "unit-leader",
@@ -289,11 +296,11 @@ export default function LoanOffice() {
                 node: <UnitLeaderReview applications={pending} onRecommend={handleUnitLeaderDecision} />,
               },
               {
-                key: "federal",
-                label: "Federal approval",
+                key: "governance",
+                label: "3EI Governance approval",
                 badge: recommended.length,
-                hidden: !isFederal,
-                node: <FederalApproval applications={recommended} onDecide={handleFederalDecision} />,
+                hidden: !isTopRank,
+                node: <GovernanceApproval applications={recommended} onDecide={handleGovernanceDecision} />,
               },
             ]}
           />

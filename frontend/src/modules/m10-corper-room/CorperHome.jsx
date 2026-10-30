@@ -6,7 +6,7 @@ const batchLabel = (p) => (p?.serviceYear && p?.batch && p?.stream ? `${p.servic
 
 // Steps mirror the agreed flow: Register -> Pay -> Train -> Certificate.
 // Register and Pay are real (phase 3); training progress is real from
-// phase 4 (courses completed / live corps courses) and says "starts after
+// phase 4 (courses completed / live NYSC AGROALLIED SAED courses) and says "starts after
 // payment" until the access fee is confirmed (nothing counts before then).
 // The certificate is released when the admin marks the batch complete.
 export default function CorperHome({ user, bundle, onCourses, onGo, onOpenCourse }) {
@@ -75,7 +75,7 @@ export default function CorperHome({ user, bundle, onCourses, onGo, onOpenCourse
       <div>
         <h1 className="font-display text-2xl font-semibold text-ink-900 md:text-3xl">Welcome, {user.name}</h1>
         <p className="mt-1 text-sm text-ink-800">
-          {batchLabel(profile) ? `NYSC ${batchLabel(profile)}` : "Complete your NYSC details to get started"}
+          {batchLabel(profile) ? `NYSC AGROALLIED SAED ${batchLabel(profile)}` : "Complete your NYSC AGROALLIED SAED details to get started"}
           {profile.stateOfDeployment ? ` · ${profile.stateOfDeployment}` : ""}
         </p>
       </div>
@@ -150,7 +150,7 @@ export default function CorperHome({ user, bundle, onCourses, onGo, onOpenCourse
             <span className="text-sm font-semibold text-ink-900">{completion.percent}%</span>
           </div>
           <p className="mt-2 text-sm text-ink-800">
-            {completion.percent === 100 ? "Your profile is complete." : "A complete profile helps NYSC verify you for certification."}
+            {completion.percent === 100 ? "Your profile is complete." : "A complete profile helps NYSC AGROALLIED SAED verify you for certification."}
           </p>
           <button type="button" onClick={() => onGo("profile")} className="mt-4 h-11 rounded-card bg-[#2c6b2f] px-4 text-sm font-semibold text-white">
             {completion.percent === 100 ? "View profile" : "Complete my profile"}

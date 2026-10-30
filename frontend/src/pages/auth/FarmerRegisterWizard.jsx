@@ -5,6 +5,7 @@ import { apiFetch, apiUpload } from "../../api/client.js";
 import { NIGERIA_STATE_NAMES, lgasForState } from "../../data/nigeriaStatesLgas.js";
 import { wardsForLga } from "../../data/nigeriaWards.js";
 import PasswordInput from "../../components/PasswordInput.jsx";
+import { NinVerifyBox, GpsPin } from "../../modules/m2-farmer-room/IdentityParts.jsx";
 
 const MARITAL_STATUS_OPTIONS = [
   { value: "single", label: "Single" },
@@ -112,6 +113,11 @@ export default function FarmerRegisterWizard() {
     idType: "",
     idNumber: "",
     homeAddress: "",
+    permanentAddress: "",
+    community: "",
+    street: "",
+    lat: null,
+    lng: null,
     nationality: "Nigerian",
     state: "",
     lga: "",
@@ -134,6 +140,8 @@ export default function FarmerRegisterWizard() {
     password: "",
     referralCode: "",
   });
+  const [idPhase, setIdPhase] = useState(false); // step 0 has two parts: the welcome, then the NIN check
+  const [nimc, setNimc] = useState(null); // { token, identity } once the NIN is verified
   const [selectedCrops, setSelectedCrops] = useState([]);
   const [photoFile, setPhotoFile] = useState(null);
   const [referrer, setReferrer] = useState(null);
@@ -184,9 +192,9 @@ export default function FarmerRegisterWizard() {
         return "Please fill in your name, gender, marital status, and date of birth.";
       }
       if (age === null) return "Please enter a valid date of birth.";
-      if (!form.homeAddress || !form.nationality) return "Please fill in your home address and nationality.";
-      if (!form.state || !form.lga || !form.ward || !form.unit) {
-        return "Please select your state, LGA, ward, and enter your unit.";
+      if (!form.homeAddress || !form.nationality) return "Please fill in your residential address and nationality.";
+      if (!form.state || !form.lga || !form.ward) {
+        return "Please select your state, LGA and ward.";
       }
       if (!form.email && !form.phone) return "Enter at least a phone number or an email.";
     }
@@ -242,6 +250,12 @@ export default function FarmerRegisterWizard() {
         role_type: "farmer",
         name: form.name,
         sex: form.gender,
+        ninToken: nimc?.token || undefined,
+        permanentAddress: nimc ? undefined : form.permanentAddress || undefined,
+        community: form.community || undefined,
+        street: form.street || undefined,
+        lat: form.lat ?? undefined,
+        lng: form.lng ?? undefined,
         maritalStatus: form.maritalStatus,
         dateOfBirth: form.dob,
         phone: form.phone || undefined,
@@ -253,7 +267,6 @@ export default function FarmerRegisterWizard() {
         state: form.state,
         lga: form.lga,
         ward: form.ward,
-        unit: form.unit,
         farmType: form.farmType,
         farmSize: form.farmSize,
         yearsExperience: form.yearsExperience,
@@ -325,14 +338,40 @@ export default function FarmerRegisterWizard() {
             />
             I understand and agree to provide accurate information.
           </label>
-          <button
-            type="button"
-            className="btn-primary w-full"
-            disabled={!agreed}
-            onClick={() => setStep(1)}
-          >
-            Continue
-          </button>
+          {!idPhase && (
+            <button type="button" className="btn-primary w-full" disabled={!agreed} onClick={() => setIdPhase(true)}>
+              Continue
+            </button>
+          )}
+          {idPhase && !nimc && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-ink-900">Verify your identity</p>
+              <p className="text-xs text-ink-600">Enter your NIN and we fetch your name, date of birth, gender and permanent address from NIMC, so you do not have to type them. Verified members can use every EPHAAG feature.</p>
+              <NinVerifyBox
+                endpoint="/auth/verify-nin" auth={false}
+                onVerified={(r) => {
+                  setNimc({ token: r.token, identity: r.identity, last4: r.ninLast4 });
+                  setForm((f) => ({ ...f, name: r.identity.fullName, gender: r.identity.gender || f.gender, dob: r.identity.dateOfBirth, permanentAddress: r.identity.permanentAddress || "" }));
+                }}
+              />
+              <button type="button" className="w-full text-xs text-ink-600 underline" onClick={() => { setError(""); setStep(1); }}>
+                I do not have my NIN now: continue without it
+              </button>
+              <p className="text-xs text-ink-500">Without a verified NIN you can still register and use the basic features. Loans, savings withdrawals and shares unlock once you verify your NIN.</p>
+            </div>
+          )}
+          {idPhase && nimc && (
+            <div className="space-y-3">
+              <div className="rounded-card border border-canopy-200 bg-canopy-50 p-3 text-sm text-ink-900" role="status">
+                <p className="font-medium">NIN verified (ending {nimc.last4})</p>
+                <p className="mt-1">{nimc.identity.fullName}</p>
+                <p className="text-xs text-ink-600">Born {nimc.identity.dateOfBirth} · {nimc.identity.gender || "—"}</p>
+                {nimc.identity.permanentAddress && <p className="text-xs text-ink-600">{nimc.identity.permanentAddress}</p>}
+                <p className="mt-1 text-xs text-ink-600">These details come from NIMC and cannot be changed.</p>
+              </div>
+              <button type="button" className="btn-primary w-full" onClick={() => setStep(1)}>Continue</button>
+            </div>
+          )}
         </div>
       )}
 
@@ -340,12 +379,12 @@ export default function FarmerRegisterWizard() {
         <div className="field mt-6 space-y-4">
           <div>
             <label>Full name</label>
-            <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Full name" />
+            <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Full name" readOnly={!!nimc} className={nimc ? "bg-soil-100" : ""} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label>Gender</label>
-              <select value={form.gender} onChange={(e) => set("gender", e.target.value)}>
+              <select value={form.gender} onChange={(e) => set("gender", e.target.value)} disabled={!!nimc && !!nimc.identity.gender}>
                 <option value="">Select gender</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
@@ -364,7 +403,7 @@ export default function FarmerRegisterWizard() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label>Date of birth</label>
-              <input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)} />
+              <input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)} readOnly={!!nimc} className={nimc ? "bg-soil-100" : ""} />
             </div>
             <div>
               <label>Age</label>
@@ -391,6 +430,7 @@ export default function FarmerRegisterWizard() {
               />
             </div>
           </div>
+          {!nimc && (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label>Means of identification (optional)</label>
@@ -406,12 +446,24 @@ export default function FarmerRegisterWizard() {
               <input value={form.idNumber} onChange={(e) => set("idNumber", e.target.value)} placeholder="ID number" />
             </div>
           </div>
+          )}
+          {nimc ? (
+            <div>
+              <label>Permanent address (from NIMC)</label>
+              <input value={form.permanentAddress} readOnly className="bg-soil-100" />
+            </div>
+          ) : (
+            <div>
+              <label>Permanent address (optional)</label>
+              <input value={form.permanentAddress} onChange={(e) => set("permanentAddress", e.target.value)} placeholder="Your permanent home address" />
+            </div>
+          )}
           <div>
-            <label>Home address</label>
+            <label>Residential address (where you live now)</label>
             <input
               value={form.homeAddress}
               onChange={(e) => set("homeAddress", e.target.value)}
-              placeholder="Full home address"
+              placeholder="House number and street where you live now"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -472,14 +524,18 @@ export default function FarmerRegisterWizard() {
               )}
             </div>
           </div>
-          <div>
-            <label>Unit</label>
-            <input
-              value={form.unit}
-              onChange={(e) => set("unit", e.target.value)}
-              placeholder="Your nearest EPHAAG unit, or your geopolitical unit if none is planted near you yet"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label>Community / village</label>
+              <input value={form.community} onChange={(e) => set("community", e.target.value)} placeholder="e.g. Tudun Wada" />
+            </div>
+            <div>
+              <label>Street</label>
+              <input value={form.street} onChange={(e) => set("street", e.target.value)} placeholder="Street or landmark" />
+            </div>
           </div>
+          <GpsPin lat={form.lat} lng={form.lng} onChange={(la, ln) => setForm((f) => ({ ...f, lat: la, lng: ln }))} />
+          <p className="text-xs text-ink-600">Your EPHAAG unit is found automatically from where you live. If you move, update your residential address in your profile and your unit changes by itself.</p>
         </div>
       )}
 

@@ -50,7 +50,7 @@ export default function ProduceSourcingRoom() {
           <ul className="mt-3 space-y-2 text-sm text-ink-600">
             <li>• Local reps in every region match buyer orders to nearby farmers by crop and location.</li>
             <li>• A single order can be split across multiple farmers if that's what it takes to fill it.</li>
-            <li>• Every order also passes through processing before it reaches Store and Transport — see Logistics & tracking for what happens next.</li>
+            <li>• Every order also passes through processing before it moves on to delivery — see Logistics & tracking for what happens next.</li>
           </ul>
         </div>
 

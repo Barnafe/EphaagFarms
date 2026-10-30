@@ -81,11 +81,8 @@ export default function SavingsPanel() {
     setSubmitting(true);
     setError(null);
     try {
-      await apiFetch("/farmers/me/savings/deposit", { method: "POST", body: { amount: amt } });
-      setShowChoices(false);
-      setChoice("");
-      setCustomAmount("");
-      await load();
+      const r = await apiFetch("/farmers/me/savings/deposit", { method: "POST", body: { amount: amt } });
+      window.location.assign(r.payment.authorizationUrl); // Paystack adds its fee; the deposit is recorded when it confirms
     } catch (err) {
       setError(err.message);
     } finally {
@@ -218,7 +215,7 @@ export default function SavingsPanel() {
                 disabled={!resolvedAmount() || submitting}
                 onClick={handleDeposit}
               >
-                {submitting ? "Saving…" : "Submit"}
+                {submitting ? "Opening Paystack…" : "Pay with Paystack"}
               </button>
             </div>
             {data && !data.depositWindowOpen && (

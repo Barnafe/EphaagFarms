@@ -4,7 +4,7 @@ import { BOOST_TIERS, BOOST_MONTHS, naira } from "../../data/financingBanner.js"
 // LT2 Business Boost — pick one of the banner's four loan sizes; the 25%
 // deposit follows from it (12,500 -> 50,000, 25,000 -> 100,000,
 // 50,000 -> 200,000, 75,000 -> 300,000).
-export default function BoostDepositPanel({ deposits, onDeclare }) {
+export default function BoostDepositPanel({ deposits, onDeclare, onPay }) {
   const [loanAmount, setLoanAmount] = useState(BOOST_TIERS[0].loan);
   const [submitting, setSubmitting] = useState(false);
   const tier = BOOST_TIERS.find((t) => t.loan === Number(loanAmount)) || BOOST_TIERS[0];
@@ -54,12 +54,17 @@ export default function BoostDepositPanel({ deposits, onDeclare }) {
               <p className="text-xs text-ink-600">
                 {d.usedForLoanId
                   ? "Already used for a loan application"
+                  : !d.paidAt
+                  ? "Not paid yet: pay the deposit to start the one-month wait"
                   : !d.verifiedAt
-                  ? "Awaiting Finance verification"
+                  ? "Payment received"
                   : d.isEligible
                   ? "Verified — usable now"
                   : `Verified — usable from ${d.eligibleFrom ? new Date(d.eligibleFrom).toLocaleDateString() : "—"}`}
               </p>
+              {!d.paidAt && !d.usedForLoanId && (
+                <button type="button" className="btn-primary mt-2" onClick={() => onPay(d.id)}>Pay {naira(d.depositAmount)} with Paystack</button>
+              )}
             </div>
           ))}
         </div>

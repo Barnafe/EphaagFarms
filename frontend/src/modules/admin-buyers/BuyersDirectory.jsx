@@ -45,9 +45,9 @@ export default function BuyersDirectory() {
       <div className="max-w-4xl space-y-6">
         <div>
           <p className="text-xs uppercase tracking-wide text-canopy-300">Admin</p>
-          <h1 className="text-xl font-medium text-white">Buyers</h1>
+          <h1 className="text-xl font-medium text-white">Buyers/Processor</h1>
           <p className="mt-1 text-sm text-canopy-100">
-            Every registered buyer — individuals and organizations — with their full registration
+            Every registered Buyers/Processor account — individuals and organizations — with their full registration
             details.
           </p>
         </div>
@@ -76,7 +76,7 @@ export default function BuyersDirectory() {
             </p>
             <div className="mt-3 space-y-2">
               {visible.length === 0 && (
-                <p className="py-4 text-center text-sm text-ink-600">No buyers match that search.</p>
+                <p className="py-4 text-center text-sm text-ink-600">No Buyers/Processor accounts match that search.</p>
               )}
               {visible.map((b) => (
                 <div key={b.id} className="rounded-card border border-soil-200 px-3 py-3">

@@ -24,7 +24,7 @@ const TABS = [
     ],
   },
   {
-    key: "nysc", label: "NYSC Details",
+    key: "nysc", label: "NYSC AGROALLIED SAED Details",
     fields: [
       { name: "callUpNumber", label: "Call-up number", type: "text" },
       { name: "stateCode", label: "State code", type: "text" },
@@ -69,7 +69,7 @@ const TABS = [
     fields: [
       { name: "_photo", label: "Passport photograph", type: "photo", full: true },
       { name: "consentTerms", label: "I agree to the programme terms and conditions (required)", type: "yesno", full: true },
-      { name: "consentData", label: "I consent to my details being shared with NYSC for certification (required)", type: "yesno", full: true },
+      { name: "consentData", label: "I consent to my details being shared with NYSC AGROALLIED SAED for certification (required)", type: "yesno", full: true },
       { name: "consentMedia", label: "I authorise use of my media in programme-related content", type: "yesno", full: true },
       { name: "alumniInterest", label: "I would like to join the alumni network after the programme", type: "yesno", full: true },
     ],

@@ -3,7 +3,10 @@ import { LayoutDashboard, User, PackagePlus, Receipt, GraduationCap, Landmark, P
 import { apiFetch } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import DashboardShell from "../../components/DashboardShell.jsx";
-import FarmerProfileCard from "./FarmerProfileCard.jsx";
+import MyProfilePanel from "./MyProfilePanel.jsx";
+import ProfileBanner from "./ProfileBanner.jsx";
+import PaymentReturnBanner from "./PaymentReturnBanner.jsx";
+import BankAccountCard from "../../components/BankAccountCard.jsx";
 import JurisdictionOverview from "./JurisdictionOverview.jsx";
 import JurisdictionReport from "./JurisdictionReport.jsx";
 import AttendanceMarker from "./AttendanceMarker.jsx";
@@ -20,18 +23,20 @@ import CompanyGrowthChart from "./CompanyGrowthChart.jsx";
 import FeedbackPanel from "./FeedbackPanel.jsx";
 import ReferralPanel from "./ReferralPanel.jsx";
 import CreateUnitPanel from "./CreateUnitPanel.jsx";
+import UnitLocationPanel from "./UnitLocationPanel.jsx";
 import FarmerProfileReportModal from "./FarmerProfileReportModal.jsx";
 import LoanOffice from "../m3-loan-office/LoanOffice.jsx";
 import SectionStack from "../../components/SectionStack.jsx";
 
 import useUrlState from "../../hooks/useUrlState.js";
+import { TOP_RANK_VALUE, rankLabel } from "../../utils/governance.js";
 function honorific(user) {
   if (user.sex === "male") return "Mr";
   if (user.sex === "female") return user.maritalStatus === "married" ? "Mrs" : "Miss";
   return "";
 }
 
-const RANKS_ABOVE_MEMBER = ["Unit Leader", "Ward Leader", "LGA Coordinator", "State Coordinator", "Federal"];
+const RANKS_ABOVE_MEMBER = ["Unit Leader", "Ward Leader", "LGA Coordinator", "State Coordinator", TOP_RANK_VALUE];
 
 function mapLoanStatus(loans) {
   const active = loans.find((l) => l.status === "disbursed");
@@ -49,7 +54,8 @@ function mapJurisdictionFarmer(f) {
 }
 
 export default function FarmerRoom() {
-  const { session, refreshSession } = useAuth();
+  const { session } = useAuth();
+  const [refreshKey, setRefreshKey] = useState(0);
   const user = session?.user;
   const rank = user?.rank || "Member";
   const isLeader = RANKS_ABOVE_MEMBER.includes(rank);
@@ -92,24 +98,7 @@ export default function FarmerRoom() {
     loadAll();
   }, [loadAll]);
 
-  async function handleProfileSave({ crops, state, lga, ward, unit }) {
-    try {
-      await apiFetch("/farmers/me", { method: "PUT", body: { crops, state, lga, ward, unit } });
-      await refreshSession();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
   if (!user) return null;
-
-  const profile = {
-    crops: user.crops || [],
-    state: user.state,
-    lga: user.lga,
-    ward: user.ward,
-    unit: user.unit,
-  };
 
   const items = [
     { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -128,6 +117,9 @@ export default function FarmerRoom() {
 
   return (
     <DashboardShell items={items} activeKey={tab} onSelect={setTab}>
+      <PaymentReturnBanner onSettled={() => setRefreshKey((k) => k + 1)} />
+      {tab !== "profile" && <ProfileBanner status={user.profileStatus} onOpenProfile={() => setTab("profile")} />}
+
       {error && (
         <div className="card mb-6 border-red-200 bg-red-50">
           <p className="text-sm text-red-700">{error}</p>
@@ -152,7 +144,7 @@ export default function FarmerRoom() {
                 node: (
                   <div className="card">
                     <p className="text-sm text-ink-600">Your rank</p>
-                    <p className="text-lg font-medium text-canopy-800">{rank}</p>
+                    <p className="text-lg font-medium text-canopy-800">{rankLabel(rank)}</p>
                   </div>
                 ),
               },
@@ -163,7 +155,7 @@ export default function FarmerRoom() {
         </div>
       )}
 
-      {tab === "profile" && <FarmerProfileCard profile={profile} onSave={handleProfileSave} />}
+      {tab === "profile" && (<><MyProfilePanel /><div className="mt-4"><BankAccountCard /></div></>)}
 
       {tab === "list-product" && (
         <SectionStack
@@ -229,6 +221,7 @@ export default function FarmerRoom() {
             { key: "recommend", label: "Recommend a farmer for a loan", node: <RecommendationTool farmers={jurisdictionFarmers} /> },
             { key: "attendance", label: "Mark attendance", node: <AttendanceMarker farmers={jurisdictionFarmers} onRecorded={loadAll} /> },
             { key: "report", label: "Jurisdiction report", node: <JurisdictionReport /> },
+            { key: "unit-location", label: "My unit's location", hidden: rank !== "Unit Leader", node: <UnitLocationPanel /> },
             { key: "create-unit", label: "Create a unit", hidden: rank !== "Unit Leader", node: <CreateUnitPanel /> },
           ]}
         />

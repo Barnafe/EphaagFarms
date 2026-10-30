@@ -19,11 +19,12 @@ admin side that oversees all of them.
 - **Farmer** (`m2-farmer-room`) — declare produce, see standardized prices,
   make savings deposits, apply for loans, track farm-share investment,
   attend training courses, send feedback to admin, view payment history.
-- **Buyer** (`m4-buyer-room`) — a Jumia/Temu-style shopping flow: browse the
-  product catalog (real photos when an admin has added one, an emoji icon
-  fallback otherwise), add to cart, check out, track orders.
-- **Processor** (`m6-processor-room`) — orders land here before moving to
-  transport.
+- **Buyers/Processor** (`m4-buyer-room`) — one profile for buying and processing.
+  A Jumia/Temu-style shopping flow: browse the product catalog (real photos
+  when an admin has added one, an emoji icon fallback otherwise), add to cart,
+  check out, track orders — plus a **Processing jobs** tab where processing
+  jobs assigned by Procurement are worked before orders move on to transport.
+  (There is no separate Processor profile; `m6-processor-room` was removed.)
 - **Transporter** (`m7-transporter-room`) — jobs assigned by the Transport
   department; generates shipment documents.
 - **Distributor / Store room** (`m8-store-room`) — orders allocated by the
@@ -403,8 +404,8 @@ Deleted all throwaway test scripts (`merge_v22_test.py`,
 `store_test_sandbox.py`, sandbox `.env`) and cleaned `node_modules`/
 `dist`/`__pycache__` before zipping. Delivered as Ephaag-farms-v22.zip.
 
-## v24 — Corps member (NYSC) portal, phase 1: role, registration, login, dashboard, profile — 2026-10-20
-NYSC has partnered with EPHAAG to train corps members. This is phase 1 of 6;
+## v24 — NYSC AGROALLIED SAED member (NYSC) portal, phase 1: role, registration, login, dashboard, profile — 2026-10-20
+NYSC has partnered with EPHAAG to train NYSC AGROALLIED SAED members. This is phase 1 of 6;
 the agreed rules for the later phases are recorded here so nobody has to
 re-derive them.
 
@@ -419,13 +420,13 @@ re-derive them.
   Corps content is separate from the general (free) farmer courses — the existing
   farmer endpoints (`rtc` `myCourses` etc.) must filter to `audience='general'`.
 - Each course has its own quiz and its own score out of 100 (score only matters at
-  course level). **Dashboard % = courses completed / total corps courses** (5 courses:
+  course level). **Dashboard % = courses completed / total NYSC AGROALLIED SAED courses** (5 courses:
   each = 20%), regardless of quiz score. Nothing counts before payment.
 - Certificate: one general EPHAAG certificate for everybody (personal details only —
   no grades, no course names). Issued automatically when a member completes everything
   but hidden until the batch due date; admin then marks the batch complete, making it
   visible to every completed member of that batch and emailing them. Admin can export
-  all registered corps members' data to send to NYSC for NYSC's own certification.
+  all registered NYSC AGROALLIED SAED members' data to send to NYSC for NYSC's own certification.
 
 **Built in phase 1**
 - DB (`001_init.sql` §21): `users.role_type` now allows `'corper'` (self-healing
@@ -450,24 +451,24 @@ progress %, batches/due dates, certificate + verify page + emails, NYSC export, 
 (needs persistent file storage — Render's free-tier disk is wiped on redeploy), universal
 Referral tab for corpers.
 
-## v25 — Corps member portal, phase 2: Corps / General training, lessons & quiz (admin side) — 2026-10-21
+## v25 — NYSC AGROALLIED SAED member portal, phase 2: Corps / General training, lessons & quiz (admin side) — 2026-10-21
 **Rule:** every course/training the admin creates in TRC → Training now has an **audience**:
 `general` (the existing free farmer "Seminar" courses — every course that existed before this
-version is general) or `corps` (NYSC corps member training). Corps content is completely separate:
+version is general) or `corps` (NYSC AGROALLIED SAED member training). Corps content is completely separate:
 farmers never see it (`myCourses`, `completeCourse`, material download and the farmer `course_pct`
-all filter to `audience = 'general'`), and corps members cannot use the farmer endpoints.
+all filter to `audience = 'general'`), and NYSC AGROALLIED SAED members cannot use the farmer endpoints.
 
 **DB (`001_init.sql` §22):** `courses.audience` (`general`|`corps`, default `general`, self-healing
 check constraint); `course_lessons` (ordered; kind `video` link | `document` upload | `live` link + date);
 `course_quiz_questions` + `course_quiz_options` (multiple choice, exactly one correct option).
 
 **Admin API (all admin-only, `routes/rtc.js` → `trainingContentController.js`):**
-`POST /rtc/admin/courses` takes `audience` (a corps course ignores material/link/schedule);
+`POST /rtc/admin/courses` takes `audience` (a NYSC AGROALLIED SAED course ignores material/link/schedule);
 `GET /rtc/admin/courses?audience=general|corps|all` (adds lesson/question counts);
 `GET /rtc/admin/courses/:id/content`; lessons: `POST|PUT|DELETE .../lessons[/:lessonId]`,
 `POST .../lessons/:lessonId/move {direction:"up"|"down"}`, `GET /rtc/admin/lessons/:lessonId/file`;
 quiz: `POST|PUT|DELETE .../questions[/:questionId]`. Lesson/question changes are serialised per
-course (row lock) so positions stay unique and contiguous. Links must be http(s). **A corps course
+course (row lock) so positions stay unique and contiguous. Links must be http(s). **A NYSC AGROALLIED SAED course
 can only be approved once it has at least one lesson and one quiz question.** The dashboard summary
 gained `corpsApprovedCourses` / `corpsDraftCourses` (the general counts mean what they always did).
 
@@ -490,13 +491,13 @@ verify page + emails, NYSC export, CV upload (needs persistent storage), Referra
 Note for the learning phase: quiz attempts must snapshot answers (editing a question replaces its options).
 
 
-## Corps access-fee payments (phase 3, 2026-10-21)
+## NYSC AGROALLIED SAED access-fee payments (phase 3, 2026-10-21)
 
 See `docs/CHANGES_2026-10-21_phase3_payment_gate.md` for the full write-up.
-In short: corps members pay a one-time fee (set by admin in TRC -> Corps, stored
+In short: NYSC AGROALLIED SAED members pay a one-time fee (set by admin in TRC -> Corps, stored
 in `finance_settings`) via Paystack, or an admin confirms by hand when Paystack
 isn't connected. `confirmPayment()` is the only place a payment becomes "paid";
-it also posts the income to Finance. Every endpoint that opens corps training
+it also posts the income to Finance. Every endpoint that opens NYSC AGROALLIED SAED training
 must sit behind `requireCorperPaid` (HTTP 402 `PAYMENT_REQUIRED`).
 
 
@@ -504,7 +505,7 @@ must sit behind `requireCorperPaid` (HTTP 402 `PAYMENT_REQUIRED`).
 
 Full write-up: `docs/CHANGES_2026-10-21_phase4_learning.md`. Rules in short:
 
-- **Dashboard % = courses completed / live corps courses** (live = `audience='corps' AND approved`). 5 courses ->
+- **Dashboard % = courses completed / live NYSC AGROALLIED SAED courses** (live = `audience='corps' AND approved`). 5 courses ->
   each is 20%. Quiz score never changes it.
 - **A course is complete when every lesson is marked done AND the quiz has been submitted at least once.**
   `corper_course_progress.completed_at` is set once and never cleared (later edits/deletes don't undo it).
@@ -523,7 +524,7 @@ Full write-up: `docs/CHANGES_2026-10-21_phase4_learning.md`. Rules in short:
   member's course progress lock their `corper_course_progress` row first.
 - Honour system: videos and live sessions are on other sites, so "Mark complete" can't be verified. If NYSC
   needs proof of attendance, add admin-marked attendance for live sessions.
-- Admin approving a corps course when members already have progress gets 409 `APPROVAL_IMPACT` and must
+- Admin approving a NYSC AGROALLIED SAED course when members already have progress gets 409 `APPROVAL_IMPACT` and must
   resend with `confirmImpact: true` (the screen shows a confirm box). The error handler now passes
   `httpError(msg, status, clientCode, details)` through as `code` / `details`.
 - Tests: `npm run test:unit -w backend` (no database) and `python3 backend/corps_learning_test.py` (live API).
@@ -562,3 +563,21 @@ Files only v35 changed (backend, payments, Refund room, PayPanel, late-fee UI, t
 - `InvestorRoom.jsx` — my dropdown around v35's new `PaymentLog` props (`onChanged`, `onError`), v35's PayPanel and return handling (now cleared through the router).
 - `AdminHub.jsx`, `CorperRoom.jsx`, `FarmShareCard.jsx` — merged cleanly; v35's Refund-room quick action, corper payment notices and late-fee box are all kept.
 Also: `RefundRoomPage.jsx` tabs use URL state; `e2e/tests/journeys.spec.js` selects "Farm shares" in the dropdown before the farmer share steps.
+
+
+## v37 — naming and structure decisions (strictly requested by the owner)
+
+See the table at the top of `README.md`. Implementation notes:
+- **NYSC AGROALLIED SAED** replaces every visible NYSC / corps / corp-member label (frontend, API messages, emails, spreadsheet export and file name, charts via `utils/roleLabels.js`). Internal names (`corper` role, `/api/corpers`, `corper_*` tables, `audience = 'corps'`) are unchanged on purpose.
+- **3EI Governance model** replaces "Federal"/"top to bottom" wording. `utils/governance.js` (frontend and backend) maps the stored top-rank value `Federal` to the label "3EI Governance"; `GovernanceApproval.jsx` is the renamed approval screen; the loan route guards still check the stored value, so permissions are untouched.
+- **Processor profile removed.** No processor registration (the API refuses it), no Processor room or route (`/dashboard/processor` redirects to the buyer room). The buyer profile is shown as **Buyers/Processor**; Procurement assigns processing jobs to Buyers/Processor accounts (`GET /api/procurement/processors` now lists buyer accounts), who work them in the new **Processing jobs** tab of the Buyers/Processor room (`/api/processor/jobs` is open to the buyer role). The migration `backend/src/db/migrations/009_buyers_processor_profile.sql` converts any existing processor account into a Buyers/Processor account (idempotent).
+- **Departments are internal.** Removed from the public Home stats and from the public logistics / service pages.
+- `e2e` journeys and `backend/store_test.py` were updated for the above.
+
+
+## v38 — merge of v37 with Phase 5 + Phase 8, processing to any buyer, admin management
+
+- **Merge:** v37 (usability dropdowns, naming) + the Phase 8 (farmer NIN identity, unit locations) and Phase 5 (Paystack money-in, automatic payouts, bank accounts, late penalties) build. See `PHASE5-MONEY-FLOWS.md`, `PHASE8-FARMER-IDENTITY.md` and `HANDOVER.md`. Finance Department's Loans tab now lists Recommend / Verify / Approve plus a "Payouts & repayments" note (loans are paid out by Paystack on final approval); the Settlements tab is a note too (farmers are paid automatically).
+- **Processing assignment:** Procurement can assign processing to any buyer account. A buyer is a buyer: no organization / individual or processor / consumer split.
+- **Admins:** Admin is not on the Register page and the API refuses it. One **main admin** (the seeded one, flagged `users.is_main_admin`, unique in the database) adds and removes other admins from Admin -> Positions -> Admins. Promoting converts an existing account to admin and remembers the old role (`users.previous_role_type`); removing restores it, or locks the account if there was none. The person's sessions end on both changes. All other admins keep every other admin feature, including making department heads. The main admin cannot be removed or remove itself. Every change is written to the Positions history.
+

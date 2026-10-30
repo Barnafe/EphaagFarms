@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
 import PasswordInput from "../../components/PasswordInput.jsx";
 
@@ -59,9 +59,8 @@ export default function LoginAdmin() {
         </button>
       </form>
       <p className="mt-4 text-xs text-ink-600">
-        No admin account yet? <Link to="/register" className="text-canopy-800">Register</Link> with
-        the "Admin" account type (you'll need the setup code), or run{" "}
-        <code>npm run seed:admin -w backend</code> from the project root.
+        Admin accounts are not created on the Register page. The main admin is created with{" "}
+        <code>npm run seed:admin -w backend</code> and adds other admins from Admin → Positions.
       </p>
     </div>
   );

@@ -9,16 +9,13 @@ import CorperRegisterWizard from "./CorperRegisterWizard.jsx";
 
 // Transporter and Distributor are deliberately NOT self-service roles —
 // the Transport Department now owns dispatch and driver/distributor
-// assignment internally. Admin IS self-service, gated by a setup code
-// (see the admin-only field below) rather than requiring a seed script —
-// simpler for the team while still not being a wide-open hole.
+// assignment internally. Admin is not self-service either: the main admin
+// is seeded, and the main admin promotes existing accounts from Positions.
 const roleOptions = [
   { value: "farmer", label: "Farmer" },
-  { value: "corper", label: "Corp member (NYSC)" },
-  { value: "buyer", label: "Buyer" },
-  { value: "processor", label: "Processor" },
+  { value: "corper", label: "NYSC AGROALLIED SAED" },
+  { value: "buyer", label: "Buyers/Processor" },
   { value: "investor", label: "Investor" },
-  { value: "admin", label: "Admin (internal team only)" },
 ];
 
 // Farmer registration is now its own dedicated wizard (FarmerRegisterWizard,
@@ -72,7 +69,6 @@ export default function Register() {
   const [lga, setLga] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [showSetupCode, setShowSetupCode] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -102,7 +98,7 @@ export default function Register() {
         }
       }
 
-      navigate(role === "admin" ? "/admin" : `/dashboard/${role}`);
+      navigate(`/dashboard/${role}`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -195,35 +191,7 @@ export default function Register() {
           </p>
         </div>
 
-        {role === "admin" ? (
-          <div>
-            <label>Admin setup code</label>
-            <div className="flex gap-2">
-              <input
-                name="setupCode"
-                type={showSetupCode ? "text" : "password"}
-                required
-                placeholder="Provided by the team"
-                autoComplete="off"
-                className="flex-1"
-              />
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={() => setShowSetupCode((v) => !v)}
-              >
-                {showSetupCode ? "Hide" : "Show"}
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-ink-600">
-              Ask whoever manages the platform for this code — it's not public. Use Show to check
-              exactly what you typed if it keeps failing (autofill sometimes fills in the wrong
-              thing here).
-            </p>
-          </div>
-        ) : (
-          <LocationFields state={state} setState={setState} lga={lga} setLga={setLga} />
-        )}
+        <LocationFields state={state} setState={setState} lga={lga} setLga={setLga} />
 
         {role === "buyer" && buyerType === "organization" && (
           <div>
@@ -244,13 +212,6 @@ export default function Register() {
             <p className="mt-1 text-xs text-ink-600">
               You can add exact directions or a landmark per order later — this is your default.
             </p>
-          </div>
-        )}
-
-        {role === "processor" && (
-          <div>
-            <label>Business registration document</label>
-            <input name="businessDoc" type="file" />
           </div>
         )}
 

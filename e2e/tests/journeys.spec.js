@@ -31,7 +31,145 @@ test("wrong password shows the same message every time", async ({ page }) => {
   await expect(page.getByText(/invalid email or password/i)).toBeVisible();
 });
 
-test.fixme("1 farmer registers with NIN verification, then blocked and unblocked features (needs phase 8) @phone", async () => {});
+const fld = (page, label) => page.locator("div", { has: page.locator(`label:text-is("${label}")`) }).last().locator("input, select").first();
+const consentBox = (page) => page.getByRole("checkbox", { name: /agree that ephaag may check my nin/i });
+async function setWard(page, text) {
+  const el = fld(page, "Ward");
+  if ((await el.evaluate((n) => n.tagName)) === "SELECT") { await el.selectOption({ index: 1 }); return el.evaluate((n) => n.value); }
+  await el.fill(text); return text;
+}
+async function setGate(request, on) {
+  const adm = (await (await request.post("/api/auth/login", { data: { email: "admin@ephaag.test", password: "Admin1234" } })).json()).token;
+  const r = await request.put("/api/farmers/admin/identity-settings", { headers: { Authorization: `Bearer ${adm}` }, data: { gateEnabled: on } });
+  expect(r.status()).toBe(200);
+}
+
+test("admin is not offered on the Register page, and the main admin sees the Admins section in Positions @phone", async ({ page }) => {
+  await page.goto("/register");
+  const options = await page.locator("select").first().locator("option").allTextContents();
+  expect(options.join("|").toLowerCase()).not.toContain("admin");
+  await page.goto("/login/admin");
+  await page.locator("form input").first().fill("admin@ephaag.test");
+  await page.locator("input[type=password]").first().fill("Admin1234");
+  await page.getByRole("button", { name: /log ?in|sign ?in/i }).click();
+  await expect(page).toHaveURL(/admin/);
+  await page.goto("/admin/positions?tab=admins");
+  await expect(page.getByText("Main admin").first()).toBeVisible();
+  await expect(page.getByLabel(/find an account to make admin/i)).toBeVisible();
+});
+
+test("1 farmer registers with NIN verification: NIMC details are filled in and locked, the unit comes from the address, nothing is blocked @phone", async ({ page, request }) => {
+  const stamp = String(Date.now()).slice(-6);
+  const area = { state: "Gombe", lga: "Akko", ward: "" };
+  await setGate(request, true);
+  try {
+    await page.goto("/register");
+    await page.locator("select").first().selectOption({ label: "Farmer" }).catch(() => {});
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: /^continue$/i }).click();
+
+    await page.getByLabel(/national identification number/i).fill(`7${stamp}0001`.slice(0, 11));
+    await page.getByRole("button", { name: /verify my nin/i }).click();
+    await expect(page.getByText(/agree that ephaag may check/i).first()).toBeVisible();
+    await expect(page.getByText(/tick the box/i)).toBeVisible();
+    await consentBox(page).check();
+    await page.getByRole("button", { name: /verify my nin/i }).click();
+    await expect(page.getByText(/nin verified \(ending/i)).toBeVisible();
+    await expect(page.getByText(/come from nimc and cannot be changed/i)).toBeVisible();
+    await page.getByRole("button", { name: /^continue$/i }).click();
+
+    await expect(fld(page, "Full name")).toHaveAttribute("readonly", "");
+    await expect(fld(page, "Full name")).toHaveValue(/Tester/);
+    await fld(page, "Marital status").selectOption("married");
+    await fld(page, "Phone number").fill(`0803${stamp}9`.slice(0, 11));
+    await fld(page, "Residential address (where you live now)").fill("4 Kasuwa Road");
+    await fld(page, "State").selectOption(area.state);
+    await fld(page, "Local Government").selectOption(area.lga);
+    area.ward = await setWard(page, `Ward E${stamp}`);
+    await sql("INSERT INTO unit_catalog (name, state, lga, ward, lat, lng, communities) VALUES ($1,$2,$3,$4,10.29,11.17,$5)", [`Kasuwa Unit ${stamp}`, area.state, area.lga, area.ward, [`Kasuwa${stamp}`]]);
+    await fld(page, "Community / village").fill(`Kasuwa${stamp}`);
+    await expect(page.getByText(/unit is found automatically/i)).toBeVisible();
+    await page.getByRole("button", { name: /^continue$/i }).click();
+
+    await fld(page, "Farm type").selectOption("crop_production");
+    await page.getByRole("checkbox", { name: "Maize" }).check();
+    await fld(page, "Farm size").selectOption("2-4_hectares");
+    await fld(page, "Years of farming experience").selectOption("6-10");
+    await fld(page, "Do you keep farm inventory records?").selectOption("yes");
+    await fld(page, "Annual farm income").selectOption("100k-400k");
+    await page.getByRole("button", { name: /^continue$/i }).click();
+
+    await fld(page, "Do you have any additional income?").selectOption("work");
+    await fld(page, "Work type / title").fill("Teacher");
+    await fld(page, "Name of organization").fill("Local school");
+    await fld(page, "Rank").fill("Teacher");
+    await fld(page, "Monthly income").fill("50000");
+    await page.getByRole("button", { name: /^continue$/i }).click();
+
+    await page.locator("input[type=password]").fill("Passw0rd!x");
+    await page.getByRole("button", { name: /^register$/i }).click();
+    await page.waitForURL(/dashboard\/farmer/);
+    await expect(page.getByText(/please verify your nin|please complete your profile/i)).toHaveCount(0);
+
+    const row = (await sql("SELECT u.unit, u.nin_verified, fp.unit_match_method FROM users u JOIN farmer_profiles fp ON fp.user_id = u.id WHERE u.name LIKE 'Tester%' AND u.ward = $1 ORDER BY u.created_at DESC LIMIT 1", [area.ward])).rows[0];
+    expect(row.nin_verified).toBe(true);
+    expect(row.unit).toBe(`Kasuwa Unit ${stamp}`);
+    expect(row.unit_match_method).toBe("community");
+
+    await page.getByRole("button", { name: /open menu/i }).click();
+    await page.getByRole("button", { name: /^profile$/i }).click();
+    await expect(page.getByText(/nin verified \(ending/i)).toBeVisible();
+    await expect(page.getByText(/from nimc/i).first()).toBeVisible();
+  } finally {
+    await setGate(request, false);
+  }
+});
+
+test("1b an older farmer is blocked from sensitive features, sees the banner, verifies their NIN and completes the profile to unlock @phone", async ({ page, request }) => {
+  const email = `e2eold${Date.now()}@example.test`;
+  const reg = await request.post("/api/auth/register", { data: { name: "Old Farmer", email, password: "Passw0rd!x", role_type: "farmer", sex: "male", state: "Bauchi", lga: "Bauchi", ward: "Ward A", unit: "Unit 1", crops: "Maize" } });
+  const { token } = await reg.json();
+  await setGate(request, true);
+  try {
+    const blocked = await request.post("/api/loans", { headers: { Authorization: `Bearer ${token}` }, data: { loanType: "boost_cash", amount: 50000 } });
+    expect(blocked.status()).toBe(403);
+    expect((await blocked.json()).code).toBe("PROFILE_RESTRICTED");
+
+    await page.addInitScript((t) => localStorage.setItem("ephaag_token", t), token);
+    await page.goto("/dashboard/farmer");
+    await expect(page.getByText(/please verify your nin and complete your profile/i)).toBeVisible();
+    await page.getByRole("button", { name: /open my profile/i }).click();
+    await expect(page.getByText(/finish setting up to unlock/i)).toBeVisible();
+    await page.getByLabel(/national identification number/i).fill(`7${String(Date.now()).slice(-6)}0002`.slice(0, 11));
+    await consentBox(page).check();
+    await page.getByRole("button", { name: /verify my nin/i }).click();
+    await expect(page.getByText(/nin verified \(ending/i)).toBeVisible();
+    await expect(page.getByText(/fill in:/i)).toBeVisible();
+
+    await fld(page, "Marital status").selectOption("single");
+    await fld(page, "Type of farming").selectOption("crop_production");
+    await fld(page, "Farm size").selectOption("0-1_hectares");
+    await fld(page, "Years of experience").selectOption("1-5");
+    await fld(page, "Do you keep inventory records?").selectOption("no");
+    await fld(page, "Annual farm income").selectOption("50k-100k");
+    await fld(page, "Additional income").selectOption("work");
+    await page.getByRole("button", { name: /save details/i }).click();
+    await expect(page.getByText(/^saved\.$/i)).toBeVisible();
+    // the residential address is also needed
+    await fld(page, "Residential address").fill("2 Market Road, Bauchi");
+    await fld(page, "State").selectOption("Bauchi");
+    await fld(page, "Local Government").selectOption("Bauchi");
+    await setWard(page, "Ward A");
+    await page.getByRole("button", { name: /save address/i }).click();
+    await expect(page.getByText(/you (now belong to|stay in)|could not find a unit/i)).toBeVisible();
+    await expect.poll(async () => (await request.get("/api/farmers/me/profile-status", { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(200);
+    const st = (await (await request.get("/api/farmers/me/profile-status", { headers: { Authorization: `Bearer ${token}` } })).json()).status;
+    expect(st.needsNin).toBe(false);
+    expect(st.missing).not.toContain("farmType");
+  } finally {
+    await setGate(request, false);
+  }
+});
 async function newBuyerSession(page, request) {
   const email = `e2e${Date.now()}${Math.floor(Math.random() * 1000)}@example.test`;
   const reg = await request.post("/api/auth/register", { data: { name: "E2E Buyer", email, password: "Passw0rd!x", role_type: "buyer", sex: "male", buyerType: "individual", address: "1 Test Street, Bauchi" } });
@@ -308,7 +446,97 @@ test("12 Finance can record an investment payment received outside Paystack, wit
   await expect.poll(async () => (await sql("SELECT status FROM investment_applications WHERE id=$1", [app.id])).rows[0].status).toBe("active");
 });
 
-test("4a corps member must agree the fee is non-refundable, pays through Paystack, and is unlocked @phone", async ({ page, request }) => {
+test("13 an overdue monthly payment shows the 2% penalty warning and the penalty owed against the ROI @phone", async ({ page, request }) => {
+  const email = `e2elate${Date.now()}@example.test`;
+  const reg = await request.post("/api/auth/register", { data: { name: "E2E Late Investor", email, password: "Passw0rd!x", role_type: "investor", sex: "male" } });
+  const { token } = await reg.json();
+  const auth = { Authorization: `Bearer ${token}` };
+  const adm = { Authorization: `Bearer ${(await (await request.post("/api/auth/login", { data: { email: "admin@ephaag.test", password: "Admin1234" } })).json()).token}` };
+  const app = (await (await request.post("/api/investments/apply", { headers: auth, data: { planType: "monthly", amount: 10000, durationYears: 1, paymentMode: "manual" } })).json()).application;
+  await request.post(`/api/investments/applications/${app.id}/decide`, { headers: adm, data: { decision: "approve" } });
+  await sql("UPDATE investment_applications SET status='agreement_review', agreement_file_url='/uploads/agreements/x.pdf' WHERE id=$1", [app.id]);
+  await request.post(`/api/investments/applications/${app.id}/decide`, { headers: adm, data: { decision: "approve" } });
+  const started = await (await request.post("/api/investments/me/pay", { headers: auth, data: {} })).json();
+  const ref = started.payment.reference;
+  await request.get(`${STANDIN}/__set?reference=${ref}&status=success`);
+  await request.get(`/api/payments/status/${ref}`, { headers: auth });
+  await sql("UPDATE investment_payments SET due_date = CURRENT_DATE - 1 WHERE application_id=$1 AND status='due'", [app.id]);
+  expect((await request.post("/api/investments/admin/run-reminder-check", { headers: adm, data: {} })).status()).toBe(200);
+
+  await page.addInitScript((t) => localStorage.setItem("ephaag_token", t), token);
+  await page.goto("/dashboard/investor");
+  await expect(page.getByText(/this payment is 1 day overdue/i)).toBeVisible();
+  await expect(page.getByText(/2% of the share's capital/i).first()).toBeVisible();
+  await expect(page.getByText(/late-payment penalties charged so far: ₦200/i)).toBeVisible();
+});
+
+test("15 farmer saves a bank account (name confirmed by the bank) and pays a savings deposit through Paystack @phone", async ({ page, request }) => {
+  const email = `e2esave${Date.now()}@example.test`;
+  const reg = await request.post("/api/auth/register", { data: { name: "E2E Saver", email, password: "Passw0rd!x", role_type: "farmer", sex: "male", state: "Bauchi", lga: "Bauchi", ward: "Ward A", unit: "Unit 1", crops: "Maize" } });
+  const { token } = await reg.json();
+  await page.addInitScript((t) => localStorage.setItem("ephaag_token", t), token);
+  await page.route("http://paystack.standin/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Paystack stand-in</h1>" }));
+  await page.goto("/dashboard/farmer");
+  await page.getByRole("button", { name: /open menu/i }).click();
+  await page.getByRole("button", { name: /^profile$/i }).click();
+  await page.getByLabel(/^bank$/i).selectOption("058");
+  await page.getByRole("button", { name: /save bank account/i }).click();
+  await expect(page.getByText(/10-digit account number/i)).toBeVisible();
+  await page.getByLabel(/account number/i).fill(`1${String(Date.now()).slice(-9)}`);
+  await page.getByRole("button", { name: /save bank account/i }).click();
+  await expect(page.getByText(/bank confirms this account belongs to test holder/i)).toBeVisible();
+  await expect(page.getByText(/account ending/i)).toBeVisible();
+
+  await page.getByRole("button", { name: /open menu/i }).click();
+  await page.getByRole("button", { name: /savings/i }).first().click();
+  await page.getByRole("button", { name: /^save$/i }).click();
+  await page.getByRole("button", { name: /i agree, continue/i }).click();
+  await page.locator("select").filter({ hasText: /select saving choice/i }).selectOption("2500");
+  await page.getByRole("button", { name: /pay with paystack/i }).click();
+  await page.waitForURL(/paystack\.standin\/pay\/(SVP-[A-Z0-9-]+)/);
+  const ref = page.url().split("/pay/")[1];
+  await request.get(`${STANDIN}/__set?reference=${ref}&status=success`);
+  await page.goto(`/dashboard/farmer?savingsPayment=${ref}`);
+  await expect(page.getByText(/savings deposit was received/i)).toBeVisible();
+  expect(Number((await sql("SELECT COALESCE(SUM(amount),0) AS n FROM savings_deposits WHERE user_id = (SELECT id FROM users WHERE email=$1)", [email])).rows[0].n)).toBeGreaterThanOrEqual(2500);
+});
+
+test("16 farmer repays part of a loan through Paystack, and Finance sees loan payouts go out automatically on the Payouts page @phone", async ({ page, request }) => {
+  const email = `e2eloan${Date.now()}@example.test`;
+  const reg = await request.post("/api/auth/register", { data: { name: "E2E Borrower", email, password: "Passw0rd!x", role_type: "farmer", sex: "male", state: "Bauchi", lga: "Bauchi", ward: "Ward A", unit: "Unit 1", crops: "Maize" } });
+  const { token, user } = await reg.json();
+  const auth = { Authorization: `Bearer ${token}` };
+  const adm = { Authorization: `Bearer ${(await (await request.post("/api/auth/login", { data: { email: "admin@ephaag.test", password: "Admin1234" } })).json()).token}` };
+  expect((await request.post("/api/bank-account", { headers: auth, data: { bankCode: "058", accountNumber: `2${String(Date.now()).slice(-9)}` } })).status()).toBe(201);
+  const ref = `LN-E2E-${Date.now()}`;
+  const loanId = (await sql("INSERT INTO loans (reference, farmer_id, loan_type, amount, status) VALUES ($1,$2,'aided',100000,'finance_verified') RETURNING id", [ref, user.id])).rows[0].id;
+  expect((await request.post(`/api/loans/${loanId}/approve`, { headers: adm, data: {} })).status()).toBe(200);
+  expect((await request.post("/api/payouts/run", { headers: adm, data: {} })).status()).toBe(200);
+  await expect.poll(async () => (await sql("SELECT status FROM loans WHERE id=$1", [loanId])).rows[0].status).toBe("disbursed");
+
+  await page.addInitScript((t) => localStorage.setItem("ephaag_token", t), token);
+  await page.route("http://paystack.standin/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>Paystack stand-in</h1>" }));
+  await page.goto("/dashboard/farmer");
+  await page.getByRole("button", { name: /open menu/i }).click();
+  await page.getByRole("button", { name: /loan/i }).first().click();
+  await page.getByPlaceholder(/e\.g\. 45000/).fill("40000");
+  await page.getByRole("button", { name: /pay with paystack/i }).click();
+  await page.waitForURL(/paystack\.standin\/pay\/(RPY-[A-Z0-9-]+)/);
+  const pref = page.url().split("/pay/")[1];
+  await request.get(`${STANDIN}/__set?reference=${pref}&status=success`);
+  await page.goto(`/dashboard/farmer?repaymentPayment=${pref}`);
+  await expect(page.getByText(/loan repayment was received/i)).toBeVisible();
+  expect(Number((await sql("SELECT COALESCE(SUM(amount),0) AS n FROM loan_repayments WHERE loan_id=$1", [loanId])).rows[0].n)).toBe(40000);
+
+  // Finance: the payout is listed as sent, and the pause switch is there
+  await page.addInitScript((t) => localStorage.setItem("ephaag_token", t), adm.Authorization.replace("Bearer ", ""));
+  await page.goto("/admin/payouts");
+  await expect(page.getByText(/pause all payouts/i)).toBeVisible();
+  await expect(page.locator("li", { hasText: "E2E Borrower" }).first()).toBeVisible();
+  await expect(page.locator("li", { hasText: "E2E Borrower" }).first().getByText("sent")).toBeVisible();
+});
+
+test("4a NYSC AGROALLIED SAED member must agree the fee is non-refundable, pays through Paystack, and is unlocked @phone", async ({ page, request }) => {
   // an admin sets the access fee
   const adminLogin = await request.post("/api/auth/login", { data: { email: "admin@ephaag.test", password: "Admin1234" } });
   const adminToken = (await adminLogin.json()).token;

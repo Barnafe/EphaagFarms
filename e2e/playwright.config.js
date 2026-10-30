@@ -29,10 +29,10 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 90000,
     env: {
-      PORT: "4600", NODE_ENV: "development", JWT_SECRET: "e2e-secret-e2e-secret-e2e-secret", ADMIN_SETUP_CODE: "e2e-setup",
+      PORT: "4600", NODE_ENV: "development", JWT_SECRET: "e2e-secret-e2e-secret-e2e-secret",
       DATABASE_URL: process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/ephaag_e2e", DB_SSL: "false",
       RATE_LIMIT_MULTIPLIER: "1000", SAVINGS_DEPOSIT_WINDOW_OVERRIDE: "true", EMAIL_DRIVER: "log", JOB_RUNNER: "off",
-      PAYSTACK_SECRET_KEY: PAYSTACK_SECRET, PAYSTACK_BASE_URL: PAYSTACK_URL, FRONTEND_ORIGIN: "http://localhost:4600",
+      PAYSTACK_SECRET_KEY: PAYSTACK_SECRET, PAYSTACK_BASE_URL: PAYSTACK_URL, FARMER_GATE_DEFAULT: "off", DOJAH_BASE_URL: PAYSTACK_URL, DOJAH_APP_ID: "test-app", DOJAH_SECRET_KEY: "test-secret", FRONTEND_ORIGIN: "http://localhost:4600",
     },
   },
 });

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch, apiUpload, apiDownload } from "../../api/client.js";
 
-// Admin editor for ONE corps (NYSC) course: ordered lessons (video link,
+// Admin editor for ONE NYSC AGROALLIED SAED course: ordered lessons (video link,
 // uploaded document, or live session) plus the course's multiple-choice
-// quiz. A corps course can only be approved once it has at least one
+// quiz. A NYSC AGROALLIED SAED course can only be approved once it has at least one
 // lesson and one quiz question (enforced by the server too).
 
 const KIND_LABEL = { video: "Video", document: "Document", live: "Live session" };
@@ -154,7 +154,7 @@ export default function CorpsCourseEditor({ course, onBack, onChanged }) {
     <div className="max-w-4xl space-y-6">
       <div>
         <button type="button" className="text-sm text-canopy-100 underline" onClick={onBack}>Back to courses</button>
-        <p className="mt-3 text-xs uppercase tracking-wide text-canopy-300">Corps course</p>
+        <p className="mt-3 text-xs uppercase tracking-wide text-canopy-300">NYSC AGROALLIED SAED course</p>
         <h1 className="text-xl font-medium text-white">{content.course.title}</h1>
         {content.course.description && <p className="mt-1 text-sm text-canopy-100">{content.course.description}</p>}
       </div>
@@ -168,7 +168,7 @@ export default function CorpsCourseEditor({ course, onBack, onChanged }) {
       <div className="card flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink-600" data-testid="readiness">
           {approved
-            ? "Approved — live for corps members."
+            ? "Approved — live for NYSC AGROALLIED SAED members."
             : missing.length
               ? `Not ready to approve yet: add ${missing.join(" and ")}.`
               : "Ready to approve."}

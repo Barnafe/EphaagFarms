@@ -112,7 +112,7 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
             <CheckCircle2 className="text-[#2c6b2f]" size={22} aria-hidden="true" />
             <h2 className="font-display text-lg font-semibold text-ink-900">Access fee paid</h2>
           </div>
-          <p className="mt-2 text-sm text-ink-800">Your corps training is unlocked. Open <strong>My Training</strong> to begin.</p>
+          <p className="mt-2 text-sm text-ink-800">Your NYSC AGROALLIED SAED training is unlocked. Open <strong>My Training</strong> to begin.</p>
           <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
             <div><dt className="text-xs uppercase tracking-wide text-ink-600">Receipt reference</dt><dd className="font-semibold text-ink-900">{paidPayment.reference}</dd></div>
             <div><dt className="text-xs uppercase tracking-wide text-ink-600">Access fee</dt><dd className="font-semibold text-ink-900">{naira(paidPayment.accessFee)}</dd></div>
@@ -175,7 +175,7 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
               {quote && quote.processingFee > 0 && (
                 <p className="mt-1 text-sm text-ink-800">Payment processing fee {naira(quote.processingFee)} · you pay <strong>{naira(quote.totalToPay)}</strong> in total</p>
               )}
-              <p className="mt-1 text-sm text-ink-800">Pay once to unlock all corps training, quizzes and your certificate. Nothing opens or counts toward your progress until the fee is paid.</p>
+              <p className="mt-1 text-sm text-ink-800">Pay once to unlock all NYSC AGROALLIED SAED training, quizzes and your certificate. Nothing opens or counts toward your progress until the fee is paid.</p>
               <label className="mt-4 flex items-start gap-2 text-sm text-ink-900">
                 <input type="checkbox" className="mt-1" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
                 <span><strong>This fee is non-refundable once paid.</strong> I understand and agree.</span>

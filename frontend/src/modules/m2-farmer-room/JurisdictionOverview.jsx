@@ -1,10 +1,11 @@
+import { rankLabel } from "../../utils/governance.js";
 export default function JurisdictionOverview({ farmers, rank, onView }) {
   if (rank === "Member") return null;
 
   return (
     <div className="card">
       <p className="text-sm text-ink-600">
-        Jurisdiction overview <span className="text-xs">(unlocked at {rank})</span>
+        Jurisdiction overview <span className="text-xs">(unlocked at {rankLabel(rank)})</span>
       </p>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-sm">

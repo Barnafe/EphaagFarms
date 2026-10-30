@@ -14,7 +14,7 @@ import SectionDropdown from "../../components/SectionDropdown.jsx";
 // department's head were logged in themselves.
 const departments = [
   { key: "Production", to: "/admin/production", desc: "Company-owned farms and harvest output.", icon: Sprout },
-  { key: "Procurement", to: "/admin/procurement", desc: "Source orders, assign processors, standardized prices.", icon: ShoppingCart },
+  { key: "Procurement", to: "/admin/procurement", desc: "Source orders, assign processing to buyers, standardized prices.", icon: ShoppingCart },
   { key: "Transport", to: "/admin/transport", desc: "Assign drivers, generate shipment documents.", icon: Truck },
   { key: "Store", to: "/admin/store", desc: "Inventory, receiving, allocation, restock requests.", icon: Warehouse },
   { key: "Finance", to: "/admin/finance", desc: "Payments, the loan pipeline, settlements.", icon: Landmark },

@@ -24,7 +24,7 @@ export default function LoginMember() {
       }
       if (asCorper && user.role_type !== "corper") {
         logout();
-        setError("This is not a corp member account. Switch to Member to log in.");
+        setError("This is not an NYSC AGROALLIED SAED member account. Switch to Member to log in.");
         return;
       }
       navigate(`/dashboard/${user.role_type}`);
@@ -39,13 +39,13 @@ export default function LoginMember() {
     <div className="mx-auto max-w-sm px-6 py-16">
       <h1 className="text-xl font-medium text-ink-900">Member login</h1>
       <p className="mt-1 text-sm text-ink-600">
-        Farmers, buyers, processors, transporters, distributors, investors, and corps members.
+        Farmers, buyers/processors, transporters, distributors, investors, and NYSC AGROALLIED SAED members.
       </p>
       <div className="mt-4 grid grid-cols-2 gap-2 text-sm" role="group" aria-label="Account type">
         <button type="button" onClick={() => setAsCorper(false)} aria-pressed={!asCorper}
           className={`rounded-card border px-3 py-2 ${!asCorper ? "border-canopy-600 bg-canopy-600 text-white" : "border-soil-200 text-ink-800"}`}>Member</button>
         <button type="button" onClick={() => setAsCorper(true)} aria-pressed={asCorper}
-          className={`rounded-card border px-3 py-2 ${asCorper ? "border-canopy-600 bg-canopy-600 text-white" : "border-soil-200 text-ink-800"}`}>Corp member</button>
+          className={`rounded-card border px-3 py-2 ${asCorper ? "border-canopy-600 bg-canopy-600 text-white" : "border-soil-200 text-ink-800"}`}>NYSC AGROALLIED SAED</button>
       </div>
       <form onSubmit={handleSubmit} className="field mt-6 space-y-4">
         <div>

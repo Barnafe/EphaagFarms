@@ -6,7 +6,7 @@ import useUrlState from "../../hooks/useUrlState.js";
 const naira = (n) => `₦${Number(n).toLocaleString("en-NG", { maximumFractionDigits: 2 })}`;
 const fmt = (d) => (d ? new Date(d).toLocaleString() : "—");
 const TYPES = ["order", "share", "commitment", "corps_fee", "investment", "consultancy", "savings", "repayment", "boost_deposit"];
-const TYPE_LABEL = { order: "Order", share: "Share", commitment: "Commitment", corps_fee: "Corps fee", investment: "Investment", consultancy: "Consultancy", savings: "Savings", repayment: "Repayment", boost_deposit: "Boost deposit" };
+const TYPE_LABEL = { order: "Order", share: "Share", commitment: "Commitment", corps_fee: "NYSC AGROALLIED SAED fee", investment: "Investment", consultancy: "Consultancy", savings: "Savings", repayment: "Repayment", boost_deposit: "Boost deposit" };
 const REASON = {
   large_order: "Order above the review threshold", order_missing: "Order no longer exists", no_buyer_profile: "No buyer profile",
 };

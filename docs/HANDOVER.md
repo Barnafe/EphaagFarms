@@ -1,6 +1,22 @@
-# HANDOVER: where the build stands (v36 = v35 + screen-usability pass)
+# HANDOVER: where the build stands (v38 = v37 + Phase 8 + Phase 5, merged, + two owner changes)
 
-**v36 (this zip) = v35 merged with the usability pass** (Jump-to dropdowns on long screens, Login-as dropdown, Back button that steps through tabs, readability/visibility fixes). Backend is exactly v35's. Details and how the merge was done: `APP_GUIDE.md` ("v36"). v35 notes follow.
+**v38 (this zip)** is the clean merge of two parallel builds from v35: **v37** (the screen-usability pass + the owner's naming decisions) and the **Phase 8 + Phase 5 build** (farmer NIN identity/unit matching; Paystack money-in for savings, loan repayments and Boost Cash; automatic payouts to farmers and loan/withdrawal recipients; bank accounts; investment late penalties). Every feature of both is kept; where both touched a file, the Phase 5/8 logic sits inside v37's naming and dropdown layouts. Dropped on purpose: the old Processor room (v37 removed it) and `FarmerProfileCard` (the Phase 8 profile panel replaces it). Migrations: v37's buyer/processor migration is now `012_`, after the Phase 5/8 `009`-`011` ones (all safe to re-run on every boot).
+
+Two changes made on top of the merge (owner's request):
+1. **Processing goes to any buyer.** Procurement's assign-processing list shows every buyer account and the API accepts any `role_type = 'buyer'` account. There is no organization / individual or processor / consumer limit.
+2. **Admin is not a registration choice.** The Register page no longer offers Admin and the API refuses `role_type: "admin"`; `ADMIN_SETUP_CODE` is gone. The seeded admin (`npm run seed:admin`) is the **main admin**; migration `013_admin_management.sql` also makes the earliest existing admin the main admin on an existing database. Only the main admin can add or remove admins (Admin -> Positions -> Admins): promoting turns an existing account into an admin (its old role is remembered); removing restores that role (or locks the account if there is none). Other admins have every other admin feature. Tests: `backend/test/api/admin-management.test.mjs`, new checks in `backend/store_test.py`, and an e2e journey.
+
+**Not run in the build environment (no Postgres or bundler there):** the API suites, Python suites and browser journeys. Checked there: `node --check` on every backend file, a TypeScript JSX parse of every frontend file, every relative import and named export resolved, every JSX component declared, every frontend API call matched to a mounted route. Run `cd backend && node test/run-all.mjs` before deploying.
+
+---
+
+## (v37 = v36 + the owner's naming decisions)
+
+**v37 (this zip)** applies five naming/structure decisions the owner strictly requested: NYSC AGROALLIED SAED, the 3EI Governance model, one Buyers/Processor profile (no Processor profile), departments hidden from the public site, and the README note. See the table at the top of `README.md` and the "v37" section of `APP_GUIDE.md`. Everything below is the v36 hand-over.
+
+## (v36 = v35 + screen-usability pass)
+
+**v36 = v35 merged with the usability pass** (Jump-to dropdowns on long screens, Login-as dropdown, Back button that steps through tabs, readability/visibility fixes). Backend is exactly v35's. Details and how the merge was done: `APP_GUIDE.md` ("v36"). v35 notes follow.
 
 
 Project: EPHAAG Farms 20-phase gap-closing plan. Chain: v28 -> v29 foundations -> v30/v31 phase 1 -> v32 phase 2 + deployment -> v33 phase 3 -> **v34 (this zip): late share fees, the single Refund room, corps scan-before-pay. Fully tested** (backend suites, Python suites and browser journeys).

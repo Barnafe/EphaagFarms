@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch, apiUpload } from "../../api/client.js";
 
+import { rankLabel } from "../../utils/governance.js";
 export default function FarmerProfileReportModal({ farmerId, onClose }) {
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
@@ -53,7 +54,7 @@ export default function FarmerProfileReportModal({ farmerId, onClose }) {
           <div className="mt-3 space-y-2 text-sm">
             <p><span className="text-ink-600">Name:</span> {profile.name}</p>
             <p><span className="text-ink-600">Unit:</span> {profile.unit}</p>
-            <p><span className="text-ink-600">Rank:</span> {profile.rank}</p>
+            <p><span className="text-ink-600">Rank:</span> {rankLabel(profile.rank)}</p>
             <p><span className="text-ink-600">Farm type:</span> {profile.farm_type || "—"}</p>
             <p><span className="text-ink-600">Crops:</span> {(profile.crops || []).join(", ") || "—"}</p>
             <p><span className="text-ink-600">Attendance:</span> {profile.attendance_pct ?? 0}%</p>

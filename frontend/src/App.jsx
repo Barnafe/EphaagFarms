@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { lazy, Suspense } from "react";
@@ -34,7 +34,6 @@ const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword.jsx"));
 const ResetPassword = lazy(() => import("./pages/auth/ResetPassword.jsx"));
 const FarmerDashboard = lazy(() => import("./pages/dashboards/FarmerDashboard.jsx"));
 const BuyerDashboard = lazy(() => import("./pages/dashboards/BuyerDashboard.jsx"));
-const ProcessorDashboard = lazy(() => import("./pages/dashboards/ProcessorDashboard.jsx"));
 const TransporterDashboard = lazy(() => import("./pages/dashboards/TransporterDashboard.jsx"));
 const DistributorDashboard = lazy(() => import("./pages/dashboards/DistributorDashboard.jsx"));
 const InvestorDashboard = lazy(() => import("./pages/dashboards/InvestorDashboard.jsx"));
@@ -44,6 +43,8 @@ const AdminHub = lazy(() => import("./modules/admin-hub/AdminHub.jsx"));
 const AdminProfilePage = lazy(() => import("./modules/admin-hub/AdminProfilePage.jsx"));
 const AdminFeedbackPage = lazy(() => import("./modules/admin-hub/AdminFeedbackPage.jsx"));
 const AdminContactMessagesPage = lazy(() => import("./modules/admin-hub/AdminContactMessagesPage.jsx"));
+const PayoutsPage = lazy(() => import("./modules/admin-hub/PayoutsPage.jsx"));
+const UnitLocationsPage = lazy(() => import("./modules/admin-hub/UnitLocationsPage.jsx"));
 const RefundRoomPage = lazy(() => import("./modules/admin-hub/RefundRoomPage.jsx"));
 const AddCatalogPage = lazy(() => import("./modules/admin-hub/AddCatalogPage.jsx"));
 const AddPricePage = lazy(() => import("./modules/admin-hub/AddPricePage.jsx"));
@@ -131,14 +132,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/dashboard/processor"
-          element={
-            <ProtectedRoute allow={["processor"]}>
-              <ProcessorDashboard />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/dashboard/processor" element={<Navigate to="/dashboard/buyer" replace />} />
         <Route
           path="/dashboard/transporter"
           element={
@@ -200,6 +194,22 @@ export default function App() {
           element={
             <ProtectedRoute allow={["admin"]}>
               <AdminContactMessagesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/payouts"
+          element={
+            <ProtectedRoute allow={["admin"]}>
+              <PayoutsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/units"
+          element={
+            <ProtectedRoute allow={["admin"]}>
+              <UnitLocationsPage />
             </ProtectedRoute>
           }
         />

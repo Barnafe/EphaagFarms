@@ -2,9 +2,8 @@ import { Link } from "react-router-dom";
 import HeroCarousel from "../../components/HeroCarousel.jsx";
 
 const stats = [
-  { num: "6", label: "Roles on one platform" },
-  { num: "5", label: "Governance tiers, top to bottom" },
-  { num: "6", label: "Internal departments" },
+  { num: "5", label: "Roles on one platform" },
+  { num: "3EI", label: "Governance model" },
   { num: "Nationwide", label: "Open from day one" },
 ];
 
@@ -19,7 +18,7 @@ const services = [
 
 const whyPoints = [
   "Standardized pricing, reviewed and set with both farmers and buyers in mind",
-  "Local accountability through a structured, top-to-bottom governance model",
+  "Local accountability through our own 3EI Governance model",
   "Transparent tracking from sourcing through to final delivery",
   "Free ongoing education to help farmers raise their standards",
 ];
@@ -40,7 +39,7 @@ export default function Home() {
           Feeding humanity with safe food through sustainable agriculture
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-base text-ink-600">
-          Ephaag Farms connects farmers, buyers, processors, transporters, distributors,
+          Ephaag Farms connects farmers, buyers/processors, transporters, distributors,
           and investors on one platform — sourcing and producing at a fair price, and
           coordinating every step through to delivery.
         </p>
@@ -55,7 +54,7 @@ export default function Home() {
       </div>
 
       <div className="bg-canopy-800 py-9">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 text-center sm:grid-cols-4">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 text-center sm:grid-cols-3">
           {stats.map((s) => (
             <div key={s.label}>
               <p className="font-display text-3xl font-semibold text-harvest-400">{s.num}</p>

@@ -21,7 +21,7 @@ const items = [
   { key: "support", label: "Support", icon: LifeBuoy },
 ];
 
-// Corps member (NYSC) room. Same hamburger shell as every other room; the
+// NYSC AGROALLIED SAED member room. Same hamburger shell as every other room; the
 // working area is the cream "light portal" look the team picked (option B),
 // rendered inside an `on-light` surface so text stays readable within the
 // dark .dash-scope frame (see index.css).

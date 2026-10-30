@@ -4,11 +4,11 @@ import RoomBackLink from "../../../../components/public-services/RoomBackLink.js
 import { themes } from "../../../../utils/serviceThemes.js";
 
 const stages = [
-  { step: "1", title: "Payment confirmed", desc: "Finance confirms your payment and the order enters the pipeline." },
-  { step: "2", title: "Sourced", desc: "Procurement matches your order to farmers by crop and location — splitting across multiple farmers if needed." },
-  { step: "3", title: "Processed", desc: "Every order passes through a Processor before it moves onward." },
-  { step: "4", title: "Allocated", desc: "Store Department allocates a Distributor to handle onward distribution." },
-  { step: "5", title: "In transit", desc: "Transport Department assigns a driver, who picks up and delivers." },
+  { step: "1", title: "Payment confirmed", desc: "We confirm your payment and the order enters the pipeline." },
+  { step: "2", title: "Sourced", desc: "We match your order to farmers by crop and location — splitting across multiple farmers if needed." },
+  { step: "3", title: "Processed", desc: "Every order is processed before it moves onward." },
+  { step: "4", title: "Allocated", desc: "We allocate a Distributor to handle onward distribution." },
+  { step: "5", title: "In transit", desc: "We assign a driver, who picks up and delivers." },
   { step: "6", title: "Delivered", desc: "Delivery is confirmed with proof, and the order is complete." },
 ];
 

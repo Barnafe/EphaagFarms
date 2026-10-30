@@ -21,7 +21,7 @@ export default function FruitsCashCrops() {
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
             This line covers fruit orchards alongside cash crops like groundnut and soybean.
             Fruit is grown for direct fresh sale, while cash crops feed both direct sale and
-            onward processing once they reach the Processor's Room.
+            onward processing once they are received.
           </p>
         </div>
 

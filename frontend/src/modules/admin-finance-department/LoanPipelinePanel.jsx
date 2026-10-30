@@ -5,7 +5,7 @@ const LOAN_TYPE_LABELS = {
 };
 
 // Shared shape for the two farmer-rank-gated pipeline stages (Unit Leader
-// recommend, Federal final approval) that admin now performs too, per the
+// recommend, 3EI Governance final approval) that admin now performs too, per the
 // 2026-08-30 temporary-universal-access spec — admin acts company-wide
 // here rather than for one specific unit, since there's no single
 // jurisdiction to attribute to an admin account.

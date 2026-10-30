@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, ShoppingBasket, History, User } from "lucide-react";
+import { LayoutDashboard, ShoppingBasket, History, ClipboardList, User } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import DashboardShell from "../../components/DashboardShell.jsx";
 import BuyerProfileCard from "./BuyerProfileCard.jsx";
+import ProcessingJobs from "./ProcessingJobs.jsx";
 import StandingCommitmentCard from "./StandingCommitmentCard.jsx";
 import ProductCatalog from "./ProductCatalog.jsx";
 import ProductDetailPanel from "./ProductDetailPanel.jsx";
@@ -53,6 +54,7 @@ const items = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "catalog", label: "Shop Item", icon: ShoppingBasket },
   { key: "history", label: "Order history", icon: History },
+  { key: "jobs", label: "Processing jobs", icon: ClipboardList },
   { key: "profile", label: "Profile", icon: User },
 ];
 
@@ -303,6 +305,8 @@ export default function BuyerRoom() {
           )}
 
           {tab === "history" && <OrderHistory orders={orders} onPay={handlePayOrder} onCancel={handleCancelOrder} onReceipt={handleReceipt} />}
+
+          {tab === "jobs" && <ProcessingJobs />}
 
           {tab === "profile" && <BuyerProfileCard user={user} onSave={handleSaveProfile} />}
         </>

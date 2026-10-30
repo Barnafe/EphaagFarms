@@ -27,6 +27,7 @@ start only if `JWT_SECRET` is missing or too short.
 | Email | Amazon Web Services (SES) | before real users; a **domain** is needed to leave the sandbox |
 | SMS | A Nigerian SMS provider (Termii or similar) with a **registered sender name** | before real users |
 | Payments | Paystack | first (test keys) |
+| Farmer NIN check | Dojah (NIMC lookup): `DOJAH_APP_ID`, `DOJAH_SECRET_KEY`, `DOJAH_BASE_URL` | with Paystack; see docs/PHASE8-FARMER-IDENTITY.md |
 
 A domain and the SMS sender-name approval can take days: start them early.
 
@@ -56,7 +57,6 @@ password-reset links use it).
 | `DATABASE_URL` | Neon (step 1) |
 | `JWT_SECRET`, `JOB_TICK_SECRET` | Render generates them |
 | `FRONTEND_ORIGIN` | your site address (https) |
-| `ADMIN_SETUP_CODE` | make up a private code |
 | `R2_*` | step 4 |
 | `SES_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `FROM_EMAIL`, `FARMER_PLACEHOLDER_EMAIL_DOMAIN` | step 5 |
 | `SMS_API_KEY`, `SMS_SENDER_ID`, `ALERT_SMS_PHONE` | step 6 |
@@ -128,7 +128,7 @@ cd backend
 DATABASE_URL="<neon string>" DB_SSL=true npm run seed:admin -- --email you@yourdomain --password "<strong password>" --name "Your Name"
 DATABASE_URL="<neon string>" DB_SSL=true npm run seed:prices        # starting catalogue; review the sell prices before going live
 ```
-(Or register an Admin on the site with `ADMIN_SETUP_CODE`.) Then log in, open Admin → System, and use **Send test** on
+This first admin is the **main admin**: the only one who can add or remove other admins (Admin → Positions → Admins). Admin is not a choice on the Register page. Then log in, open Admin → System, and use **Send test** on
 Messages for one email and one SMS.
 
 ## 10. Go-live checklist

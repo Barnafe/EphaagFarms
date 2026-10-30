@@ -1,8 +1,8 @@
 import { useState } from "react";
 
-export default function RepaymentTracker({ loan, onLogRepayment }) {
+export default function RepaymentTracker({ loan, onPay }) {
   const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState("Bank transfer");
+  const [busy, setBusy] = useState(false);
 
   const owed = loan.repayableTotal || loan.amount; // includes LT3's 100% interest
   const totalRepaid = loan.repayments.reduce((sum, r) => sum + r.amount, 0);
@@ -10,17 +10,12 @@ export default function RepaymentTracker({ loan, onLogRepayment }) {
   const pctRepaid = Math.round((totalRepaid / owed) * 100);
   const isFree = pctRepaid >= 70;
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     const n = Number(amount);
-    if (!Number.isFinite(n) || n <= 0 || n > outstanding) return;
-    onLogRepayment({
-      id: `r${Date.now()}`,
-      date: new Date().toISOString().slice(0, 10),
-      amount: n,
-      method,
-    });
-    setAmount("");
+    if (!Number.isFinite(n) || n < 100 || n > outstanding) return;
+    setBusy(true);
+    try { await onPay(n); } finally { setBusy(false); }
   }
 
   return (
@@ -44,37 +39,25 @@ export default function RepaymentTracker({ loan, onLogRepayment }) {
         <div className="mt-2 space-y-1">
           {loan.repayments.map((r) => (
             <div key={r.id} className="flex justify-between text-sm">
-              <span className="text-ink-600">{r.date} · {r.method}</span>
+              <span className="text-ink-600">{r.date}{r.method ? ` · ${r.method}` : ""}</span>
               <span className="text-ink-900">₦{r.amount.toLocaleString()}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="field flex flex-wrap items-end gap-3">
-        <div className="flex-1">
-          <label>Log a repayment (₦)</label>
-          <input
-            type="number"
-            min="1"
-            max={outstanding}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="e.g. 45000"
-          />
-        </div>
-        <div className="flex-1">
-          <label>Method</label>
-          <select value={method} onChange={(e) => setMethod(e.target.value)}>
-            <option>Bank transfer</option>
-            <option>Cash</option>
-            <option>Mobile money</option>
-          </select>
-        </div>
-        <button className="btn-primary" type="submit">
-          Log payment
-        </button>
-      </form>
+      {outstanding > 0 ? (
+        <form onSubmit={handleSubmit} className="field space-y-2">
+          <label>Pay towards your loan (₦). Any part, up to ₦{outstanding.toLocaleString()}.</label>
+          <div className="flex flex-wrap items-end gap-3">
+            <input type="number" min="100" max={outstanding} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 45000" className="flex-1" />
+            <button type="button" className="btn-outline text-xs" onClick={() => setAmount(String(Math.round(outstanding / 2)))}>Half</button>
+            <button type="button" className="btn-outline text-xs" onClick={() => setAmount(String(outstanding))}>All</button>
+            <button className="btn-primary" type="submit" disabled={busy}>{busy ? "Opening Paystack…" : "Pay with Paystack"}</button>
+          </div>
+          <p className="text-xs text-ink-600">Paystack's small processing fee is added at checkout. Your repayment is recorded the moment it is confirmed.</p>
+        </form>
+      ) : <p className="text-sm text-canopy-800">This loan is fully repaid.</p>}
     </div>
   );
 }

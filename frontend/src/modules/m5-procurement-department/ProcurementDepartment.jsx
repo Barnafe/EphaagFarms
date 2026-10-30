@@ -141,7 +141,7 @@ export default function ProcurementDepartment() {
             <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
             <h1 className="text-xl font-medium text-white">Procurement Department</h1>
             <p className="mt-1 text-sm text-canopy-100">
-              Sourcing, processor assignment, and internal purchasing. Use the sidebar to open
+              Sourcing, processing assignment to buyers, and internal purchasing. Use the sidebar to open
               Orders or Purchasing. Standardized prices are managed by Admin (Add Catalog / Add
               Price), not here.
             </p>
@@ -152,7 +152,7 @@ export default function ProcurementDepartment() {
             buildCards={(d) => [
               { label: "Awaiting sourcing", value: d.ordersAwaitingSourcing, nav: "orders" },
               {
-                label: "Awaiting processor assignment",
+                label: "Awaiting processing assignment",
                 value: d.ordersAwaitingProcessorAssignment,
                 nav: "orders",
               },
@@ -178,10 +178,10 @@ export default function ProcurementDepartment() {
           </div>
 
           <div className="card">
-            <p className="text-sm text-ink-600">Ready for processor assignment</p>
+            <p className="text-sm text-ink-600">Ready for processing assignment</p>
             <div className="mt-3 space-y-3">
               {sourcedOrders.length === 0 && (
-                <p className="text-sm text-ink-600">Nothing sourced and waiting on a processor yet.</p>
+                <p className="text-sm text-ink-600">Nothing sourced and waiting to be assigned for processing yet.</p>
               )}
               {sourcedOrders.map((o) => (
                 <div key={o.id} className="rounded-card border border-soil-200 p-3">
@@ -197,7 +197,7 @@ export default function ProcurementDepartment() {
                     defaultValue=""
                     onChange={(e) => e.target.value && handleAssignProcessor(o.id, e.target.value)}
                   >
-                    <option value="">Assign a processor…</option>
+                    <option value="">Assign to a buyer…</option>
                     {processors.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}

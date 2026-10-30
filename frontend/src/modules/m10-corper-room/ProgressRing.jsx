@@ -1,5 +1,5 @@
 // Training progress ring (cream look). `percent` is the dashboard number:
-// courses completed out of all live corps courses.
+// courses completed out of all live NYSC AGROALLIED SAED courses.
 export default function ProgressRing({ percent, size = 96, label = "Training progress" }) {
   const stroke = 10;
   const r = (size - stroke) / 2;

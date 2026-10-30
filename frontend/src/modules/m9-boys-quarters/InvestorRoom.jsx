@@ -10,6 +10,7 @@ import ApplicationStatusPanel from "./ApplicationStatusPanel.jsx";
 import AgreementUpload from "./AgreementUpload.jsx";
 import PaymentLog from "./PaymentLog.jsx";
 import PayPanel from "./PayPanel.jsx";
+import BankAccountCard from "../../components/BankAccountCard.jsx";
 import ROIBreakdown from "./ROIBreakdown.jsx";
 import ReferralCard from "./ReferralCard.jsx";
 import SectionStack from "../../components/SectionStack.jsx";
@@ -30,6 +31,7 @@ export default function InvestorRoom() {
   const [application, setApplication] = useState(undefined); // undefined = loading
   const [payments, setPayments] = useState([]);
   const [roiRecords, setRoiRecords] = useState([]);
+  const [roiPenalty, setRoiPenalty] = useState(0);
   const [referral, setReferral] = useState(null);
   const [threshold, setThreshold] = useState({ amount: 1000000, altAmount: 250000, altReferrals: 25 });
   const [error, setError] = useState(null);
@@ -40,13 +42,14 @@ export default function InvestorRoom() {
       setApplication(app || { status: "none" });
 
       if (app?.status === "active") {
-        const [{ payments: p }, { records }, { referral: r, threshold: t }] = await Promise.all([
+        const [{ payments: p }, { records, latePenaltyOutstanding }, { referral: r, threshold: t }] = await Promise.all([
           apiFetch("/investments/me/payments"),
           apiFetch("/investments/me/roi"),
           apiFetch("/investments/me/referral"),
         ]);
         setPayments(p);
         setRoiRecords(records);
+        setRoiPenalty(latePenaltyOutstanding || 0);
         setReferral(r);
         setThreshold(t);
       }
@@ -153,7 +156,7 @@ export default function InvestorRoom() {
                       label: "Payments",
                       node: <PaymentLog application={application} payments={payments} onChanged={load} onError={setError} />,
                     },
-                    { key: "roi", label: "ROI breakdown", node: <ROIBreakdown records={roiRecords} /> },
+                    { key: "roi", label: "ROI breakdown", node: <ROIBreakdown records={roiRecords} latePenaltyOutstanding={roiPenalty} /> },
                     {
                       key: "referral",
                       label: "Referral",
@@ -169,7 +172,10 @@ export default function InvestorRoom() {
       )}
 
       {tab === "profile" && (
-        <AccountProfileCard user={user} extraFields={[{ label: "Occupation", value: user.occupation }]} />
+        <div className="space-y-4">
+          <AccountProfileCard user={user} extraFields={[{ label: "Occupation", value: user.occupation }]} />
+          <BankAccountCard purpose="Your ROI payouts are sent here automatically." />
+        </div>
       )}
     </DashboardShell>
   );

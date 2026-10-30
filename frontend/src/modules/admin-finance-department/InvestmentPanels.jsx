@@ -190,6 +190,7 @@ export function ROIPayoutPanel({ payouts, onApprove }) {
                 <p className="text-sm text-ink-900">{p.investorName}</p>
                 <p className="text-xs text-ink-600">
                   Year {p.year} · ₦{p.netPayout.toLocaleString()}
+                  {p.latePenalty > 0 && ` (ROI ₦${p.roiAmount.toLocaleString()} less ₦${p.latePenalty.toLocaleString()} late-payment penalties)`}
                 </p>
               </div>
               <button className="btn-primary" type="button" onClick={() => onApprove(p.id)}>

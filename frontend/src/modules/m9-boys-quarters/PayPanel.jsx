@@ -30,6 +30,12 @@ export default function PayPanel({ application, onError }) {
           ? application.planType === "bulk" ? "Pay to activate your investment" : "Pay your first month to activate your investment"
           : `Pay now: month due ${ob.dueDate}`}
       </p>
+      {application.overdue && (
+        <p className="rounded-card bg-red-50 px-3 py-2 text-xs text-red-700" role="alert">
+          This payment is {application.overdue.daysLate} day{application.overdue.daysLate === 1 ? "" : "s"} overdue. A penalty of 2% of the share's capital is charged for each month it stays unpaid
+          {application.latePenaltyOutstanding > 0 ? ` (${naira(application.latePenaltyOutstanding)} so far)` : ""} and is deducted from your ROI payout. Pay now to stop it.
+        </p>
+      )}
       {application.autoChargeFailed && (
         <p className="rounded-card bg-red-50 px-3 py-2 text-xs text-red-700">
           The automatic charge for this month did not go through ({application.autoChargeFailed.error}). It will not be tried again; please pay now.

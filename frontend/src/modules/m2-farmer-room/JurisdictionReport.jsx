@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { apiFetch } from "../../api/client.js";
 
+import { rankLabel } from "../../utils/governance.js";
 export default function JurisdictionReport() {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -37,7 +38,7 @@ export default function JurisdictionReport() {
       {report && (
         <div className="mt-4 space-y-4">
           <p className="text-xs text-ink-600">
-            Scope: {report.scope.rank}
+            Scope: {rankLabel(report.scope.rank)}
             {report.scope.state ? ` · ${report.scope.state}` : ""}
             {report.scope.lga ? `, ${report.scope.lga}` : ""}
             {report.scope.ward ? `, ${report.scope.ward}` : ""}
@@ -51,14 +52,14 @@ export default function JurisdictionReport() {
           <div className="rounded-card border border-soil-200 p-3">
             <p className="text-xs font-medium text-canopy-800">By gender</p>
             {report.byGender.map((r) => (
-              <p key={r.key} className="text-sm text-ink-700">{r.key}: {r.count}</p>
+              <p key={r.key} className="text-sm text-ink-700">{rankLabel(r.key)}: {r.count}</p>
             ))}
           </div>
 
           <div className="rounded-card border border-soil-200 p-3">
             <p className="text-xs font-medium text-canopy-800">By annual income band</p>
             {report.byAnnualIncome.map((r) => (
-              <p key={r.key} className="text-sm text-ink-700">{r.key}: {r.count}</p>
+              <p key={r.key} className="text-sm text-ink-700">{rankLabel(r.key)}: {r.count}</p>
             ))}
           </div>
 
@@ -80,14 +81,14 @@ export default function JurisdictionReport() {
             <p className="text-xs font-medium text-canopy-800">Loans by status</p>
             {report.loansByStatus.length === 0 && <p className="text-sm text-ink-600">None yet.</p>}
             {report.loansByStatus.map((r) => (
-              <p key={r.key} className="text-sm text-ink-700">{r.key}: {r.count}</p>
+              <p key={r.key} className="text-sm text-ink-700">{rankLabel(r.key)}: {r.count}</p>
             ))}
           </div>
 
           <div className="rounded-card border border-soil-200 p-3">
             <p className="text-xs font-medium text-canopy-800">By leadership rank</p>
             {report.byLeadershipRank.map((r) => (
-              <p key={r.key} className="text-sm text-ink-700">{r.key}: {r.count}</p>
+              <p key={r.key} className="text-sm text-ink-700">{rankLabel(r.key)}: {r.count}</p>
             ))}
           </div>
         </div>

@@ -5,7 +5,7 @@ import { apiUpload } from "../../api/client.js";
 import { NIGERIA_STATE_NAMES, lgasForState } from "../../data/nigeriaStatesLgas.js";
 import PasswordInput from "../../components/PasswordInput.jsx";
 
-// Corps member (NYSC) registration — 3 short steps. Registration itself
+// NYSC AGROALLIED SAED member registration — 3 short steps. Registration itself
 // is free; the access fee is paid later from the dashboard, before any
 // training opens (that gate arrives in a later phase). Everything else
 // about the profile is completed afterwards from the Profile page.
@@ -21,7 +21,7 @@ function Field({ label, children }) {
   );
 }
 
-const STEP_LABELS = ["Account", "NYSC details", "Photo & consent"];
+const STEP_LABELS = ["Account", "NYSC AGROALLIED SAED details", "Photo & consent"];
 
 export default function CorperRegisterWizard() {
   const { register } = useAuth();
@@ -68,7 +68,7 @@ export default function CorperRegisterWizard() {
 
   async function submit(e) {
     e.preventDefault();
-    const msg = validate(0) || validate(1) || (form.consentTerms ? "" : "You must accept the terms to register.") || (form.consentData ? "" : "You must consent to your details being shared with NYSC to register.");
+    const msg = validate(0) || validate(1) || (form.consentTerms ? "" : "You must accept the terms to register.") || (form.consentData ? "" : "You must consent to your details being shared with NYSC AGROALLIED SAED to register.");
     if (msg) return setError(msg);
     setError("");
     setSubmitting(true);
@@ -104,7 +104,7 @@ export default function CorperRegisterWizard() {
 
       {step === 0 && (
         <>
-          <Field label="Full name"><input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="As on your NYSC call-up letter" /></Field>
+          <Field label="Full name"><input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="As on your call-up letter" /></Field>
           <Field label="Gender"><select value={form.sex} onChange={(e) => set("sex", e.target.value)}>
               <option value="">Select</option><option value="male">Male</option><option value="female">Female</option>
             </select></Field>
@@ -156,7 +156,7 @@ export default function CorperRegisterWizard() {
           </label>
           <label className="flex items-start gap-2 text-sm text-ink-800">
             <input type="checkbox" className="mt-1 !w-auto" checked={form.consentData} onChange={(e) => set("consentData", e.target.checked)} />
-            <span>I consent to my details being shared with NYSC for certification purposes. <span className="text-ink-600">(required)</span></span>
+            <span>I consent to my details being shared with NYSC AGROALLIED SAED for certification purposes. <span className="text-ink-600">(required)</span></span>
           </label>
         </>
       )}

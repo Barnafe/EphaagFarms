@@ -95,8 +95,8 @@ export default function FarmerFinancingRoom() {
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
             An application isn't reviewed by a distant office — it moves up through your own
             farming network. Your Unit Leader reviews it first and either recommends or
-            rejects it, and a recommended application then goes to the Federal level for
-            final approval before Finance disburses the funds.
+            rejects it, and a recommended application then goes to the 3EI Governance level for
+            final approval before the funds are disbursed.
           </p>
           <ul className="mt-4 space-y-2 text-sm text-ink-600">
             <li>• Attendance at seminars and course completion are both factored into approval.</li>

@@ -21,7 +21,6 @@ services:
       - { key: JWT_SECRET, generateValue: true }     # Render generates a long random value
       - { key: JWT_EXPIRES_IN, value: 7d }
       - { key: FRONTEND_ORIGIN, sync: false }        # your site, e.g. https://ephaag-farms.onrender.com (set after the first deploy)
-      - { key: ADMIN_SETUP_CODE, sync: false }       # private code needed to register an Admin from the Register page
 
       # --- file storage: Cloudflare R2 (required in production) ---
       - { key: R2_ACCOUNT_ID, sync: false }
