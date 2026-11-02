@@ -1,10 +1,10 @@
 import { useState } from "react";
 
-// The "menu to input details" step of checkout — delivery address, two
+// The "menu to input details" step of checkout, delivery address, two
 // contact numbers, and an email, prefilled from the buyer's profile where
 // possible but editable per order. Payment method choice (upfront vs
 // standing balance) lives here too when a commitment is active. Hands off
-// to the payment step on submit — this step itself never charges anything.
+// to the payment step on submit, this step itself never charges anything.
 export default function CheckoutForm({ cart, commitment, defaultAddress, defaultEmail, onBack, onContinue }) {
   const [location, setLocation] = useState(defaultAddress || "");
   const [contactPhone1, setContactPhone1] = useState("");
@@ -38,7 +38,7 @@ export default function CheckoutForm({ cart, commitment, defaultAddress, default
           <input
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            placeholder="Street, city, state — specific address to be delivered"
+            placeholder="Street, city, state, specific address to be delivered"
             required
             className="w-full rounded-card border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-canopy-400 focus:outline-none"
           />
@@ -94,7 +94,7 @@ export default function CheckoutForm({ cart, commitment, defaultAddress, default
             </select>
             {payMethod === "balance" && !canUseBalance && (
               <p className="mt-1 text-xs text-harvest-600">
-                Standing balance isn't enough for this order — choose upfront payment instead.
+                Standing balance isn't enough for this order, choose upfront payment instead.
               </p>
             )}
           </div>

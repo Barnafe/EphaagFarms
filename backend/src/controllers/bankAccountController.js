@@ -5,14 +5,14 @@ import { kickPayouts } from "../services/payouts.js";
 // GET /api/bank-account/banks
 export async function banks(req, res) { res.json({ banks: await listBanks() }); }
 
-// GET /api/bank-account — the saved account (never the full number once saved)
+// GET /api/bank-account, the saved account (never the full number once saved)
 export async function mine(req, res) {
   const { rows } = await pool.query(`SELECT bank_code, bank_name, account_number, account_name, verified_at FROM bank_accounts WHERE user_id = $1`, [req.user.id]);
   const a = rows[0];
   res.json({ account: a ? { bankCode: a.bank_code, bankName: a.bank_name, accountName: a.account_name, last4: a.account_number.slice(-4), verifiedAt: a.verified_at } : null });
 }
 
-// POST /api/bank-account { bankCode, accountNumber } — Paystack confirms the account name; saved once.
+// POST /api/bank-account { bankCode, accountNumber }, Paystack confirms the account name; saved once.
 export async function save(req, res) {
   const { bankCode, accountNumber } = req.body || {};
   if (!/^\d{10}$/.test(String(accountNumber || ""))) return res.status(400).json({ error: "Enter your 10-digit account number." });

@@ -1,4 +1,4 @@
-// NYSC AGROALLIED SAED member profile — one place that knows which fields exist,
+// NYSC AGROALLIED SAED member profile, one place that knows which fields exist,
 // how each is validated, which section ("tab") it belongs to, and which
 // ones count toward the profile-completeness percentage. Shared by
 // registration (authController), the profile endpoints (corperController)

@@ -157,7 +157,7 @@ const lagosDate = (d) => (d ? new Date(d).toLocaleDateString("en-CA", { timeZone
 const cap = (s) => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : "");
 
 // GET /api/rtc/admin/corps/members/export?...same filters... (&includeNoConsent=true)
-// Decision 2: NYSC AGROALLIED SAED only receives members who consented to sharing — unless
+// Decision 2: NYSC AGROALLIED SAED only receives members who consented to sharing, unless
 // the admin explicitly asks otherwise. The consent column is always there.
 // Certificate numbers are only listed for RELEASED certificates.
 export async function adminExportMembers(req, res) {
@@ -320,7 +320,7 @@ export async function adminCompleteBatch(req, res) {
   res.json({ ok: true, released, emailsQueued: run.queued ?? 0 });
 }
 
-// POST /api/rtc/admin/corps/batches/:id/uncomplete  body { reason? } — hides the certificates again.
+// POST /api/rtc/admin/corps/batches/:id/uncomplete  body { reason? }, hides the certificates again.
 export async function adminUncompleteBatch(req, res) {
   const client = await pool.connect();
   let hidden;
@@ -340,7 +340,7 @@ export async function adminUncompleteBatch(req, res) {
     );
     hidden = r.rowCount;
     const reason = String(req.body?.reason || "").trim().slice(0, 300);
-    await logEvent(client, batch.id, "unmarked", req.user.id, `${hidden} certificate(s) hidden${reason ? ` — ${reason}` : ""}`);
+    await logEvent(client, batch.id, "unmarked", req.user.id, `${hidden} certificate(s) hidden${reason ? `, ${reason}` : ""}`);
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
@@ -351,10 +351,10 @@ export async function adminUncompleteBatch(req, res) {
   res.json({ ok: true, hidden });
 }
 
-// POST /api/rtc/admin/corps/batches/:id/resend-emails — everyone whose email failed, never went out, or is still pending.
+// POST /api/rtc/admin/corps/batches/:id/resend-emails, everyone whose email failed, never went out, or is still pending.
 export async function adminResendEmails(req, res) {
   const batch = await loadBatch(req.params.id);
-  if (!batch.completed) throw httpError("Mark the batch complete first — certificates are still hidden", 409);
+  if (!batch.completed) throw httpError("Mark the batch complete first, certificates are still hidden", 409);
   const run = await runBatchNotifications(batch, ["pending", "failed", "not_configured"]);
   if (!run.started) throw httpError("Emails for this batch are already being sent", 409);
   await logEvent(pool, batch.id, "emails_resent", req.user.id, `${run.queued} queued`);
@@ -384,7 +384,7 @@ export async function adminReissueCertificate(req, res) {
   res.json({ ok: true, number: c.number, revision: out[0].revision });
 }
 
-// GET /api/rtc/admin/corps/members/:userId/certificate — admin copy of the PDF (even while hidden).
+// GET /api/rtc/admin/corps/members/:userId/certificate, admin copy of the PDF (even while hidden).
 export async function adminDownloadCertificate(req, res) {
   assertUuid(req.params.userId, "Member");
   const { rows } = await pool.query(`SELECT * FROM corper_certificates WHERE user_id = $1`, [req.params.userId]);

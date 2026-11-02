@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { CreditCard, Landmark } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
 
 const naira = (n) => `₦${Number(n).toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 // Final checkout step. Orders paid from the standing balance are placed straight
-// away (no fee). Everything else goes to Paystack's secure page, where the buyer
-// pays by card or bank transfer; the order only counts once Paystack confirms.
+// away. Everything else shows the payment preview (Amount, Paystack Charges, Total)
+// and the "Proceed & Pay" button; the order only counts once the payment is confirmed.
 export default function PaymentStep({ total, paidVia, onConfirm, onBack, submitting }) {
   const [quote, setQuote] = useState(null);
   const [quoteError, setQuoteError] = useState(null);
@@ -32,15 +31,10 @@ export default function PaymentStep({ total, paidVia, onConfirm, onBack, submitt
 
       {useBalance ? (
         <div className="rounded-card bg-canopy-50 px-4 py-3 text-sm text-canopy-800">
-          This order will be paid from your standing commitment balance. No payment processing fee applies.
+          This order will be paid from your standing commitment balance.
         </div>
       ) : (
         <>
-          <div className="flex gap-3 text-xs text-gray-600">
-            <span className="flex items-center gap-1"><CreditCard className="h-4 w-4" /> Card</span>
-            <span className="flex items-center gap-1"><Landmark className="h-4 w-4" /> Bank transfer</span>
-            <span>— secured by Paystack</span>
-          </div>
           {quoteError && <p className="text-sm text-red-700">{quoteError}</p>}
           {unavailable && (
             <p className="rounded-card border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -51,20 +45,20 @@ export default function PaymentStep({ total, paidVia, onConfirm, onBack, submitt
       )}
 
       <div className="space-y-1 rounded-card bg-soil-50 px-3 py-2.5 text-sm">
-        <div className="flex justify-between"><span className="text-gray-600">Goods</span><span className="text-gray-900">{naira(total)}</span></div>
+        <div className="flex justify-between"><span className="text-gray-600">Amount</span><span className="text-gray-900">{naira(total)}</span></div>
         {!useBalance && quote && (
           <>
-            <div className="flex justify-between"><span className="text-gray-600">Payment processing fee</span><span className="text-gray-900">{naira(quote.fee)}</span></div>
-            <div className="flex justify-between border-t border-soil-200 pt-1 font-semibold"><span>Total to pay</span><span>{naira(quote.amountCharged)}</span></div>
+            <div className="flex justify-between"><span className="text-gray-600">Paystack Charges</span><span className="text-gray-900">{naira(quote.fee)}</span></div>
+            <div className="flex justify-between border-t border-soil-200 pt-1 font-semibold"><span>Total</span><span>{naira(quote.amountCharged)}</span></div>
           </>
         )}
         {useBalance && <div className="flex justify-between border-t border-soil-200 pt-1 font-semibold"><span>Total</span><span>{naira(total)}</span></div>}
       </div>
 
       <button className="btn-primary w-full" type="button" onClick={onConfirm} disabled={submitting || unavailable || (!useBalance && !quote)}>
-        {submitting ? "Please wait…" : useBalance ? "Place order" : "Pay with Paystack"}
+        {submitting ? "Please wait…" : useBalance ? "Place order" : "Proceed & Pay"}
       </button>
-      {!useBalance && <p className="text-xs text-gray-500">The order is held for 24 hours while you pay. Unpaid orders expire automatically.</p>}
+      {!useBalance && <p className="text-xs text-gray-500">Unpaid orders expire after 24 hours.</p>}
     </div>
   );
 }

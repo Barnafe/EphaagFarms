@@ -1,7 +1,7 @@
 import { pool, detached } from "../db/pool.js";
 import { generateReference } from "../utils/reference.js";
 import { getSetting } from "../utils/settings.js";
-import { notifyUser, sendMail } from "./messaging.js";
+import { notifyUser, sendMail, notifyAddress } from "./messaging.js";
 import { notifyAttention } from "../jobs/alerts.js";
 import { renderTemplate } from "./messageTemplates.js";
 import { calculateFee, getFeeConfig, initializeTransaction, verifyTransaction, toKobo, callbackUrl } from "./paystack.js";
@@ -194,11 +194,15 @@ async function refuseInTx(client, payment, reason, data) {
     payment: refused,
     after: async () => {
       const { rows: u } = await pool.query("SELECT name FROM users WHERE id = $1", [refused.user_id]);
+      const refusedData = { reference: refused.reference, amount: Number(refused.paid_amount ?? refused.gross_amount), reasonText: refusalText(reason) };
       if (refused.user_id) {
-        await notifyUser(refused.user_id, "payment_refused", { reference: refused.reference, amount: Number(refused.paid_amount ?? refused.gross_amount), reasonText: refusalText(reason) });
+        await notifyUser(refused.user_id, "payment_refused", refusedData);
+      } else if (refused.meta?.contactEmail || refused.meta?.contactPhone) {
+        // A payer with no account (a consultancy applicant): use the contact details saved with the payment.
+        await notifyAddress({ email: refused.meta.contactEmail, phone: refused.meta.contactPhone, name: refused.meta.contactName || "" }, "payment_refused", refusedData).catch(() => {});
       }
       // Exceptional case: tell every admin straight away. It waits under "Needs attention" in the Refund room.
-      await notifyAttention("payment_attention", { typeLabel: TYPE_LABEL[refused.type] || refused.type, payer: u[0]?.name || "payer", reference: refused.reference, amount: Number(refused.paid_amount ?? refused.gross_amount), reasonText: refusalText(reason) },
+      await notifyAttention("payment_attention", { typeLabel: TYPE_LABEL[refused.type] || refused.type, payer: u[0]?.name || refused.meta?.contactName || "payer", reference: refused.reference, amount: Number(refused.paid_amount ?? refused.gross_amount), reasonText: refusalText(reason) },
         `EPHAAG: a ${TYPE_LABEL[refused.type] || refused.type} payment of ₦${Number(refused.paid_amount ?? refused.gross_amount).toLocaleString()} could not be applied and needs a refund. Open Admin > Refund room.`);
     },
   };

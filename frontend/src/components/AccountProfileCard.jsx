@@ -2,11 +2,11 @@ import ProfilePhotoUploader from "./ProfilePhotoUploader.jsx";
 
 // Read-only account summary + passport photo uploader, shared across
 // Buyers/Processor and Investor rooms (Farmer's Room has its own editable
-// version — FarmerProfileCard — since farmers can edit crops/location
+// version, FarmerProfileCard, since farmers can edit crops/location
 // inline; the other roles don't have an edit flow yet, just display +
 // photo upload).
 export default function AccountProfileCard({ user, extraFields = [] }) {
-  const genderLabel = user.sex === "male" ? "Male" : user.sex === "female" ? "Female" : "—";
+  const genderLabel = user.sex === "male" ? "Male" : user.sex === "female" ? "Female" : "N/A";
 
   const fields = [
     { label: "Name", value: user.name },
@@ -25,7 +25,7 @@ export default function AccountProfileCard({ user, extraFields = [] }) {
         {fields.map((f) => (
           <div key={f.label}>
             <p className="text-ink-600">{f.label}</p>
-            <p className="text-ink-900">{f.value || "—"}</p>
+            <p className="text-ink-900">{f.value || "N/A"}</p>
           </div>
         ))}
       </div>

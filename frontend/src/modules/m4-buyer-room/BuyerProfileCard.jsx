@@ -4,7 +4,7 @@ import { NIGERIA_STATE_NAMES, lgasForState } from "../../data/nigeriaStatesLgas.
 
 // Buyers previously had a read-only AccountProfileCard with no edit flow.
 // 2026-09-01 spec: buyers get real edit tools, same shape as
-// FarmerProfileCard — view mode + an "Edit profile" toggle into a form.
+// FarmerProfileCard, view mode + an "Edit profile" toggle into a form.
 export default function BuyerProfileCard({ user, onSave }) {
   const isOrg = user.buyerType === "organization";
   const [editing, setEditing] = useState(false);
@@ -45,15 +45,15 @@ export default function BuyerProfileCard({ user, onSave }) {
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
             <p className="text-ink-600">{isOrg ? "Organization name" : "Name"}</p>
-            <p className="text-ink-900">{user.name || "—"}</p>
+            <p className="text-ink-900">{user.name || "N/A"}</p>
           </div>
           <div>
             <p className="text-ink-600">Email</p>
-            <p className="text-ink-900">{user.email || "—"}</p>
+            <p className="text-ink-900">{user.email || "N/A"}</p>
           </div>
           <div>
             <p className="text-ink-600">Phone</p>
-            <p className="text-ink-900">{user.phone || "—"}</p>
+            <p className="text-ink-900">{user.phone || "N/A"}</p>
           </div>
           <div>
             <p className="text-ink-600">Buying as</p>
@@ -61,27 +61,27 @@ export default function BuyerProfileCard({ user, onSave }) {
           </div>
           <div>
             <p className="text-ink-600">State</p>
-            <p className="text-ink-900">{user.state || "—"}</p>
+            <p className="text-ink-900">{user.state || "N/A"}</p>
           </div>
           <div>
             <p className="text-ink-600">LGA</p>
-            <p className="text-ink-900">{user.lga || "—"}</p>
+            <p className="text-ink-900">{user.lga || "N/A"}</p>
           </div>
           {isOrg ? (
             <>
               <div>
                 <p className="text-ink-600">Contact person</p>
-                <p className="text-ink-900">{user.contactPersonName || "—"}</p>
+                <p className="text-ink-900">{user.contactPersonName || "N/A"}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-ink-600">Registered address</p>
-                <p className="text-ink-900">{user.registeredAddress || "—"}</p>
+                <p className="text-ink-900">{user.registeredAddress || "N/A"}</p>
               </div>
             </>
           ) : (
             <div className="col-span-2">
               <p className="text-ink-600">Delivery address</p>
-              <p className="text-ink-900">{user.address || "—"}</p>
+              <p className="text-ink-900">{user.address || "N/A"}</p>
             </div>
           )}
         </div>

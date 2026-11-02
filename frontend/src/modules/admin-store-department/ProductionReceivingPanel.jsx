@@ -2,7 +2,7 @@ import { useState } from "react";
 
 // Production (admin) declares its own annual company-harvest records
 // separately (Production Department page). Those declarations aren't
-// real stock until Store confirms them here — same two-step pattern as
+// real stock until Store confirms them here, same two-step pattern as
 // receiving a farmer-sourced order, just for company-grown produce.
 export default function ProductionReceivingPanel({ harvests, onReceive }) {
   const [drafts, setDrafts] = useState({});

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../api/client.js";
 
-// Unit Leader tool (2026-09-06 spec): a direct, one-time gate — pick a
+// Unit Leader tool (2026-09-06 spec): a direct, one-time gate, pick a
 // farmer from your own jurisdiction BEFORE they've applied for anything,
 // give a reason, and their next loan application skips straight past the
 // normal pending-review queue. Separate from reviewing an
 // already-submitted pending application (that's still done in the
-// Loan Office's Unit Leader review screen) — this is proactive.
+// Loan Office's Unit Leader review screen), this is proactive.
 export default function RecommendationTool({ farmers, onIssued }) {
   const [open, setOpen] = useState(false);
   const [farmerId, setFarmerId] = useState("");
@@ -58,7 +58,7 @@ export default function RecommendationTool({ farmers, onIssued }) {
         <div>
           <p className="text-sm font-medium text-ink-800">Recommend a farmer</p>
           <p className="mt-0.5 text-xs text-ink-600">
-            A one-time free pass for a loan application — skips the normal review queue entirely.
+            A one-time pass that skips the normal review queue.
           </p>
         </div>
         <button
@@ -114,7 +114,7 @@ export default function RecommendationTool({ farmers, onIssued }) {
           {tickets.map((t) => (
             <div key={t.id} className="flex items-center justify-between text-xs text-ink-600">
               <span>
-                {t.farmer_name} — {t.reason}
+                {t.farmer_name}: {t.reason}
               </span>
               <span className={t.used_at ? "text-ink-500" : "font-medium text-canopy-800"}>
                 {t.used_at ? "Used" : "Unused"}

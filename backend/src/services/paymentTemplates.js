@@ -4,19 +4,19 @@ const naira = (n) => `₦${Number(n).toLocaleString("en-NG", { minimumFractionDi
 const row = (a, b) => `<tr><td style="padding:4px 12px 4px 0;color:#57534e;">${escapeHtml(a)}</td><td style="padding:4px 0;"><strong>${escapeHtml(b)}</strong></td></tr>`;
 
 registerTemplate("order_receipt", (d) => ({
-  subject: `Payment received — order ${d.reference}`,
+  subject: `Payment received: order ${d.reference}`,
   title: "Payment received",
   html: `<p>Hi ${escapeHtml(d.name)}, thank you. We have received your payment and your order is confirmed.</p>
-<table role="presentation">${row("Order", d.reference)}${row("Goods", naira(d.goodsTotal))}${d.fee > 0 ? row("Payment processing fee", naira(d.fee)) : ""}${row("Total paid", naira(d.amountCharged))}${row("Delivery to", d.deliveryLocation)}${row("Payment reference", d.paymentReference)}</table>
+<table role="presentation">${row("Order", d.reference)}${row("Total", naira(d.goodsTotal))}${row("Delivery to", d.deliveryLocation)}${row("Payment reference", d.paymentReference)}</table>
 <p>Keep this email as your receipt.</p>`,
-  sms: `EPHAAG: payment of ${naira(d.amountCharged)} received for order ${d.reference}. Thank you.`,
+  sms: `EPHAAG: payment of ${naira(d.goodsTotal)} received for order ${d.reference}. Thank you.`,
 }), { name: "Amina", reference: "ORD-20261024-ABCD", goodsTotal: 50000, fee: 839.2, amountCharged: 50839.2, deliveryLocation: "Bauchi", paymentReference: "OPR-20261024-ABCDXYZ" });
 
 registerTemplate("payment_finance_notice", (d) => ({
   subject: `[Finance] ${d.typeLabel} payment received: ${naira(d.netAmount)}`,
   title: `${d.typeLabel} payment received`,
   html: `<p>A Paystack payment was confirmed automatically and is waiting to be recorded in the accounts.</p>
-<table role="presentation">${row("Type", d.typeLabel)}${row("Payer", d.payer)}${row("Amount (net to EPHAAG)", naira(d.netAmount))}${row("Processing fee paid by payer", naira(d.fee))}${row("Total charged", naira(d.grossAmount))}${row("Reference", d.reference)}${d.review ? row("Flag", "Review only: " + d.review) : ""}</table>
+<table role="presentation">${row("Type", d.typeLabel)}${row("Payer", d.payer)}${row("Amount (net to EPHAAG)", naira(d.netAmount))}${row("Paystack Charges paid by payer", naira(d.fee))}${row("Total charged", naira(d.grossAmount))}${row("Reference", d.reference)}${d.review ? row("Flag", "Review only: " + d.review) : ""}</table>
 <p>Open Finance &rarr; Payment confirmations to tick it as recorded.</p>`,
 }), { typeLabel: "Order", payer: "Amina", netAmount: 50000, fee: 839.2, grossAmount: 50839.2, reference: "OPR-1", review: "" });
 
@@ -62,26 +62,26 @@ registerTemplate("order_expired", (d) => ({
 registerTemplate("commitment_receipt", (d) => ({
   subject: "Standing commitment funded",
   title: "Standing commitment funded",
-  html: `<p>Hi ${escapeHtml(d.name)}, we received your payment and ${naira(d.amount)} has been added to your standing commitment balance. You can now place orders against it with no processing fee.</p>`,
+  html: `<p>Hi ${escapeHtml(d.name)}, we received your payment and ${naira(d.amount)} has been added to your standing commitment balance. You can now place orders against it.</p>`,
   sms: `EPHAAG: ${naira(d.amount)} added to your standing commitment balance.`,
 }), { name: "Amina", amount: 500000 });
 
 registerTemplate("share_receipt", (d) => ({
-  subject: `Shares purchased — ${d.reference}`,
+  subject: `Shares purchased: ${d.reference}`,
   title: "Your shares are active",
   html: `<p>Hi ${escapeHtml(d.name)}, we received your payment and your ${escapeHtml(d.quantity)} share${Number(d.quantity) === 1 ? " is" : "s are"} now active.</p>
-<table role="presentation">${row("Purchase", d.reference)}${row("Shares", `${d.quantity} × ₦25,000`)}${row("Share capital", naira(d.goodsTotal))}${d.lateFee > 0 ? row(`Late fee (${d.lateDays} day${d.lateDays === 1 ? "" : "s"} late)`, naira(d.lateFee)) : ""}${d.fee > 0 ? row("Payment processing fee", naira(d.fee)) : ""}${row("Total paid", naira(d.amountCharged))}${row("Payment reference", d.paymentReference)}</table>
+<table role="presentation">${row("Purchase", d.reference)}${row("Shares", `${d.quantity} × ₦25,000`)}${row("Share capital", naira(d.goodsTotal))}${d.lateFee > 0 ? row(`Late fee (${d.lateDays} day${d.lateDays === 1 ? "" : "s"} late)`, naira(d.lateFee)) : ""}${row("Total", naira(Number(d.goodsTotal) + Number(d.lateFee || 0)))}${row("Payment reference", d.paymentReference)}</table>
 <p>Keep this email as your receipt. Each share earns its own interest; see them under Savings in your Farmer's Room. Your share capital is exactly ${naira(d.goodsTotal)}; any late fee is not part of it.</p>`,
-  sms: `EPHAAG: payment of ${naira(d.amountCharged)} received. ${d.quantity} share${Number(d.quantity) === 1 ? " is" : "s are"} now active. Ref ${d.reference}.`,
+  sms: `EPHAAG: payment of ${naira(Number(d.goodsTotal) + Number(d.lateFee || 0))} received. ${d.quantity} share${Number(d.quantity) === 1 ? " is" : "s are"} now active. Ref ${d.reference}.`,
 }), { name: "Amina", reference: "SPR-20261024-ABCD", quantity: 2, goodsTotal: 50000, fee: 839.2, amountCharged: 50839.2, paymentReference: "SPR-20261024-ABCD" });
 
 registerTemplate("corps_receipt", (d) => ({
-  subject: `EPHAAG Farms — payment received (${d.reference})`,
+  subject: `EPHAAG Farms payment received (${d.reference})`,
   title: "Payment received",
   html: `<p>Hello ${escapeHtml(d.name)}, we have received your one-time access fee. Your NYSC AGROALLIED SAED training is now unlocked: sign in and open <em>My Training</em> to begin.</p>
-<table role="presentation">${row("Access fee", naira(d.accessFee))}${d.fee > 0 ? row("Payment processing fee", naira(d.fee)) : ""}${row("Total paid", naira(d.totalCharged))}${row("Receipt reference", d.reference)}</table>
+<table role="presentation">${row("Access fee", naira(d.accessFee))}${row("Receipt reference", d.reference)}</table>
 <p>This fee is non-refundable once paid.</p>`,
-  sms: `EPHAAG: payment of ${naira(d.totalCharged)} received. Your NYSC AGROALLIED SAED training is unlocked. Ref ${d.reference}.`,
+  sms: `EPHAAG: payment of ${naira(d.accessFee)} received. Your NYSC AGROALLIED SAED training is unlocked. Ref ${d.reference}.`,
 }), { name: "Chidi", accessFee: 5000, fee: 100, totalCharged: 5100, reference: "CPAY-20261024-ABCD" });
 
 registerTemplate("share_late_started", (d) => ({
@@ -120,15 +120,15 @@ registerTemplate("investment_receipt", (d) => ({
   subject: `Investment payment received: ${d.reference}`,
   title: "Payment received",
   html: `<p>Hi ${escapeHtml(d.name)}, we received your investment payment${d.autoCharged ? " (charged automatically to your saved card)" : ""}.</p>
-<table role="presentation">${row("Investment", d.reference)}${row(d.kind === "activation" ? "Payment for" : "Month", d.kind === "activation" ? (d.planType === "bulk" ? "One-time investment" : "First monthly payment") : d.dueDate)}${row("Amount", naira(d.amount))}${d.fee > 0 ? row("Payment processing fee", naira(d.fee)) : ""}${row("Total paid", naira(d.totalCharged))}${row("Payment reference", d.paymentReference)}</table>
+<table role="presentation">${row("Investment", d.reference)}${row(d.kind === "activation" ? "Payment for" : "Month", d.kind === "activation" ? (d.planType === "bulk" ? "One-time investment" : "First monthly payment") : d.dueDate)}${row("Amount", naira(d.amount))}${row("Payment reference", d.paymentReference)}</table>
 <p>Keep this email as your receipt.</p>`,
-  sms: `EPHAAG: payment of ${naira(d.totalCharged)} received for investment ${d.reference}. Ref ${d.paymentReference}.`,
+  sms: `EPHAAG: payment of ${naira(d.amount)} received for investment ${d.reference}. Ref ${d.paymentReference}.`,
 }), { name: "Aliyu", reference: "INV-20261028-ABCD", kind: "monthly", planType: "monthly", dueDate: "2026-11-28", amount: 10000, fee: 250, totalCharged: 10250, paymentReference: "IPR-1", autoCharged: false });
 
 registerTemplate("investment_payment_requested", (d) => ({
   subject: `Your investment ${d.reference} is approved: pay to activate it`,
   title: "Pay to activate your investment",
-  html: `<p>Hi ${escapeHtml(d.name)}, your signed agreement has been approved. Your investment becomes active as soon as you pay ${d.planType === "bulk" ? "the one-time amount" : "your first monthly payment"} of ${naira(d.amount)} (plus Paystack's processing fee) through your Investor Room.</p>`,
+  html: `<p>Hi ${escapeHtml(d.name)}, your signed agreement has been approved. Your investment becomes active as soon as you pay ${d.planType === "bulk" ? "the one-time amount" : "your first monthly payment"} of ${naira(d.amount)} through your Investor Room.</p>`,
   sms: `EPHAAG: your investment ${d.reference} is approved. Pay ${naira(d.amount)} in your Investor Room to activate it.`,
 }), { name: "Aliyu", reference: "INV-1", planType: "bulk", amount: 100000 });
 

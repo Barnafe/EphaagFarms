@@ -41,7 +41,7 @@ export default function Contact() {
         {status === "sent" ? (
           <div className="field">
             <p className="text-sm text-canopy-800">
-              Thanks — your message has been sent. We'll get back to you soon.
+              Thanks, your message has been sent. We'll get back to you soon.
             </p>
             <button className="btn-outline mt-4" type="button" onClick={() => setStatus("idle")}>
               Send another message

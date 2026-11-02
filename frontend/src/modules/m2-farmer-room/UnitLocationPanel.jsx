@@ -29,7 +29,7 @@ export default function UnitLocationPanel() {
   return (
     <div className="card field space-y-3">
       <p className="text-sm font-medium text-ink-900">My unit location: {unit.name}</p>
-      <p className="text-xs text-ink-600">Stand at the centre of your unit and use the button, then list the communities and streets it covers.</p>
+      <p className="text-xs text-ink-600">Stand at the centre of your unit, tap the button, then list the communities and streets it covers.</p>
       <GpsPin lat={pin.lat} lng={pin.lng} onChange={(la, ln) => setPin({ lat: la, lng: ln })} />
       <div><label>Communities / streets in my unit (separate with commas)</label><input value={communities} onChange={(e) => setCommunities(e.target.value)} placeholder="Kasuwa, Tudun Wada, Zaria Road" /></div>
       {err && <p className="text-xs text-red-700" role="alert">{err}</p>}

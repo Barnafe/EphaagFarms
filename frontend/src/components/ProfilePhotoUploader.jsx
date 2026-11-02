@@ -11,7 +11,7 @@ function initials(name = "") {
     .join("");
 }
 
-// Passport/profile photo upload + display — used on every role's Profile
+// Passport/profile photo upload + display, used on every role's Profile
 // panel. Uploads immediately on file selection (no separate "save" step).
 export default function ProfilePhotoUploader() {
   const { session, refreshSession } = useAuth();

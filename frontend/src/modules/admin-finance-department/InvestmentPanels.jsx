@@ -13,7 +13,7 @@ function OfflineRecord({ application, onRecordOffline }) {
   }
   return (
     <div className="mt-2 space-y-2 rounded-card border border-soil-200 bg-soil-50 p-3">
-      <p className="text-xs text-ink-700">Exception only. Records ₦{application.amount.toLocaleString()} as paid with no processing fee. It is flagged for review and every admin is told.</p>
+      <p className="text-xs text-ink-700">Exception only. Records ₦{application.amount.toLocaleString()} as paid with no Paystack Charges. It is flagged for review and every admin is told.</p>
       <textarea className="w-full rounded-card border border-soil-200 px-2 py-1 text-sm" rows={2} placeholder="Reason (required), e.g. Bank transfer TRF-123" value={reason} onChange={(e) => setReason(e.target.value)} />
       {err && <p className="text-xs text-red-700">{err}</p>}
       <div className="flex gap-2">
@@ -51,7 +51,7 @@ export function ApplicationReviewPanel({ applications, onDecide, onDownloadAgree
                 type="button"
                 onClick={() => onDecide(a.id, "agreement_pending")}
               >
-                Approve — email agreement to investor
+                Approve, email agreement to investor
               </button>
               <button className="btn-outline" type="button" onClick={() => onDecide(a.id, "rejected")}>
                 Reject
@@ -63,7 +63,7 @@ export function ApplicationReviewPanel({ applications, onDecide, onDownloadAgree
 
       {awaitingUpload.length > 0 && (
         <div className="mt-5 border-t border-soil-200 pt-3">
-          <p className="text-sm text-ink-600">Agreement emailed — waiting on investor's signed upload</p>
+          <p className="text-sm text-ink-600">Agreement emailed, waiting on investor's signed upload</p>
           <div className="mt-3 space-y-2">
             {awaitingUpload.map((a) => (
               <div key={a.id} className="rounded-card border border-soil-200 px-3 py-2">
@@ -83,7 +83,7 @@ export function ApplicationReviewPanel({ applications, onDecide, onDownloadAgree
 
       {awaitingFinalReview.length > 0 && (
         <div className="mt-5 border-t border-soil-200 pt-3">
-          <p className="text-sm text-ink-600">Signed agreement received — final review</p>
+          <p className="text-sm text-ink-600">Signed agreement received, final review</p>
           <div className="mt-3 space-y-2">
             {awaitingFinalReview.map((a) => (
               <div key={a.id} className="rounded-card border border-soil-200 px-3 py-2">
@@ -97,7 +97,7 @@ export function ApplicationReviewPanel({ applications, onDecide, onDownloadAgree
                     Download signed agreement
                   </button>
                   <button className="btn-primary" type="button" onClick={() => onDecide(a.id, "active")}>
-                    Approve — ask investor to pay
+                    Approve, ask investor to pay
                   </button>
                   <button className="btn-outline" type="button" onClick={() => onDecide(a.id, "rejected")}>
                     Reject
@@ -111,7 +111,7 @@ export function ApplicationReviewPanel({ applications, onDecide, onDownloadAgree
 
       {awaitingPayment.length > 0 && (
         <div className="mt-5 border-t border-soil-200 pt-3">
-          <p className="text-sm text-ink-600">Approved — waiting for the investor's online payment (it activates automatically)</p>
+          <p className="text-sm text-ink-600">Approved, waiting for the investor's online payment (it activates automatically)</p>
           <div className="mt-3 space-y-2">
             {awaitingPayment.map((a) => (
               <div key={a.id} className="rounded-card border border-soil-200 px-3 py-2">

@@ -29,21 +29,21 @@ const FARM_TYPE_OPTIONS = [
 ];
 
 const FARM_SIZE_OPTIONS = [
-  { value: "0-1_hectares", label: "0 – 1 hectares" },
-  { value: "2-4_hectares", label: "2 – 4 hectares" },
+  { value: "0-1_hectares", label: "0 to 1 hectares" },
+  { value: "2-4_hectares", label: "2 to 4 hectares" },
   { value: "5plus_hectares", label: "5 hectares and above" },
 ];
 
 const YEARS_EXPERIENCE_OPTIONS = [
-  { value: "1-5", label: "1 – 5 years" },
-  { value: "6-10", label: "6 – 10 years" },
+  { value: "1-5", label: "1 to 5 years" },
+  { value: "6-10", label: "6 to 10 years" },
   { value: "11plus", label: "11 years and above" },
 ];
 
 const ANNUAL_FARM_INCOME_OPTIONS = [
-  { value: "50k-100k", label: "₦50,000 – ₦100,000" },
-  { value: "100k-400k", label: "₦100,000 – ₦400,000" },
-  { value: "500k-1m", label: "₦500,000 – ₦1,000,000" },
+  { value: "50k-100k", label: "₦50,000, ₦100,000" },
+  { value: "100k-400k", label: "₦100,000, ₦400,000" },
+  { value: "500k-1m", label: "₦500,000, ₦1,000,000" },
   { value: "1mplus", label: "₦1,000,000 and above" },
 ];
 
@@ -59,8 +59,7 @@ const INCOME_FREQUENCY_OPTIONS = [
   { value: "monthly", label: "Monthly" },
 ];
 
-// Best-effort placeholder list, same as the shared Register.jsx form —
-// swap once the exact intended options are confirmed.
+// Best-effort placeholder list, same as the shared Register.jsx form, // swap once the exact intended options are confirmed.
 const LIVESTOCK_ITEMS = ["Poultry", "Fish / aquaculture", "Cattle", "Goat / sheep"];
 const CROP_GROUPS = [
   { group: "Grains", items: ["Maize", "Rice", "Sorghum", "Millet"] },
@@ -148,7 +147,7 @@ export default function FarmerRegisterWizard() {
   const [referrerError, setReferrerError] = useState("");
   const [checkingReferrer, setCheckingReferrer] = useState(false);
 
-  // Referral is optional — recognizes a code as it's typed and shows whose
+  // Referral is optional, recognizes a code as it's typed and shows whose
   // it is, so the applicant can confirm before submitting. Debounced so it
   // doesn't fire on every keystroke; silently no-ops on an empty field.
   useEffect(() => {
@@ -295,7 +294,7 @@ export default function FarmerRegisterWizard() {
           photoForm.append("photo", photoFile);
           await apiUpload("/auth/me/photo", photoForm);
         } catch {
-          // Non-fatal — account creation already succeeded.
+          // Non-fatal, account creation already succeeded.
         }
       }
 
@@ -312,7 +311,7 @@ export default function FarmerRegisterWizard() {
       <h1 className="text-xl font-medium text-ink-900">Farmer registration</h1>
       {step > 0 && (
         <p className="mt-1 text-sm text-ink-600">
-          Step {step} of 4 — {STEP_LABELS[step]}
+          Step {step} of 4: {STEP_LABELS[step]}
         </p>
       )}
 
@@ -324,9 +323,7 @@ export default function FarmerRegisterWizard() {
               sourcing, financing, training, and the other benefits of the network.
             </p>
             <p className="mt-2 font-medium text-ink-900">
-              Please make sure every detail you enter is correct — the information you provide is what
-              EPHAAG uses to confirm your support and benefits, and incorrect details can delay or affect
-              them.
+              Please make sure every detail is correct. Wrong details can delay your support and benefits.
             </p>
           </div>
           <label className="flex items-start gap-2 text-sm text-ink-900">
@@ -346,7 +343,7 @@ export default function FarmerRegisterWizard() {
           {idPhase && !nimc && (
             <div className="space-y-3">
               <p className="text-sm font-medium text-ink-900">Verify your identity</p>
-              <p className="text-xs text-ink-600">Enter your NIN and we fetch your name, date of birth, gender and permanent address from NIMC, so you do not have to type them. Verified members can use every EPHAAG feature.</p>
+              <p className="text-xs text-ink-600">Enter your NIN and we fetch your name, date of birth, gender and address from NIMC.</p>
               <NinVerifyBox
                 endpoint="/auth/verify-nin" auth={false}
                 onVerified={(r) => {
@@ -357,7 +354,7 @@ export default function FarmerRegisterWizard() {
               <button type="button" className="w-full text-xs text-ink-600 underline" onClick={() => { setError(""); setStep(1); }}>
                 I do not have my NIN now: continue without it
               </button>
-              <p className="text-xs text-ink-500">Without a verified NIN you can still register and use the basic features. Loans, savings withdrawals and shares unlock once you verify your NIN.</p>
+              <p className="text-xs text-ink-500">You can register without a verified NIN. Loans, savings withdrawals and shares unlock once it is verified.</p>
             </div>
           )}
           {idPhase && nimc && (
@@ -365,7 +362,7 @@ export default function FarmerRegisterWizard() {
               <div className="rounded-card border border-canopy-200 bg-canopy-50 p-3 text-sm text-ink-900" role="status">
                 <p className="font-medium">NIN verified (ending {nimc.last4})</p>
                 <p className="mt-1">{nimc.identity.fullName}</p>
-                <p className="text-xs text-ink-600">Born {nimc.identity.dateOfBirth} · {nimc.identity.gender || "—"}</p>
+                <p className="text-xs text-ink-600">Born {nimc.identity.dateOfBirth} · {nimc.identity.gender || "N/A"}</p>
                 {nimc.identity.permanentAddress && <p className="text-xs text-ink-600">{nimc.identity.permanentAddress}</p>}
                 <p className="mt-1 text-xs text-ink-600">These details come from NIMC and cannot be changed.</p>
               </div>
@@ -535,7 +532,7 @@ export default function FarmerRegisterWizard() {
             </div>
           </div>
           <GpsPin lat={form.lat} lng={form.lng} onChange={(la, ln) => setForm((f) => ({ ...f, lat: la, lng: ln }))} />
-          <p className="text-xs text-ink-600">Your EPHAAG unit is found automatically from where you live. If you move, update your residential address in your profile and your unit changes by itself.</p>
+          <p className="text-xs text-ink-600">Your unit is found automatically from where you live.</p>
         </div>
       )}
 

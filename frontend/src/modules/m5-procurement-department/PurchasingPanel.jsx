@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ClipboardList, FilePlus2, Truck, History as HistoryIcon } from "lucide-react";
-import { apiFetch } from "../../api/client.js";
+import { ClipboardList, FilePlus2, Truck, History as HistoryIcon, Wallet } from "lucide-react";
+import { apiFetch, apiUpload, apiDownload } from "../../api/client.js";
 import DeptSectionNav from "../../components/DeptSectionNav.jsx";
 import NewPurchaseRequestForm from "./NewPurchaseRequestForm.jsx";
 import PurchaseRequestList from "./PurchaseRequestList.jsx";
 import PurchaseRequestDetail from "./PurchaseRequestDetail.jsx";
 import SupplierManager from "./SupplierManager.jsx";
+import BudgetsPanel from "./BudgetsPanel.jsx";
 
 import useUrlState from "../../hooks/useUrlState.js";
 const ACTIVE_STATUSES = [
   "pending_approval",
   "approved",
   "sourcing",
+  "budget_approval_pending",
   "po_pending_approval",
   "po_approved",
   "awaiting_delivery",
@@ -30,8 +32,9 @@ const SECTIONS = [
     key: "suppliers",
     label: "Vendors",
     icon: Truck,
-    description: "External vendor directory for internal purchasing (tools, supplies, services) — not farmer/crop sourcing, which is handled in the Orders tab.",
+    description: "External vendor directory for internal purchasing (tools, supplies, services), not farmer/crop sourcing, which is handled in the Orders tab.",
   },
+  { key: "budgets", label: "Budgets", icon: Wallet, description: "Annual purchasing budget for each department, and how much of it is committed." },
   { key: "history", label: "History / Audit", icon: HistoryIcon, description: "Completed, rejected and cancelled requests with full trail." },
 ];
 
@@ -42,6 +45,7 @@ export default function PurchasingPanel() {
   const [selectedId, setSelectedId] = useState(null);
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState(null);
+  const [me, setMe] = useState(null); // my purchasing role: Procurement, Finance, CEO or Main admin
 
   const load = useCallback(async () => {
     try {
@@ -59,6 +63,7 @@ export default function PurchasingPanel() {
 
   useEffect(() => {
     load();
+    apiFetch("/purchasing/me").then(setMe).catch(() => {});
   }, [load]);
 
   const loadDetail = useCallback(async (id) => {
@@ -98,7 +103,18 @@ export default function PurchasingPanel() {
       approve: (id, note) => refreshAfterAction(() => apiFetch(`/purchasing/requests/${id}/approve`, { method: "POST", body: { note } })),
       reject: (id, note) => refreshAfterAction(() => apiFetch(`/purchasing/requests/${id}/reject`, { method: "POST", body: { note } })),
       cancel: (id, note) => refreshAfterAction(() => apiFetch(`/purchasing/requests/${id}/cancel`, { method: "POST", body: { note } })),
-      addQuotation: (id, body) => refreshAfterAction(() => apiFetch(`/purchasing/requests/${id}/quotations`, { method: "POST", body })),
+      addQuotation: (id, body) => refreshAfterAction(() => (body instanceof FormData ? apiUpload(`/purchasing/requests/${id}/quotations`, body) : apiFetch(`/purchasing/requests/${id}/quotations`, { method: "POST", body }))),
+      attachQuotation: (id, qid, file) => {
+        const fd = new FormData(); fd.append("file", file);
+        return refreshAfterAction(() => apiUpload(`/purchasing/requests/${id}/quotations/${qid}/attachment`, fd));
+      },
+      attachInvoice: (id, file) => {
+        const fd = new FormData(); fd.append("file", file);
+        return refreshAfterAction(() => apiUpload(`/purchasing/requests/${id}/invoice/attachment`, fd));
+      },
+      downloadQuotation: (id, qid, name) => apiDownload(`/purchasing/requests/${id}/quotations/${qid}/file`, name || "quotation").catch((e) => setError(e.message)),
+      downloadInvoice: (id, name) => apiDownload(`/purchasing/requests/${id}/invoice/file`, name || "invoice").catch((e) => setError(e.message)),
+      budgetDecision: (id, decision, note) => refreshAfterAction(() => apiFetch(`/purchasing/requests/${id}/budget-decision`, { method: "POST", body: { decision, note } })),
       selectSupplier: (id, quotationId) =>
         refreshAfterAction(() => apiFetch(`/purchasing/requests/${id}/select-supplier`, { method: "POST", body: { quotationId } })),
       createPurchaseOrder: (id, items) =>
@@ -111,7 +127,7 @@ export default function PurchasingPanel() {
         refreshAfterAction(() => apiFetch(`/purchasing/requests/${id}/verify-goods`, { method: "POST", body: { result, note } })),
       resolveDispute: (id, action, note) =>
         refreshAfterAction(() => apiFetch(`/purchasing/requests/${id}/resolve-dispute`, { method: "POST", body: { action, note } })),
-      recordInvoice: (id, body) => refreshAfterAction(() => apiFetch(`/purchasing/requests/${id}/invoice`, { method: "POST", body })),
+      recordInvoice: (id, body) => refreshAfterAction(() => (body instanceof FormData ? apiUpload(`/purchasing/requests/${id}/invoice`, body) : apiFetch(`/purchasing/requests/${id}/invoice`, { method: "POST", body }))),
       verifyInvoice: (id, note) => refreshAfterAction(() => apiFetch(`/purchasing/requests/${id}/verify-invoice`, { method: "POST", body: { note } })),
       finalPayment: (id, body) => refreshAfterAction(() => apiFetch(`/purchasing/requests/${id}/final-payment`, { method: "POST", body })),
     }),
@@ -139,11 +155,13 @@ export default function PurchasingPanel() {
       {section === "pipeline" && (
         <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
           <PurchaseRequestList requests={activeRequests} selectedId={selectedId} onSelect={selectRequest} />
-          <PurchaseRequestDetail request={selected} suppliers={suppliers} actions={actions} />
+          <PurchaseRequestDetail request={selected} suppliers={suppliers} actions={actions} me={me} />
         </div>
       )}
 
       {section === "new" && <NewPurchaseRequestForm onSubmit={createRequest} />}
+
+      {section === "budgets" && <BudgetsPanel me={me} />}
 
       {section === "suppliers" && (
         <SupplierManager suppliers={suppliers} onCreate={createSupplier} onUpdate={updateSupplier} />
@@ -152,7 +170,7 @@ export default function PurchasingPanel() {
       {section === "history" && (
         <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
           <PurchaseRequestList requests={historyRequests} selectedId={selectedId} onSelect={selectRequest} />
-          <PurchaseRequestDetail request={selected} suppliers={suppliers} actions={actions} />
+          <PurchaseRequestDetail request={selected} suppliers={suppliers} actions={actions} me={me} />
         </div>
       )}
     </div>

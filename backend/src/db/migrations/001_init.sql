@@ -1,4 +1,4 @@
--- Ephaag Farms — initial schema
+-- Ephaag Farms, initial schema
 -- Run via `npm run migrate` (see src/db/migrate.js)
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -25,8 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Self-healing for databases created before these columns existed —
--- CREATE TABLE IF NOT EXISTS above is a no-op against an existing older
+-- Self-healing for databases created before these columns existed, -- CREATE TABLE IF NOT EXISTS above is a no-op against an existing older
 -- table, so without this, a pre-existing `users` table would silently be
 -- missing sex/photo_url/email_verified and every INSERT referencing them
 -- would fail at runtime. Safe to run repeatedly; each ADD COLUMN is a
@@ -34,21 +33,20 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sex TEXT CHECK (sex IN ('male', 'female'));
 ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;
--- Head-of-Department assignment (2026-08-13) — set by main admin only, via
+-- Head-of-Department assignment (2026-08-13), set by main admin only, via
 -- the new Positions tool; a department name (Production/Procurement/
 -- Transport/Store/Finance/Maintenance/TRC) or NULL. Only relevant for
 -- role_type='admin' users, but not constrained to that at the DB level
 -- (the controller enforces it) to keep the column simple.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS department_head_of TEXT;
--- Email is no longer a hard requirement (see farmer registration wizard —
--- NIN/email/phone must never block someone from registering). A pre-existing
+-- Email is no longer a hard requirement (see farmer registration wizard, -- NIN/email/phone must never block someone from registering). A pre-existing
 -- DB would still have the old NOT NULL, so drop it explicitly. Postgres
 -- allows multiple NULLs in a UNIQUE column, so uniqueness still holds for
 -- everyone who does have an email.
 ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 
 -- Email/SMS OTP codes issued during registration (account-creation
--- verification) — code is stored hashed, never in plaintext.
+-- verification), code is stored hashed, never in plaintext.
 CREATE TABLE IF NOT EXISTS otp_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -70,7 +68,7 @@ CREATE TABLE IF NOT EXISTS password_resets (
 );
 
 -- Only the Farmer network carries the 3EI Governance rank hierarchy (the top rank's
--- stored value is still 'Federal' — naming only) — every other role is flat, so no
+-- stored value is still 'Federal', naming only), every other role is flat, so no
 -- ranks table for them.
 CREATE TABLE IF NOT EXISTS farmer_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -93,15 +91,14 @@ CREATE TABLE IF NOT EXISTS farmer_profiles (
   years_experience TEXT CHECK (years_experience IN ('1-5','6-10','11plus')),
   keeps_inventory_records BOOLEAN,
   annual_farm_income TEXT CHECK (annual_farm_income IN ('50k-100k','100k-400k','500k-1m','1mplus')),
-  -- Section C: additional income (work / business / both) — the specific
+  -- Section C: additional income (work / business / both), the specific
   -- sub-fields differ per type, so kept as one flexible JSONB blob rather
   -- than a wide sparse set of columns.
   additional_income_type TEXT CHECK (additional_income_type IN ('work','business','both')),
   additional_income JSONB
 );
 
--- Self-healing for DBs from before the Phase 3 registration wizard —
--- CREATE TABLE IF NOT EXISTS above is a no-op against an existing
+-- Self-healing for DBs from before the Phase 3 registration wizard, -- CREATE TABLE IF NOT EXISTS above is a no-op against an existing
 -- farmer_profiles table, so without this, every INSERT referencing these
 -- new columns would fail at runtime against an older local DB.
 ALTER TABLE farmer_profiles ADD COLUMN IF NOT EXISTS marital_status TEXT CHECK (marital_status IN ('single','married','divorced','widowed'));
@@ -130,7 +127,7 @@ CREATE TABLE IF NOT EXISTS buyer_profiles (
   standing_commitment_years INT
 );
 
--- Self-healing: buyer_type used to only allow 'company' — renamed to
+-- Self-healing: buyer_type used to only allow 'company', renamed to
 -- 'organization' (also now covers what used to be listed separately as
 -- government). A database from before this round would reject the new
 -- value without this.
@@ -145,16 +142,16 @@ ALTER TABLE buyer_profiles ADD CONSTRAINT buyer_profiles_buyer_type_check
 -- 2026-09-01 spec: individual buyers give a delivery address at
 -- registration (delivery location matters enough to collect upfront, not
 -- just at checkout). The CAC/registration-document upload for organization
--- buyers was dropped from registration per the same spec — company_doc_url
+-- buyers was dropped from registration per the same spec, company_doc_url
 -- is left in place (harmless, unused) rather than dropped, in case
 -- document upload comes back later.
 ALTER TABLE buyer_profiles ADD COLUMN IF NOT EXISTS address TEXT;
 
--- Personal savings (Farmer's Room) — OLD placeholder model (min ₦25,000,
+-- Personal savings (Farmer's Room), OLD placeholder model (min ₦25,000,
 -- open-ended duration, 8% flat) kept only so a pre-existing DB doesn't
 -- break; no longer written to by the app. Superseded 2026-08-09 by the
 -- real monthly two-account model below (savings_deposits/savings_withdrawals),
--- per the user's detailed spec — see [[ephaag-farms-farmer-room-specs]] memory.
+-- per the user's detailed spec, see [[ephaag-farms-farmer-room-specs]] memory.
 CREATE TABLE IF NOT EXISTS savings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reference TEXT UNIQUE NOT NULL,
@@ -185,7 +182,7 @@ CREATE TABLE IF NOT EXISTS savings_deposits (
 -- Insurance-account funds are only ever moved by the company (admin creates
 -- an already-'paid' row directly); main-account withdrawals are farmer-
 -- requested then Finance-approved, since the spec's "due date" for main
--- withdrawals was never pinned down to an exact rule — see memory file.
+-- withdrawals was never pinned down to an exact rule, see memory file.
 CREATE TABLE IF NOT EXISTS savings_withdrawals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -227,7 +224,7 @@ CREATE TABLE IF NOT EXISTS investor_profiles (
   partner_status TEXT NOT NULL DEFAULT 'none' CHECK (partner_status IN ('none','pending','approved'))
 );
 
--- Farmer's Room "List product" — a farmer's own for-sale listings (their
+-- Farmer's Room "List product", a farmer's own for-sale listings (their
 -- own asking price/quantity, distinct from the company's standard_prices
 -- buyers see in the catalog).
 CREATE TABLE IF NOT EXISTS farmer_products (
@@ -238,11 +235,10 @@ CREATE TABLE IF NOT EXISTS farmer_products (
   unit TEXT NOT NULL CHECK (unit IN ('kg','tons','bags','tubers','crates','baskets')),
   address TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available','sold_out')),
-  -- annual_declared_quantity/declaration_year (2026-08-11) are now DEPRECATED —
-  -- the user clarified 2026-08-12 that declaring and listing are two
+  -- annual_declared_quantity/declaration_year (2026-08-11) are now DEPRECATED, -- the user clarified 2026-08-12 that declaring and listing are two
   -- different actions with two different forms, not one merged form.
   -- Columns kept (self-heal is additive-only, never drops real columns)
-  -- but nothing writes to them anymore — see farmer_declarations below,
+  -- but nothing writes to them anymore, see farmer_declarations below,
   -- which is where declarations live now.
   annual_declared_quantity NUMERIC(12,2),
   declaration_year INT NOT NULL DEFAULT EXTRACT(YEAR FROM now())::int,
@@ -251,11 +247,10 @@ CREATE TABLE IF NOT EXISTS farmer_products (
 ALTER TABLE farmer_products ADD COLUMN IF NOT EXISTS annual_declared_quantity NUMERIC(12,2);
 ALTER TABLE farmer_products ADD COLUMN IF NOT EXISTS declaration_year INT NOT NULL DEFAULT EXTRACT(YEAR FROM now())::int;
 
--- Produce declarations (2026-08-12: split out from farmer_products —
--- declaring what you've harvested and listing it for sale are two
+-- Produce declarations (2026-08-12: split out from farmer_products, -- declaring what you've harvested and listing it for sale are two
 -- different actions on two different schedules, not one form). Crop is
 -- validated server-side against the farmer's own farmer_profiles.crops
--- list at write time — never trust the client dropdown alone, per the
+-- list at write time, never trust the client dropdown alone, per the
 -- user's explicit "avoid confusion, admin needs correct data" concern.
 CREATE TABLE IF NOT EXISTS farmer_declarations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -268,7 +263,7 @@ CREATE TABLE IF NOT EXISTS farmer_declarations (
 );
 
 -- Coordinator rank changes always go through 3EI Governance committee → CEO →
--- tech team, per the business rules — this table is the audit trail.
+-- tech team, per the business rules, this table is the audit trail.
 CREATE TABLE IF NOT EXISTS coordinator_appointments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -311,7 +306,7 @@ ALTER TABLE loans ADD COLUMN IF NOT EXISTS deposit_required NUMERIC(14,2);
 ALTER TABLE loans ADD COLUMN IF NOT EXISTS deposit_paid_at TIMESTAMPTZ;
 ALTER TABLE loans ADD COLUMN IF NOT EXISTS deposit_verified BOOLEAN NOT NULL DEFAULT FALSE;
 -- 2026-08-29: for 'aided' loans, `amount` is the actual disbursed amount
--- (2x what was requested) — this keeps the original ask on record too, for
+-- (2x what was requested), this keeps the original ask on record too, for
 -- the same dispute-defense reason the rest of this table is audited.
 ALTER TABLE loans ADD COLUMN IF NOT EXISTS requested_amount NUMERIC(14,2);
 ALTER TABLE loans DROP CONSTRAINT IF EXISTS loans_loan_type_check;
@@ -329,13 +324,13 @@ CREATE TABLE IF NOT EXISTS loan_repayments (
 );
 
 -- Unit Leader recommendation tickets (2026-09-06 spec). A DIRECT GATE, not
--- a graded index — this is the resolution of the "unit_leader_recommendation
+-- a graded index, this is the resolution of the "unit_leader_recommendation
 -- has no point value" gap: it was never supposed to have one. A Unit
 -- Leader proactively picks a farmer from their jurisdiction (before any
 -- loan application exists) and issues a one-time ticket with a reason.
 -- That farmer's *next* loan application skips straight to 'recommended'
 -- status instead of starting at 'pending' and waiting for a Unit Leader to
--- review it after the fact — a free pass, valid exactly once. The unique
+-- review it after the fact, a free pass, valid exactly once. The unique
 -- partial index below enforces "only one *unused* ticket per farmer at a
 -- time" so a leader can't stack up multiple free passes for the same
 -- person. Consumed the moment applyForLoan uses it (see loanController.js);
@@ -363,14 +358,14 @@ ALTER TABLE loans ADD CONSTRAINT loans_status_check CHECK (status IN
 -- Boost Cash's deposit_required/deposit_paid_at/deposit_verified columns
 -- on `loans` are now populated automatically FROM the linked
 -- boost_cash_deposits row at application time (see below) rather than
--- being farmer-submitted after approval — kept as-is on `loans` since the
+-- being farmer-submitted after approval, kept as-is on `loans` since the
 -- existing disbursement gate (`deposit_verified`) still reads them.
 
--- Boost Cash 25% deposit — now made and verified BEFORE a loan application
+-- Boost Cash 25% deposit, now made and verified BEFORE a loan application
 -- even exists (corrected 2026-08-11; originally built post-approval, see
 -- [[ephaag-farms-farmer-room-specs]] memory for the full history). A
 -- farmer declares an intended borrow amount, pays 25% of it, Finance
--- verifies, then — starting 1 month after verification — the farmer can
+-- verifies, then, starting 1 month after verification, the farmer can
 -- apply, consuming this deposit (one deposit funds exactly one loan).
 CREATE TABLE IF NOT EXISTS boost_cash_deposits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -384,7 +379,7 @@ CREATE TABLE IF NOT EXISTS boost_cash_deposits (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Immutable audit trail for every loan status transition — explicit hard
+-- Immutable audit trail for every loan status transition, explicit hard
 -- requirement (user: "otherwise it will be a failed system if someone
 -- falsefully claim something and if we cannot get clear data to defend").
 -- Never updated or deleted, only appended to.
@@ -403,7 +398,7 @@ CREATE TABLE IF NOT EXISTS loan_status_history (
 -- admin can view/verify history). One row per farmer per calendar quarter
 -- (quarters end Mar/Jun/Sep/Dec, per the user's own framing), upserted in
 -- real time every time a relevant event happens (deposit, verified
--- repayment, attendance mark) — see indicesEngine.js.
+-- repayment, attendance mark), see indicesEngine.js.
 CREATE TABLE IF NOT EXISTS farmer_index_snapshots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   farmer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -416,14 +411,14 @@ CREATE TABLE IF NOT EXISTS farmer_index_snapshots (
   UNIQUE (farmer_id, quarter_start)
 );
 
--- Farmer investment shares — "Buy Share" (2026-08-13 spec, REWORKED
+-- Farmer investment shares, "Buy Share" (2026-08-13 spec, REWORKED
 -- 2026-08-29 to explicitly reuse "the same investment terms and conditions
 -- for ephaag" as the general Investor module, not the old
 -- self-contained 1-5yr/20-45% schedule): a DIFFERENT product from the
 -- Investor-role Monthly/Bulk plans (see investment_applications above),
 -- but now uses the SAME linear ROI structure as the Investor Monthly plan
 -- (10/20/30/40/50% cumulative over yrs 1-5, which is exactly 10%/year of
--- capital, simple not compound — see BUY_SHARE_ANNUAL_ROI_PCT in
+-- capital, simple not compound, see BUY_SHARE_ANNUAL_ROI_PCT in
 -- farmerSharesController.js). Fixed ₦25,000 per share, ALWAYS a 5-year
 -- capital lock (no more farmer-chosen term), interest on capital only is
 -- withdrawable once per completed year starting after year 1. No payment
@@ -453,10 +448,10 @@ ALTER TABLE farmer_shares DROP CONSTRAINT IF EXISTS farmer_shares_status_check;
 ALTER TABLE farmer_shares ADD CONSTRAINT farmer_shares_status_check
   CHECK (status IN ('active','expired','renewed','capital_withdrawn'));
 
--- Annual interest withdrawals against a share's capital — "interest will
+-- Annual interest withdrawals against a share's capital, "interest will
 -- only and always be calculated base on the capital. Whether user didn't
 -- withdraw the interest for the whole 5yrs, no other interest come from
--- interest" — i.e. simple interest, one entry per (share, year_number),
+-- interest", i.e. simple interest, one entry per (share, year_number),
 -- never compounding, never recalculated off a prior withdrawal.
 CREATE TABLE IF NOT EXISTS share_interest_withdrawals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -469,16 +464,16 @@ CREATE TABLE IF NOT EXISTS share_interest_withdrawals (
 
 -- Cross-department request/approval audit trail note: `coordinator_appointments`
 -- (defined earlier in this file, near `loans`) was already in the schema
--- unused before the promotion tool started writing to it — reused as-is,
+-- unused before the promotion tool started writing to it, reused as-is,
 -- no new table needed.
 
 -- ---------------------------------------------------------------------
--- Cross-department request/approval workflow (2026-08-12) — a generic,
+-- Cross-department request/approval workflow (2026-08-12), a generic,
 -- paperless, SharePoint-style routing system any admin department can use:
 -- the requester builds a chain of approvers (e.g. "Finance Head" ->
 -- "Transport Head"), each approves in order, then an Admin final-approval
 -- step is always auto-appended last. Requester can print the request with
--- its full approval trail once decided. Deliberately generic — not tied
+-- its full approval trail once decided. Deliberately generic, not tied
 -- to any one department's data model, since the user wants every
 -- department (Transport/Procurement/Finance/Maintenance/Store/Production/
 -- TRC) wired the same way.
@@ -498,7 +493,7 @@ ALTER TABLE department_requests ADD COLUMN IF NOT EXISTS attachment_url TEXT;
 -- Steps are approved strictly in step_order; a step's approver_id is a
 -- specific admin user chosen by the requester ("head of the department"),
 -- except the always-final step which has approver_id NULL, meaning any
--- admin can act on it — that's the "then admin last approval" stage.
+-- admin can act on it, that's the "then admin last approval" stage.
 CREATE TABLE IF NOT EXISTS request_approval_steps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   request_id UUID NOT NULL REFERENCES department_requests(id) ON DELETE CASCADE,
@@ -524,13 +519,13 @@ CREATE TABLE IF NOT EXISTS standard_prices (
   last_reviewed DATE
 );
 
--- 2026-08-30: split into two prices, per explicit spec — "the price the
+-- 2026-08-30: split into two prices, per explicit spec, "the price the
 -- farmers see from their portal should be different from the price buyers
 -- see... company buys it and sets their own selling price." `buy_price` is
 -- what a farmer is paid (farmer-visible only); `sell_price` is what a buyer
 -- pays (buyer-visible only, drives order costing). The old single `price`
 -- column is kept (unused by new code) rather than dropped, per the no-drop
--- convention — and both new columns backfill FROM it so existing catalog
+-- convention, and both new columns backfill FROM it so existing catalog
 -- data doesn't go blank on upgrade; a real margin then needs setting via
 -- the new admin price editor (financeController.js) since `price` alone
 -- can't tell us what that margin should be.
@@ -542,30 +537,29 @@ UPDATE standard_prices SET sell_price = price WHERE sell_price IS NULL;
 -- 2026-09-03: "Add Catalog" (new crop/product creation, distinct from
 -- editing an existing crop's price). Category/description/icon previously
 -- lived only in the frontend's static catalogMeta.js (no way for an
--- admin-created crop to carry any of that) — added here so a crop created
+-- admin-created crop to carry any of that), added here so a crop created
 -- through the app can supply its own, while catalogMeta.js is still
 -- consulted as a fallback for older/blank rows (see mergeCatalog in
--- frontend/src/modules/m4-buyer-room/catalogMeta.js). All nullable — no
+-- frontend/src/modules/m4-buyer-room/catalogMeta.js). All nullable, no
 -- existing row needs backfilling for the app to keep working.
 ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS category TEXT;
 ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS icon TEXT;
 
--- 2026-09-04: real product photo instead of an emoji icon — admin now
+-- 2026-09-04: real product photo instead of an emoji icon, admin now
 -- snaps/uploads an actual image of the item in the "Add Catalog" form
 -- (matches real shopping apps, where the item's photo is what draws a
 -- buyer in). `icon` is kept as-is (not dropped, no-drop convention) and
--- still used as the fallback tile for any older row that has no photo —
--- see mergeCatalog() in frontend/src/modules/m4-buyer-room/catalogMeta.js.
+-- still used as the fallback tile for any older row that has no photo, -- see mergeCatalog() in frontend/src/modules/m4-buyer-room/catalogMeta.js.
 ALTER TABLE standard_prices ADD COLUMN IF NOT EXISTS image_url TEXT;
 
 -- 2026-09-05: crops vs livestock (spec). A catalog item is either a crop
 -- (existing kg/tons/bags/etc. unit vocabulary, unchanged) or livestock
--- (goat/chicken/etc.) — livestock is priced per animal and what varies the
+-- (goat/chicken/etc.), livestock is priced per animal and what varies the
 -- price isn't a measured unit but the animal's age/description ("1 year
 -- old goat", "3 months broiler"), which buyers need to see instead of a
 -- unit. `unit` is kept NOT NULL for every row (order costing still needs
--- SOME unit to multiply quantity by) — for livestock it's silently set to
+-- SOME unit to multiply quantity by), for livestock it's silently set to
 -- the fixed value 'head' by the controller, never shown to the admin or
 -- buyer; `age_description` is what's actually displayed for livestock
 -- wherever the UI would otherwise show "per {unit}". Crops leave
@@ -592,7 +586,7 @@ CREATE TABLE IF NOT EXISTS orders (
 -- 2026-09-01 spec: shopping-style checkout collects two contact numbers
 -- and an email alongside the delivery address, so whoever's coordinating
 -- delivery has a backup contact. Nullable at the DB level (self-healing
--- convention) — required-ness is enforced in orderController instead.
+-- convention), required-ness is enforced in orderController instead.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS contact_phone_1 TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS contact_phone_2 TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS contact_email TEXT;
@@ -616,7 +610,7 @@ CREATE TABLE IF NOT EXISTS order_sourcing (
 );
 
 -- 2026-08-29: sourcing now consumes a specific listing/quantity, not just a
--- farmer name — needed so purchases can deduct against the farmer's
+-- farmer name, needed so purchases can deduct against the farmer's
 -- declared-inventory balance (see farmerController.declaredBalanceForCrop).
 ALTER TABLE order_sourcing ADD COLUMN IF NOT EXISTS product_id UUID REFERENCES farmer_products(id);
 ALTER TABLE order_sourcing ADD COLUMN IF NOT EXISTS crop TEXT;
@@ -646,8 +640,7 @@ CREATE TABLE IF NOT EXISTS shipments (
   proof_of_delivery_url TEXT
 );
 
--- Farmer/processor/transporter payouts + buyer payment confirmation —
--- all Finance Department actions
+-- Farmer/processor/transporter payouts + buyer payment confirmation, -- all Finance Department actions
 CREATE TABLE IF NOT EXISTS payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -684,7 +677,7 @@ CREATE TABLE IF NOT EXISTS investment_payments (
   status TEXT NOT NULL DEFAULT 'due' CHECK (status IN ('due','on_time','late','missed'))
 );
 
--- Self-healing for the same reason as the users block above — these two
+-- Self-healing for the same reason as the users block above, these two
 -- tables were created early in the investor module, then agreement_review/
 -- agreement_file_url/reminder_sent/'due' status were added in a later
 -- correction round. A database from before that correction would still be
@@ -723,7 +716,7 @@ CREATE TABLE IF NOT EXISTS referrals (
 );
 
 -- ---------------------------------------------------------------------
--- RTC — Research, Training & Consultancy (Module 10)
+-- RTC, Research, Training & Consultancy (Module 10)
 -- ---------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS seminars (
@@ -771,15 +764,15 @@ CREATE TABLE IF NOT EXISTS research (
 -- Self-healing: seminars/courses/consultancy_offerings all pre-date this
 -- round's admin-publish build and never had created_at (needed for
 -- newest-first sorting). Same class of gotcha as the users/investment
--- self-heals above — see READ FIRST.
+-- self-heals above, see READ FIRST.
 ALTER TABLE seminars ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE consultancy_offerings ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
 CREATE UNIQUE INDEX IF NOT EXISTS course_progress_course_user_uq ON course_progress (course_id, user_id);
 
--- Consultancy requests — a farmer applying for a direct one-on-one
+-- Consultancy requests, a farmer applying for a direct one-on-one
 -- session, tied to a published consultancy offering. Must come after
--- consultancy_offerings above (foreign key) — this table used to sit
+-- consultancy_offerings above (foreign key), this table used to sit
 -- earlier in the file, before consultancy_offerings existed yet, which
 -- broke migration on a fresh database. Caught and fixed by testing the
 -- migration against a truly empty database, not just an old one.
@@ -809,7 +802,7 @@ ALTER TABLE company_farms ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NU
 -- Production Department's own annual company-harvest record ("this year
 -- Ephaag harvested X yam, Y rice"), NOT a live sellable stock feed by
 -- itself. Admin "declares" a harvest here the same way a farmer declares
--- produce — it's just a record until Store separately confirms/receives
+-- produce, it's just a record until Store separately confirms/receives
 -- it, at which point (and only then) it enters store_inventory alongside
 -- everything else Store manages. `declared_by`/`received_by` keep this
 -- auditable the same way every other cross-department handoff in this
@@ -833,11 +826,11 @@ DO $$ BEGIN
   ALTER TABLE harvest_logs ADD CONSTRAINT harvest_logs_status_check CHECK (status IN ('declared','received'));
 END $$;
 
--- Company-wide annual production DECLARATION — distinct from harvest_logs
+-- Company-wide annual production DECLARATION, distinct from harvest_logs
 -- above. harvest_logs is the granular, per-farm record ("Farm A's harvest
 -- was X yam on this date") used to see how each individual farm performs.
 -- This table is the single official company-wide figure per crop per
--- year ("Ephaag produced X yam in 2026" — no farm attribution, because
+-- year ("Ephaag produced X yam in 2026", no farm attribution, because
 -- the whole point of a company declaration is the combined total, not a
 -- breakdown). One row per (year, crop): re-declaring the same year+crop
 -- updates the existing figure rather than creating a duplicate.
@@ -855,7 +848,7 @@ CREATE TABLE IF NOT EXISTS production_annual_declarations (
 );
 
 -- ---------------------------------------------------------------------
--- Store Department — Store's own running inventory pool, aggregated by
+-- Store Department, Store's own running inventory pool, aggregated by
 -- crop across every order ever received (NOT order-specific reservation).
 -- `store_receipts` is the receiving-event ledger (one row per order_item,
 -- Store's explicit "verified and stored it physically" action) that feeds
@@ -891,12 +884,12 @@ CREATE TABLE IF NOT EXISTS store_receipts (
   received_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Store Department audit trail — every physical stock change goes
+-- Store Department audit trail, every physical stock change goes
 -- through here, both inbound ("goods that comes, store verify and store
 -- it physically and update the inventory") and outbound (an order
 -- confirmed taken out of the store). Kept even though store_inventory
 -- also holds the running total, so there's always a durable history of
--- who moved what and why — never just an in-place quantity update with
+-- who moved what and why, never just an in-place quantity update with
 -- no trace (same principle as coordinator_appointments for HOD/rank
 -- changes).
 CREATE TABLE IF NOT EXISTS stock_movements (
@@ -922,8 +915,7 @@ END $$;
 
 -- Store's audit of an order against physical/quality stock before it can
 -- be allocated to a distributor ("store verify the quality against
--- available stock and be able to audit the order"). One row per order —
--- re-auditing (e.g. after a quality issue is fixed) upserts the same row
+-- available stock and be able to audit the order"). One row per order, -- re-auditing (e.g. after a quality issue is fixed) upserts the same row
 -- rather than piling up history, since only the current verdict controls
 -- whether allocation is allowed.
 CREATE TABLE IF NOT EXISTS order_audits (
@@ -943,7 +935,7 @@ CREATE TABLE IF NOT EXISTS maintenance_assets (
   last_serviced DATE
 );
 
--- 2026-09-02: farmer shares are no longer a fixed ₦25,000 product — a
+-- 2026-09-02: farmer shares are no longer a fixed ₦25,000 product, a
 -- farmer can buy a share for any amount from ₦2,500 upward (min enforced
 -- in farmerSharesController.js, not here, since it can change without a
 -- migration). Drop the old fixed default so it can't silently reapply on
@@ -952,7 +944,7 @@ ALTER TABLE farmer_shares ALTER COLUMN amount DROP DEFAULT;
 
 -- 2026-09-02: the tiered rate schedule (10/30/35/40/45%) now stays flat
 -- at 45% for every year after year 5 if a farmer leaves their share in
--- rather than withdrawing capital at the 5-year mark — so a share can
+-- rather than withdrawing capital at the 5-year mark, so a share can
 -- keep earning withdrawable yearly interest indefinitely past year 5.
 -- The old CHECK capped year_number at 5, which would reject those later
 -- withdrawals; widen it to any year 1+.
@@ -964,33 +956,33 @@ ALTER TABLE share_interest_withdrawals ADD CONSTRAINT share_interest_withdrawals
 -- training courses only. RESTORED 2026-09-05: that narrowing was only
 -- ever meant for the farmer-facing tab inside Farmer's Room (which
 -- keeps its "Seminar" label and stays courses-only, since farmers
--- specifically only need their own courses) — everywhere else in the
+-- specifically only need their own courses), everywhere else in the
 -- system, TRC is back to its full three-part scope (rtcController.js
 -- now routes admin CRUD to `research` and `consultancy_offerings`/
--- `consultancy_requests` again — none of these tables were ever
+-- `consultancy_requests` again, none of these tables were ever
 -- dropped, so no schema change was needed to restore them).
 -- `seminars`/`seminar_attendance` were NEVER part of either rename:
 -- they're a separate feature (physical seminar attendance-marking for
 -- farmer leadership rank indices, see farmerController.js) that happens
--- to share this section of the file — left completely untouched
+-- to share this section of the file, left completely untouched
 -- throughout.
 
--- Training/course content — the company uploads a training course with
+-- Training/course content, the company uploads a training course with
 -- optional materials + an online hosting link, an admin approves it,
 -- and only then do farmers see it and can attend/complete it. This is
 -- the "Training" part of TRC, and also exactly what Farmer's Room's
 -- "Seminar" tab shows (same table, same endpoints, narrower label).
--- `approved` gates visibility to farmers — a course is a draft the
+-- `approved` gates visibility to farmers, a course is a draft the
 -- moment it's uploaded and only appears in myCourses() once an admin
 -- approves it. `materials_url` is an optional uploaded file (slides,
--- PDF notes, etc — see uploadCourseMaterial in middleware/upload.js),
+-- PDF notes, etc, see uploadCourseMaterial in middleware/upload.js),
 -- `online_link` is the optional hosting URL farmers use to attend the
 -- course live, and `scheduled_at` is an optional date/time for that
 -- live session; a course with no `scheduled_at`/`online_link` is just
 -- self-paced materials+completion tracking, same as the old plain-course
 -- model. Defaulting `approved` to FALSE means every pre-existing course
 -- (which used to auto-publish with no approval step at all) goes back to
--- draft/unapproved on migration — intentional, not a bug: the business
+-- draft/unapproved on migration, intentional, not a bug: the business
 -- rule is that nothing reaches farmers without an explicit approval,
 -- including old rows.
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT FALSE;
@@ -1001,7 +993,7 @@ ALTER TABLE courses ADD COLUMN IF NOT EXISTS materials_url TEXT;
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS online_link TEXT;
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ;
 
--- Maintenance Department (2026-09-04) — full build-out. Core workflow:
+-- Maintenance Department (2026-09-04), full build-out. Core workflow:
 -- Employee reports a problem -> Maintenance Request -> Supervisor review
 -- -> Work Order -> Technician assigned -> Diagnosis -> Repair/Parts used
 -- -> Inspection/Testing -> Work Completed -> Cost recorded -> History.
@@ -1011,7 +1003,7 @@ ALTER TABLE courses ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ;
 -- Maintenance performed -> next due date rolls forward.
 --
 -- Technicians/Contractors are plain personnel directories the HOD
--- manages (name/contact/specialty), not login accounts — same shape as
+-- manages (name/contact/specialty), not login accounts, same shape as
 -- how driverDirectory reads role_type='transporter' users, except this
 -- department's field staff aren't system users at all, so they get their
 -- own small tables instead of a new users.role_type value.
@@ -1024,7 +1016,7 @@ ALTER TABLE maintenance_assets ADD COLUMN IF NOT EXISTS warranty_expiry DATE;
 ALTER TABLE maintenance_assets ADD COLUMN IF NOT EXISTS department TEXT;
 ALTER TABLE maintenance_assets ADD COLUMN IF NOT EXISTS notes TEXT;
 ALTER TABLE maintenance_assets ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
--- Widen status to include 'retired' — self-heal the CHECK for pre-existing
+-- Widen status to include 'retired', self-heal the CHECK for pre-existing
 -- DBs the same way stock_movements does above (inline CHECK only applies
 -- on a fresh CREATE TABLE).
 DO $$ BEGIN
@@ -1056,7 +1048,7 @@ CREATE TABLE IF NOT EXISTS maintenance_contractors (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Spare Parts & Inventory — same running-pool shape as store_inventory
+-- Spare Parts & Inventory, same running-pool shape as store_inventory
 -- (a current quantity_on_hand kept in sync by maintenance_part_movements,
 -- the event ledger), scoped separately since this is the maintenance
 -- shop's own parts bin, not the general Store Department's crop pool.
@@ -1109,9 +1101,8 @@ CREATE TABLE IF NOT EXISTS maintenance_requests (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- 2026-09-04 rework: reporting no longer captures a free-text "reported on
--- behalf of" name — the reporter instead attaches a photo of the faulty
--- equipment as proof (photo_url, stored the same way as a profile photo —
--- see uploadPhoto in middleware/upload.js, served from /uploads/photos).
+-- behalf of" name, the reporter instead attaches a photo of the faulty
+-- equipment as proof (photo_url, stored the same way as a profile photo, -- see uploadPhoto in middleware/upload.js, served from /uploads/photos).
 -- Review also no longer happens inside the Maintenance module itself:
 -- every report is mirrored into the generic cross-department
 -- `department_requests` workflow (department='Maintenance') so it lands in
@@ -1125,8 +1116,7 @@ ALTER TABLE maintenance_requests ADD COLUMN IF NOT EXISTS department_request_id 
 
 -- Steps 2-9: Supervisor review turns an approved request into a Work
 -- Order (or the HOD opens one directly for manual/preventive work).
--- assigned_technician_id / assigned_contractor_id are both nullable —
--- exactly one is normally set once the order moves past 'open', enforced
+-- assigned_technician_id / assigned_contractor_id are both nullable, -- exactly one is normally set once the order moves past 'open', enforced
 -- in the controller rather than the DB so an order can still be created
 -- unassigned.
 CREATE TABLE IF NOT EXISTS maintenance_work_orders (
@@ -1152,7 +1142,7 @@ CREATE TABLE IF NOT EXISTS maintenance_work_orders (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Parts consumed by a work order — feeds both the "Repair / Parts Used"
+-- Parts consumed by a work order, feeds both the "Repair / Parts Used"
 -- workflow step and, via maintenance_part_movements ('used_in_work_order'),
 -- the running inventory total.
 CREATE TABLE IF NOT EXISTS maintenance_work_order_parts (
@@ -1178,7 +1168,7 @@ CREATE TABLE IF NOT EXISTS maintenance_inspections (
 );
 
 -- Step: Cost Recorded. One row per cost line against a work order (labor,
--- parts markup, contractor invoice, other) — Expenses section totals
+-- parts markup, contractor invoice, other), Expenses section totals
 -- these, Reports rolls them up by category/month.
 CREATE TABLE IF NOT EXISTS maintenance_expenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1193,7 +1183,7 @@ CREATE TABLE IF NOT EXISTS maintenance_expenses (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Preventive Maintenance — kept as its own table/flow, deliberately
+-- Preventive Maintenance, kept as its own table/flow, deliberately
 -- separate from ad-hoc maintenance_requests. next_due_date is what the
 -- "due date approaching" reminder and the Preventive Maintenance screen
 -- both read; completing the generated work order rolls it forward by
@@ -1215,7 +1205,7 @@ CREATE TABLE IF NOT EXISTS maintenance_schedules (
 ALTER TABLE maintenance_work_orders ADD COLUMN IF NOT EXISTS schedule_id UUID REFERENCES maintenance_schedules(id);
 
 -- ---------------------------------------------------------------------
--- Procurement Department — "Purchasing" pipeline (2026-09-05). This is a
+-- Procurement Department, "Purchasing" pipeline (2026-09-05). This is a
 -- DIFFERENT flow from the existing `/api/procurement` sourcing pipeline
 -- (which sources PRODUCE FROM FARMERS to fulfill buyer orders). This one
 -- is the internal supply-chain flow: a department needs something ->
@@ -1226,9 +1216,8 @@ ALTER TABLE maintenance_work_orders ADD COLUMN IF NOT EXISTS schedule_id UUID RE
 -- invoice verification -> Finance final payment -> completed -> full
 -- audit trail. One admin role does every step today (no separate
 -- department logins exist yet), so "approval" stages are single
--- admin-actioned transitions, same pattern as Production/Store depts —
--- not a multi-approver chain like Loans.
--- Suppliers are external vendors, not app users — a simple admin-managed
+-- admin-actioned transitions, same pattern as Production/Store depts, -- not a multi-approver chain like Loans.
+-- Suppliers are external vendors, not app users, a simple admin-managed
 -- directory, same shape as `farmer_products`/`suppliers` are to farmers.
 
 CREATE TABLE IF NOT EXISTS suppliers (
@@ -1284,7 +1273,7 @@ CREATE TABLE IF NOT EXISTS purchase_request_items (
   estimated_unit_price NUMERIC(14,2)
 );
 
--- Immutable audit trail — same pattern/purpose as `loan_status_history`:
+-- Immutable audit trail, same pattern/purpose as `loan_status_history`:
 -- every transition logged inside the same DB transaction as the status
 -- change itself, never a separate droppable write.
 CREATE TABLE IF NOT EXISTS purchase_request_history (
@@ -1360,10 +1349,10 @@ CREATE TABLE IF NOT EXISTS supplier_invoices (
 
 
 -- =======================================================================
--- Finance Department — full company accounting build-out (2026-09-04).
+-- Finance Department, full company accounting build-out (2026-09-04).
 -- This is separate from the pre-existing `finance` routes/controller
 -- (marketplace-facing: payment confirmation, loan disbursement,
--- settlements, investments — all still live, untouched). This section is
+-- settlements, investments, all still live, untouched). This section is
 -- the internal accounting system the Finance HOD portal's new
 -- "Accounting" section runs on: financial requests -> approvals ->
 -- budgets -> income/expense -> payables/receivables -> payments -> bank &
@@ -1372,12 +1361,11 @@ CREATE TABLE IF NOT EXISTS supplier_invoices (
 --
 -- Many leaf items in the requested architecture (e.g. "Pending Requests"
 -- / "Approved Requests" / "Rejected Requests", "Overdue Invoices" /
--- "Due Invoices") are STATUS FILTERS on one table, not separate tables —
--- the controller exposes them as query-param filters on the same
+-- "Due Invoices") are STATUS FILTERS on one table, not separate tables, -- the controller exposes them as query-param filters on the same
 -- endpoint rather than the DB growing a table per status.
 -- =======================================================================
 
--- 10. Bank & Cash Management — every bank account, cash drawer, and petty
+-- 10. Bank & Cash Management, every bank account, cash drawer, and petty
 -- cash float the company holds. current_balance is a running total kept
 -- in sync by finance_transactions (same running-pool pattern as
 -- maintenance_parts.quantity_on_hand / store_inventory).
@@ -1396,7 +1384,7 @@ CREATE TABLE IF NOT EXISTS finance_accounts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 4. Budget Management — company, department, project, operational and
+-- 4. Budget Management, company, department, project, operational and
 -- capital-expenditure budgets all share this one table (budget_type
 -- column), same shape idea as maintenance_work_orders.source. spent_amount
 -- is kept in sync from finance_expenses/finance_transactions postings
@@ -1418,7 +1406,7 @@ CREATE TABLE IF NOT EXISTS finance_budgets (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Budget Adjustments — a top-up or claw-back against a budget, with a
+-- Budget Adjustments, a top-up or claw-back against a budget, with a
 -- reason. Also doubles as the source of "Budget Alerts" (threshold /
 -- exceeded checks read allocated_amount vs spent_amount directly, no
 -- separate table needed for those).
@@ -1431,7 +1419,7 @@ CREATE TABLE IF NOT EXISTS finance_budget_adjustments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 2 & 3. Financial Requests + Approval Center — the core workflow: any
+-- 2 & 3. Financial Requests + Approval Center, the core workflow: any
 -- department raises a spending/funding request against a budget, it
 -- moves through one or more approval steps (finance_approvals below),
 -- and lands on approved/rejected/returned. current_step tracks where it
@@ -1452,8 +1440,7 @@ CREATE TABLE IF NOT EXISTS finance_requests (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Supporting Documents attached to a request (receipts, quotes, memos —
--- generic attachment shape, reused by finance_documents for
+-- Supporting Documents attached to a request (receipts, quotes, memos, -- generic attachment shape, reused by finance_documents for
 -- already-issued invoices/vouchers rather than duplicated here).
 CREATE TABLE IF NOT EXISTS finance_request_documents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1464,7 +1451,7 @@ CREATE TABLE IF NOT EXISTS finance_request_documents (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Approval Hierarchy / Approval Limits config — which role must sign off
+-- Approval Hierarchy / Approval Limits config, which role must sign off
 -- a request at a given step, gated by amount range and (optionally) a
 -- specific department. The Approval Center walks a request's amount +
 -- department against this table to know who's up next.
@@ -1478,7 +1465,7 @@ CREATE TABLE IF NOT EXISTS finance_approval_rules (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Approval History — one row per decision made on a request (approve /
+-- Approval History, one row per decision made on a request (approve /
 -- reject / return for correction / request clarification / escalate).
 CREATE TABLE IF NOT EXISTS finance_approvals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1491,7 +1478,7 @@ CREATE TABLE IF NOT EXISTS finance_approvals (
   decided_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 5. Income / Revenue records — customer payments, sales revenue, and
+-- 5. Income / Revenue records, customer payments, sales revenue, and
 -- other income, categorised for the Revenue Reports.
 CREATE TABLE IF NOT EXISTS finance_income (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1508,7 +1495,7 @@ CREATE TABLE IF NOT EXISTS finance_income (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 6. Expense Management — department, employee, operational and capital
+-- 6. Expense Management, department, employee, operational and capital
 -- expenses all share this table (category column), each optionally tied
 -- to the budget it draws down and to a request that authorized it.
 CREATE TABLE IF NOT EXISTS finance_expenses (
@@ -1530,7 +1517,7 @@ CREATE TABLE IF NOT EXISTS finance_expenses (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 7. Accounts Payable — supplier invoices & contractor bills owed by the
+-- 7. Accounts Payable, supplier invoices & contractor bills owed by the
 -- company. status is derived/kept current by the controller (outstanding
 -- -> due -> overdue as due_date passes, -> paid once amount_paid reaches
 -- amount).
@@ -1551,7 +1538,7 @@ CREATE TABLE IF NOT EXISTS finance_payables (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 8. Accounts Receivable — customer invoices owed to the company. Same
+-- 8. Accounts Receivable, customer invoices owed to the company. Same
 -- status lifecycle shape as finance_payables, mirrored for the other
 -- side of the ledger.
 CREATE TABLE IF NOT EXISTS finance_receivables (
@@ -1569,7 +1556,7 @@ CREATE TABLE IF NOT EXISTS finance_receivables (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 9. Payment Management — the lifecycle of actually paying out a payable
+-- 9. Payment Management, the lifecycle of actually paying out a payable
 -- or a financial request (or receiving against a receivable), from
 -- request through verification/authorization/scheduling to completion.
 -- Exactly one of payable_id / receivable_id / request_id is normally set
@@ -1595,7 +1582,7 @@ CREATE TABLE IF NOT EXISTS finance_payments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 12. Financial Transactions — the unified ledger feed every posting
+-- 12. Financial Transactions, the unified ledger feed every posting
 -- lands on (income / expense / payment / transfer / refund /
 -- adjustment), each optionally linking back to the source record via
 -- related_table/related_id. This is what the Finance Dashboard's "Recent
@@ -1619,7 +1606,7 @@ CREATE TABLE IF NOT EXISTS finance_transactions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 13. Invoices & Documents — customer/supplier invoices, receipts,
+-- 13. Invoices & Documents, customer/supplier invoices, receipts,
 -- payment vouchers, credit/debit notes, contracts and other supporting
 -- documents, all as one generic filed-document table (doc_type column),
 -- each optionally attached to whichever record it documents.
@@ -1637,7 +1624,7 @@ CREATE TABLE IF NOT EXISTS finance_documents (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 14. Reconciliation — bank, cash, supplier, customer and department
+-- 14. Reconciliation, bank, cash, supplier, customer and department
 -- reconciliation runs. Ties a statement balance against the book balance
 -- for an account/period; the controller flags unmatched/duplicate
 -- transactions by diffing finance_transactions against this window.
@@ -1659,7 +1646,7 @@ CREATE TABLE IF NOT EXISTS finance_reconciliations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 15. Financial Alerts — system-raised alerts (low cash, budget
+-- 15. Financial Alerts, system-raised alerts (low cash, budget
 -- threshold/exceeded, overdue invoice, upcoming payment, unusual
 -- spending, large transaction, failed payment). Raised by the controller
 -- on read of the dashboard/relevant list rather than a background job,
@@ -1676,7 +1663,7 @@ CREATE TABLE IF NOT EXISTS finance_alerts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 19. Finance Settings — financial categories, budget/approval/payment
+-- 19. Finance Settings, financial categories, budget/approval/payment
 -- rules, spending limits, tax configuration, currency and notification
 -- rules. One flexible key/value-per-category table rather than a column
 -- per setting, since this list is exactly the kind of thing that grows
@@ -1692,9 +1679,9 @@ CREATE TABLE IF NOT EXISTS finance_settings (
   UNIQUE (category, key)
 );
 
--- 17. Audit & Compliance — generic audit trail for finance actions not
+-- 17. Audit & Compliance, generic audit trail for finance actions not
 -- already fully captured by finance_approvals (decisions) and
--- finance_transactions (postings) alone — e.g. edits/adjustments to
+-- finance_transactions (postings) alone, e.g. edits/adjustments to
 -- already-posted records, and any other user activity worth a trail.
 CREATE TABLE IF NOT EXISTS finance_audit_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1717,13 +1704,13 @@ CREATE INDEX IF NOT EXISTS idx_finance_alerts_is_read ON finance_alerts(is_read)
 
 
 -- ---------------------------------------------------------------------
--- 18. Universal referral system (2026-09-06 spec) — "every registered
+-- 18. Universal referral system (2026-09-06 spec), "every registered
 -- member" gets a referral code, shown/entered at registration
 -- (optional), tracked generically for every role. Separate from the
 -- investor-specific referral_code/referrals pair above (investor_profiles
 -- + referrals), which stays exactly as-is because it drives the
 -- Partner Investor bonus calculation (investor-to-investor investment
--- referrals only) — this generic layer is a different, broader concept
+-- referrals only), this generic layer is a different, broader concept
 -- (who invited whom, company-wide) and intentionally doesn't feed the
 -- investor bonus math.
 -- ---------------------------------------------------------------------
@@ -1731,7 +1718,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by_code TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS users_referral_code_key ON users(referral_code) WHERE referral_code IS NOT NULL;
 
--- Backfill for any user created before this column existed — deterministic
+-- Backfill for any user created before this column existed, deterministic
 -- from the row's own id, so it's safe to re-run and never collides.
 UPDATE users SET referral_code = 'EPH' || UPPER(SUBSTRING(REPLACE(id::text, '-', '') FROM 1 FOR 6))
 WHERE referral_code IS NULL;
@@ -1745,7 +1732,7 @@ CREATE TABLE IF NOT EXISTS member_referrals (
 CREATE INDEX IF NOT EXISTS idx_member_referrals_referrer ON member_referrals(referrer_id);
 
 -- ---------------------------------------------------------------------
--- 19. Unit Leader — "create unit" (2026-09-06 spec). A Unit Leader who
+-- 19. Unit Leader, "create unit" (2026-09-06 spec). A Unit Leader who
 -- has built up a strong, consistent group in a nearby community can
 -- propose it as a new unit; it sits pending until admin approves it,
 -- at which point it becomes an official company unit. Always shows in
@@ -1769,7 +1756,7 @@ CREATE INDEX IF NOT EXISTS idx_units_proposed_by ON units(proposed_by);
 CREATE INDEX IF NOT EXISTS idx_units_status ON units(status);
 
 -- ---------------------------------------------------------------------
--- 20. Unit Leader — "report profile" (2026-09-06 spec). A leader can
+-- 20. Unit Leader, "report profile" (2026-09-06 spec). A leader can
 -- flag a profile within their own jurisdiction, with a reason and an
 -- optional proof image; it goes straight to admin as a pending review.
 -- ---------------------------------------------------------------------
@@ -1811,7 +1798,7 @@ CREATE INDEX IF NOT EXISTS idx_share_purchases_farmer ON share_purchases (farmer
 ALTER TABLE farmer_shares ADD COLUMN IF NOT EXISTS purchase_id UUID REFERENCES share_purchases(id);
 
 -- ---------------------------------------------------------------------
--- 21. Corps member (NYSC) training portal — phase 1: role + profile
+-- 21. Corps member (NYSC) training portal, phase 1: role + profile
 -- (2026-10-20 spec). NYSC corps members get their own role_type
 -- ('corper') and their own profile table. Training content, the access
 -- fee, quizzes, batches and certificates are separate later phases and
@@ -1878,9 +1865,9 @@ CREATE INDEX IF NOT EXISTS corper_profiles_batch_idx
   ON corper_profiles (service_year, batch, stream);
 
 -- ---------------------------------------------------------------------
--- 22. Corps training content — phase 2 (2026-10-21 spec).
+-- 22. Corps training content, phase 2 (2026-10-21 spec).
 -- Training in the TRC admin department now has two audiences: 'general'
--- (the existing free farmer "Seminar" courses — every row that existed
+-- (the existing free farmer "Seminar" courses, every row that existed
 -- before this block is general) and 'corps' (NYSC corps member training,
 -- separate and paid-for in a later phase). Corps courses are made of
 -- ordered lessons (video link / uploaded document / live session) and one
@@ -1927,7 +1914,7 @@ CREATE INDEX IF NOT EXISTS course_quiz_options_question_idx ON course_quiz_optio
 
 
 -- ---------------------------------------------------------------------
--- 23. Corps access-fee payments — phase 3 (2026-10-21 spec).
+-- 23. Corps access-fee payments, phase 3 (2026-10-21 spec).
 -- A corps member pays a one-time access fee before any corps course opens.
 -- The fee itself lives in finance_settings (system_configuration /
 -- corper_access_fee, value {"amount": N}) so Finance sees it and admin can
@@ -1966,7 +1953,7 @@ CREATE INDEX IF NOT EXISTS corper_payments_user_idx ON corper_payments (user_id,
 
 
 -- ---------------------------------------------------------------------
--- 24. Corps learning — phase 4 (2026-10-21 spec).
+-- 24. Corps learning, phase 4 (2026-10-21 spec).
 -- A paid corps member works through a course's lessons, takes its quiz and
 -- the dashboard percentage rises (courses completed / live corps courses).
 --

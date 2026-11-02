@@ -8,7 +8,7 @@ import { notifyUser } from "../services/messaging.js";
 import "../services/paymentTemplates.js";
 import { getLateConfig, lateStatus, DEFAULT_LATE_CONFIG } from "../services/shareLateFees.js";
 
-// Farmers' "Shared Capital Investment and Rewards" — registered-farmer-only,
+// Farmers' "Shared Capital Investment and Rewards", registered-farmer-only,
 // NOT the same product as the Investor role's Monthly/Bulk plans.
 //
 // Rebuilt 2026-10-20 to match the approved financing banner exactly
@@ -20,9 +20,9 @@ import { getLateConfig, lateStatus, DEFAULT_LATE_CONFIG } from "../services/shar
 //  - Yearly return on the ORIGINAL capital only (simple, never compounding):
 //    Year 1 = 20%, Year 2 = 30%, Year 3 = 35%, Year 4 = 40%, Year 5 = 45%.
 //    (So one share returns ₦42,500 interest over 5 years: ₦67,500 with the
-//    capital back — the banner's 1-share row.)
+//    capital back, the banner's 1-share row.)
 //  - If the capital is left in past year 5 the rate holds flat at 45% for
-//    every later year (carried over from the earlier agreed rule — the
+//    every later year (carried over from the earlier agreed rule, the
 //    banner stops at year 5).
 //  - EVERY SHARE IS ITS OWN THING. Buying 4 shares creates 4 separate
 //    records, each with its own reference, purchase date, interest years,
@@ -45,7 +45,7 @@ function rateForYear(year) {
   return YEAR_RATE_PCT[year] ?? FLAT_RATE_AFTER_YEAR_5;
 }
 
-// Calendar anniversary — the same yardstick for interest years AND the
+// Calendar anniversary, the same yardstick for interest years AND the
 // capital lock. (Interest used to be measured in 365.25-day years while
 // the capital lock used calendar years, so the two could disagree by a day.)
 function addYears(date, years) {
@@ -285,7 +285,7 @@ async function findDuplicatePurchase(farmerId, quantity) {
   return null;
 }
 
-// Step 1 — the farmer picks how many shares. The purchase is SAVED FIRST (carrying the
+// Step 1, the farmer picks how many shares. The purchase is SAVED FIRST (carrying the
 // price and the fee); only then is Paystack started and the payment link stored on it,
 // so a failed save can never leave a payment with no purchase.
 export async function checkout(req, res) {
@@ -493,7 +493,7 @@ async function settleAttempts(purchase) {
   return { unreachable };
 }
 
-// Step 2 — after paying (or any time the farmer asks "Check my payment"), the system
+// Step 2, after paying (or any time the farmer asks "Check my payment"), the system
 // verifies the payment itself: the farmer's word that they paid is never trusted. The
 // answer is always a plain outcome the screen can explain:
 //   success | pending | failed | refused | expired
@@ -547,7 +547,7 @@ export async function payPurchase(req, res) {
   await refreshLateConfig();
   const { rows } = await pool.query(`SELECT * FROM share_purchases WHERE reference = $1 AND farmer_id = $2`, [req.params.reference, req.user.id]);
   if (!rows[0]) return res.status(404).json({ error: "Purchase not found" });
-  if (rows[0].provider !== "paystack") return res.status(400).json({ error: "This purchase is not paid through Paystack" });
+  if (rows[0].provider !== "paystack") return res.status(400).json({ error: "This purchase has no online payment to check" });
   if (!paystackConfigured()) return res.status(503).json({ error: "Online payment is unavailable right now. Please try again later." });
   const r = await startSharePayment(rows[0], { acceptLateFee: req.body?.acceptLateFee === true, lateFee: req.body?.lateFee });
   const purchase = (await pool.query("SELECT * FROM share_purchases WHERE id = $1", [rows[0].id])).rows[0];
@@ -683,7 +683,7 @@ export async function withdrawCapital(req, res) {
   const capitalUnlocksAt = addYears(share.purchased_at, BUY_SHARE_LOCK_YEARS);
   if (new Date() < capitalUnlocksAt) {
     return res.status(400).json({
-      error: `Capital can't be withdrawn until ${capitalUnlocksAt.toISOString().slice(0, 10)} — a full 5 years after purchase`,
+      error: `Capital can't be withdrawn until ${capitalUnlocksAt.toISOString().slice(0, 10)}, a full 5 years after purchase`,
     });
   }
   // The status guard in the WHERE makes a double-click harmless.

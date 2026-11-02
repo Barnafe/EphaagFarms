@@ -40,7 +40,7 @@ import AuditPanel from "./AuditPanel.jsx";
 import SettingsPanel from "./SettingsPanel.jsx";
 
 import useUrlState from "../../../hooks/useUrlState.js";
-// The company's full internal accounting system — Financial Requests ->
+// The company's full internal accounting system, Financial Requests ->
 // Approval Center -> Budgets -> Income/Expense -> Payables/Receivables ->
 // Payments -> Bank & Cash, plus company-wide monitoring, reconciliation,
 // alerts, reports, audit trail and settings. Deliberately its own
@@ -48,11 +48,11 @@ import useUrlState from "../../../hooks/useUrlState.js";
 // DeptSectionNav" pattern as MaintenanceWorkspace inside
 // MaintenanceDepartment) rather than folded into the existing
 // Dashboard/Payments/Loans/Settlements/Investments/Savings tabs, which
-// stay exactly as they were — this is the separate, much bigger
+// stay exactly as they were, this is the separate, much bigger
 // company-accounting side of Finance, not a replacement for the
 // marketplace-facing side.
 const sections = [
-  { key: "dashboard", label: "Finance Dashboard", icon: LayoutDashboard, description: "Cash position, budgets, pending items, alerts — all at a glance." },
+  { key: "dashboard", label: "Finance Dashboard", icon: LayoutDashboard, description: "Cash position, budgets, pending items, alerts, all at a glance." },
   { key: "requests", label: "Financial Requests", icon: FileText, description: "New requests, department requests, and their status." },
   { key: "approvals", label: "Approval Center", icon: CheckSquare, description: "Approve, reject, return, or escalate pending requests." },
   { key: "budgets", label: "Budget Management", icon: PiggyBank, description: "Company, department, project, operational and capital budgets." },
@@ -63,7 +63,7 @@ const sections = [
   { key: "payments", label: "Payment Management", icon: CreditCard, description: "The full lifecycle from payment request to completion." },
   { key: "bank-cash", label: "Bank & Cash Management", icon: Landmark, description: "Accounts, deposits, withdrawals, and transfers." },
   { key: "monitoring", label: "Department Monitoring", icon: Building2, description: "Spending and budgets broken down by department." },
-  { key: "transactions", label: "Financial Transactions", icon: ArrowLeftRight, description: "Every posting — income, expense, payment, transfer, refund, adjustment." },
+  { key: "transactions", label: "Financial Transactions", icon: ArrowLeftRight, description: "Every posting, income, expense, payment, transfer, refund, adjustment." },
   { key: "documents", label: "Invoices & Documents", icon: FolderOpen, description: "Invoices, receipts, vouchers, notes, and contracts on file." },
   { key: "reconciliation", label: "Reconciliation", icon: Scale, description: "Bank, cash, supplier, customer, and department reconciliation." },
   { key: "alerts", label: "Financial Alerts", icon: Bell, description: "Low cash, budget thresholds, overdue invoices, and more." },
@@ -74,7 +74,7 @@ const sections = [
 
 // initialSection: lets a caller (e.g. the admin dashboard's "View all" /
 // summary-card links) drop straight into a specific accounting section
-// instead of landing on the section-picker grid — see FinanceDepartment.jsx,
+// instead of landing on the section-picker grid, see FinanceDepartment.jsx,
 // which reads this from the ?section= URL param.
 export default function AccountingWorkspace({ initialSection = null }) {
   const [section, setSection] = useUrlState("section", initialSection);

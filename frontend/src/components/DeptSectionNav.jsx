@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import SectionDropdown from "./SectionDropdown.jsx";
 
-// Card-grid section switcher for admin department pages — same pattern as
+// Card-grid section switcher for admin department pages, same pattern as
 // the TRC Department hub (click a card to open it, one section at a time)
 // instead of a permanently-visible wall of pill tabs stacked above a pile
 // of tables. `sections`: [{ key, label, description?, icon?: LucideComponent }]

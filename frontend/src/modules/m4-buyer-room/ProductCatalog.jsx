@@ -5,7 +5,7 @@ import { assetUrl } from "../../api/client.js";
 // Shopping-site-style product grid (Jumia/Temu-like): search + category
 // pills up top, then a card grid. Each card shows the item's photo (or an
 // icon tile as fallback for older items with no photo yet), name, price,
-// and unit — click anywhere on the card to open the full product detail
+// and unit, click anywhere on the card to open the full product detail
 // panel (ProductDetailPanel), same "click item → full details open" flow
 // as a real shopping site.
 //
@@ -13,9 +13,9 @@ import { assetUrl } from "../../api/client.js";
 // shopping site), which sits inside the app's otherwise dark dashboard
 // theme (.dash-scope inverts ink-*/gray-* text to light colors for the
 // dark background). That inversion used to swallow this component's text
-// entirely (light-on-white — the 2026-09-04 bug report). Fixed by marking
+// entirely (light-on-white, the 2026-09-04 bug report). Fixed by marking
 // this white surface `.on-light`, which index.css gives its own real
-// black/gold (brand) colors instead — see the ".on-light" block there.
+// black/gold (brand) colors instead, see the ".on-light" block there.
 export default function ProductCatalog({ items, onSelect }) {
   const categories = ["All", ...new Set(items.map((i) => i.category))];
   const [activeCategory, setActiveCategory] = useState("All");
@@ -35,7 +35,7 @@ export default function ProductCatalog({ items, onSelect }) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search produce — maize, yam, tomatoes…"
+            placeholder="Search produce, maize, yam, tomatoes…"
             className="w-full rounded-card border border-soil-200 py-2 pl-9 pr-3 text-sm text-gray-900 focus:border-canopy-400 focus:outline-none"
           />
         </div>

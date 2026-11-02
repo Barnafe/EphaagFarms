@@ -44,7 +44,7 @@ export default function ExpensesPanel() {
   return (
     <div className="card">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-ink-600">Every cost recorded — total ₦{total.toLocaleString()}</p>
+        <p className="text-sm text-ink-600">Every cost recorded, total ₦{total.toLocaleString()}</p>
         <button className="btn-outline" type="button" onClick={() => setShowForm((v) => !v)}>+ Record expense</button>
       </div>
 

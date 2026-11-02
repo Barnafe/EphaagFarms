@@ -9,7 +9,7 @@ const TABS = [
   { key: "security", label: "Security log" },
 ];
 
-const fmt = (d) => (d ? new Date(d).toLocaleString() : "—");
+const fmt = (d) => (d ? new Date(d).toLocaleString() : "N/A");
 const card = "rounded-card border border-white/10 bg-canopy-900/40 p-4";
 const btn = "rounded-card border border-white/20 px-3 py-1 text-xs text-white hover:bg-canopy-800";
 
@@ -113,7 +113,7 @@ function MessagesTab() {
             {rows.map((m) => (
               <tr key={m.id} className="border-t border-white/10">
                 <td className="py-1.5 pr-3">{fmt(m.created_at)}</td><td className="pr-3">{m.channel}</td><td className="pr-3">{m.to_address}</td>
-                <td className="pr-3">{m.subject || m.template || "—"}</td>
+                <td className="pr-3">{m.subject || m.template || "N/A"}</td>
                 <td className={`pr-3 ${m.status === "failed" ? "text-red-300" : ""}`} title={m.last_error || ""}>{m.status}</td>
                 <td>{["failed", "suppressed"].includes(m.status) && <button className={btn} onClick={() => resend(m.id)}>Resend</button>}</td>
               </tr>
@@ -158,7 +158,7 @@ function SecurityTab() {
             {rows.map((e) => (
               <tr key={e.id} className="border-t border-white/10 align-top">
                 <td className="py-1.5 pr-3">{fmt(e.created_at)}</td><td className="pr-3 text-white">{e.event_type}</td>
-                <td className="pr-3">{e.user_name || e.user_email || "—"}</td><td className="pr-3">{e.ip || "—"}</td>
+                <td className="pr-3">{e.user_name || e.user_email || "N/A"}</td><td className="pr-3">{e.ip || "N/A"}</td>
                 <td className="break-all">{Object.keys(e.detail || {}).length ? JSON.stringify(e.detail) : ""}</td>
               </tr>
             ))}

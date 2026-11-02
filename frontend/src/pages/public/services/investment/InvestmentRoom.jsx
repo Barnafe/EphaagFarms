@@ -31,7 +31,7 @@ export default function InvestmentRoom() {
         theme={themes.investment}
         eyebrow="Investment plans"
         title="Grow your money alongside a working farm operation"
-        description="Two ways to invest with EPHAAG Farms — a steady monthly contribution or a single bulk payment — both with a transparent, published return for every year of the term."
+        description="Invest monthly or in one bulk payment, with a published return for every year."
         badge="≈"
       />
       <RoomBackLink to="/" label="Back to home" />

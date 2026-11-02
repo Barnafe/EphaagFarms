@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, Sprout, ClipboardList, BarChart3, FileCheck2, User } from "lucide-react";
+import { LayoutDashboard, Sprout, ClipboardList, BarChart3, FileCheck2, User, Coins } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { departmentRoleLabel } from "../../utils/departmentRole.js";
@@ -11,6 +11,7 @@ import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.js
 import FarmList from "./FarmList.jsx";
 import HarvestLog from "./HarvestLog.jsx";
 import AnnualSummary from "./AnnualSummary.jsx";
+import CostsAndProfit from "./CostsAndProfit.jsx";
 
 import useUrlState from "../../hooks/useUrlState.js";
 const CURRENT_YEAR = new Date().getFullYear();
@@ -19,6 +20,7 @@ const items = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "farms", label: "Farms", icon: Sprout },
   { key: "harvests", label: "Harvests", icon: ClipboardList },
+  { key: "costs", label: "Costs & profit", icon: Coins },
   { key: "summary", label: "Annual summary", icon: BarChart3 },
   { key: "requests", label: "Requests", icon: FileCheck2 },
   { key: "profile", label: "Profile", icon: User },
@@ -91,6 +93,11 @@ export default function ProductionDepartment() {
     await Promise.all([loadFarmsAndHarvests(), loadSummary(year)]);
   }
 
+  async function handleSetRevenue(id, revenue) {
+    await apiFetch(`/production/harvests/${id}`, { method: "PATCH", body: { revenue } });
+    await Promise.all([loadFarmsAndHarvests(), loadSummary(year)]);
+  }
+
   async function handleDeclareAnnual(body) {
     await apiFetch("/production/declarations", { method: "POST", body });
     await loadSummary(year);
@@ -129,6 +136,13 @@ export default function ProductionDepartment() {
                 hint: `${d.distinctCropsThisYear} distinct crops`,
                 nav: "harvests",
               },
+              { label: "Livestock farms", value: d.livestockFarms, nav: "farms" },
+              {
+                label: "Profit this year",
+                value: `₦${Number(d.profitThisYear).toLocaleString()}`,
+                hint: `Revenue ₦${Number(d.revenueThisYear).toLocaleString()} less costs ₦${Number(d.costsThisYear).toLocaleString()}`,
+                nav: "costs",
+              },
               {
                 label: "Awaiting Store receipt",
                 value: d.awaitingStoreReceipt,
@@ -148,7 +162,13 @@ export default function ProductionDepartment() {
 
       {tab === "harvests" && (
         <div className="max-w-3xl">
-          <HarvestLog farms={farms} harvests={harvests} onDeclare={handleDeclareHarvest} />
+          <HarvestLog farms={farms} harvests={harvests} onDeclare={handleDeclareHarvest} onSetRevenue={handleSetRevenue} />
+        </div>
+      )}
+
+      {tab === "costs" && (
+        <div className="max-w-3xl">
+          <CostsAndProfit farms={farms} onChanged={loadFarmsAndHarvests} />
         </div>
       )}
 

@@ -3,10 +3,10 @@ import { useState, useEffect } from "react";
 const UNIT_OPTIONS = ["kg", "tons", "bags", "tubers", "crates", "baskets"];
 
 // "Stock get low, store make purchase request via the approval workflow
-// and tag relevant people eg. Procurement, finance and admin" — creates a
+// and tag relevant people eg. Procurement, finance and admin", creates a
 // department_request pre-chained to Procurement's and Finance's current
 // heads (whichever are assigned), same generic system every other
-// department's requests already use — see it and its approvals in
+// department's requests already use, see it and its approvals in
 // Requests > Mine, including the print view once approved.
 export default function RestockRequestPanel({ onSubmit, prefill }) {
   const [crop, setCrop] = useState("");
@@ -19,7 +19,7 @@ export default function RestockRequestPanel({ onSubmit, prefill }) {
 
   // A "Raise restock request" click from the low-stock badge in
   // StockOverview prefills this form rather than silently submitting
-  // for the user — quantity/unit for a purchase request is a judgment
+  // for the user, quantity/unit for a purchase request is a judgment
   // call Store should confirm, not something to auto-decide.
   useEffect(() => {
     if (!prefill) return;
@@ -38,7 +38,7 @@ export default function RestockRequestPanel({ onSubmit, prefill }) {
     setSubmitting(true);
     try {
       const request = await onSubmit({ crop, quantity: Number(quantity), unit, note });
-      setSuccess(`Request ${request.reference} created — see Requests > Mine for approval status.`);
+      setSuccess(`Request ${request.reference} created, see Requests > Mine for approval status.`);
       setCrop("");
       setQuantity("");
       setNote("");
@@ -53,7 +53,7 @@ export default function RestockRequestPanel({ onSubmit, prefill }) {
     <div className="card">
       <p className="text-sm text-ink-600">Request a restock</p>
       <p className="mt-1 text-xs text-ink-600">
-        Routes to Procurement, then Finance, then Admin for final approval — same as any other department request.
+        Routes to Procurement, then Finance, then Admin for final approval, same as any other department request.
       </p>
       <form onSubmit={handleSubmit} className="field mt-4 grid gap-3 sm:grid-cols-4">
         <input value={crop} onChange={(e) => setCrop(e.target.value)} placeholder="Crop, e.g. Yam" required />

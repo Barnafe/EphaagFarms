@@ -47,7 +47,7 @@ export default function AdminFeedbackPage() {
           <p className="text-xs uppercase tracking-wide text-canopy-300">Admin</p>
           <h1 className="text-xl font-medium text-white">Feedback</h1>
           <p className="mt-1 text-sm text-canopy-100">
-            Direct from farmers — challenges, leadership concerns, suspicious activity, and recommendations.
+            Direct from farmers, challenges, leadership concerns, suspicious activity, and recommendations.
           </p>
         </div>
 
@@ -68,7 +68,7 @@ export default function AdminFeedbackPage() {
                 <div key={f.id} className="rounded-card border border-soil-200 px-3 py-2">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-canopy-800">
-                      {categoryLabels[f.category] || f.category} — {f.farmerName}
+                      {categoryLabels[f.category] || f.category}, {f.farmerName}
                     </p>
                     <span
                       className={`rounded-full px-2 py-1 text-xs ${

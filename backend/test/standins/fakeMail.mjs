@@ -15,15 +15,19 @@ function parseRaw(raw) {
 }
 
 export function startFakeMail(port = 0) {
-  const state = { ses: [], sms: [], sesFail: 0, smsFail: 0 };
+  const state = { ses: [], sms: [], sesFail: 0, smsFail: 0, sesHang: false };
+  const hung = new Set();
   const server = http.createServer(async (req, res) => {
     const u = new URL(req.url, "http://x");
     const json = (code, o) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(o)); };
     if (u.pathname === "/__state") return json(200, { ses: state.ses.map(({ raw, ...r }) => r), sms: state.sms });
-    if (u.pathname === "/__reset") { state.ses = []; state.sms = []; state.sesFail = 0; state.smsFail = 0; return json(200, { ok: true }); }
+    if (u.pathname === "/__reset") { state.ses = []; state.sms = []; state.sesFail = 0; state.smsFail = 0; state.sesHang = false; for (const r of hung) r.destroy(); hung.clear(); return json(200, { ok: true }); }
+    // A provider that accepts the request and never answers (until it is switched off, which drops those connections).
+    if (u.pathname === "/__hang") { state.sesHang = u.searchParams.get("ses") === "1"; if (!state.sesHang) { for (const r of hung) r.destroy(); hung.clear(); } return json(200, { sesHang: state.sesHang }); }
     if (u.pathname === "/__fail") { state.sesFail = Number(u.searchParams.get("ses") || 0); state.smsFail = Number(u.searchParams.get("sms") || 0); return json(200, state); }
 
     if (req.method === "POST" && u.pathname === "/v2/email/outbound-emails") {
+      if (state.sesHang) { hung.add(res); return; }
       if (state.sesFail > 0) { state.sesFail--; return json(500, { message: "Simulated SES outage" }); }
       const body = JSON.parse(await readBody(req));
       const raw = Buffer.from(body.Content?.Raw?.Data || "", "base64").toString("utf8");

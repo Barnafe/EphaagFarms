@@ -1,5 +1,5 @@
 // Static business-rule constant (matches the delivered investment
-// proposal) — not mock data, just shared between the application form and
+// proposal), not mock data, just shared between the application form and
 // the backend's own copy in investmentController.js.
 
 export const roiSchedule = {

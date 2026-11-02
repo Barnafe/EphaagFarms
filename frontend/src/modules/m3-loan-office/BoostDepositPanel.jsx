@@ -1,7 +1,8 @@
 import { useState } from "react";
+import PaymentPreview from "../../components/PaymentPreview.jsx";
 import { BOOST_TIERS, BOOST_MONTHS, naira } from "../../data/financingBanner.js";
 
-// LT2 Business Boost — pick one of the banner's four loan sizes; the 25%
+// LT2 Business Boost, pick one of the banner's four loan sizes; the 25%
 // deposit follows from it (12,500 -> 50,000, 25,000 -> 100,000,
 // 50,000 -> 200,000, 75,000 -> 300,000).
 export default function BoostDepositPanel({ deposits, onDeclare, onPay }) {
@@ -23,8 +24,7 @@ export default function BoostDepositPanel({ deposits, onDeclare, onPay }) {
     <div className="card">
       <p className="text-sm text-ink-600">Business Boost deposits</p>
       <p className="mt-1 text-xs text-ink-600">
-        Choose your loan, then pay the 25% deposit. Once Finance verifies it, the deposit has a 1–90 day maturity
-        period before it can be used for an application. Repayment is {BOOST_MONTHS} months.
+        Choose your loan, then pay the 25% deposit. It matures for 1 to 90 days before you can apply. Repayment is {BOOST_MONTHS} months.
       </p>
 
       <form onSubmit={handleSubmit} className="field mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -33,7 +33,7 @@ export default function BoostDepositPanel({ deposits, onDeclare, onPay }) {
           <select value={loanAmount} onChange={(e) => setLoanAmount(Number(e.target.value))}>
             {BOOST_TIERS.map((t) => (
               <option key={t.loan} value={t.loan}>
-                {naira(t.loan)} loan — {naira(t.deposit)} deposit
+                {naira(t.loan)} loan, {naira(t.deposit)} deposit
               </option>
             ))}
           </select>
@@ -49,7 +49,7 @@ export default function BoostDepositPanel({ deposits, onDeclare, onPay }) {
           {deposits.map((d) => (
             <div key={d.id} className="rounded-card border border-soil-200 px-3 py-2 text-sm">
               <p className="text-ink-900">
-                {naira(d.intendedLoanAmount)} loan — {naira(d.depositAmount)} deposit
+                {naira(d.intendedLoanAmount)} loan, {naira(d.depositAmount)} deposit
               </p>
               <p className="text-xs text-ink-600">
                 {d.usedForLoanId
@@ -59,11 +59,11 @@ export default function BoostDepositPanel({ deposits, onDeclare, onPay }) {
                   : !d.verifiedAt
                   ? "Payment received"
                   : d.isEligible
-                  ? "Verified — usable now"
-                  : `Verified — usable from ${d.eligibleFrom ? new Date(d.eligibleFrom).toLocaleDateString() : "—"}`}
+                  ? "Verified, usable now"
+                  : `Verified, usable from ${d.eligibleFrom ? new Date(d.eligibleFrom).toLocaleDateString() : "N/A"}`}
               </p>
               {!d.paidAt && !d.usedForLoanId && (
-                <button type="button" className="btn-primary mt-2" onClick={() => onPay(d.id)}>Pay {naira(d.depositAmount)} with Paystack</button>
+                <div className="mt-2"><PaymentPreview amount={d.depositAmount} amountLabel="Deposit" onProceed={() => onPay(d.id)} /></div>
               )}
             </div>
           ))}

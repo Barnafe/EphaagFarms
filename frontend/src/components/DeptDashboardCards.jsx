@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "../api/client.js";
 
 // Shared "quick summary of activity" card grid for a department's own
-// Dashboard tab — same visual pattern as AdminHub's welcome cards and
+// Dashboard tab, same visual pattern as AdminHub's welcome cards and
 // admin-maintenance-department/DashboardPanel.jsx (2026-09-05 spec: every
 // department dashboard should show this, not just static welcome text).
 //

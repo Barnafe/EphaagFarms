@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 // The two-price split (2026-08-30 spec): buy_price is what farmers are
-// paid, sell_price is what buyers pay — set here.
+// paid, sell_price is what buyers pay, set here.
 export default function PriceEditorPanel({ prices, onSave }) {
   const [edits, setEdits] = useState({});
 
@@ -22,9 +22,7 @@ export default function PriceEditorPanel({ prices, onSave }) {
     <div className="card">
       <p className="text-sm text-ink-600">Prices</p>
       <p className="mt-1 text-xs text-ink-600">
-        Buy price is what farmers are paid (farmer-visible). Sell price is what buyers pay (buyer-visible) —
-        keep sell price above buy price to cover conveying, processing, and overhead.
-      </p>
+        Buy price is what farmers are paid. Sell price is what buyers pay and should stay above the buy price.</p>
       <div className="mt-4 space-y-2 field">
         {prices.map((p) => (
           <div key={p.id} className="grid grid-cols-1 items-end gap-2 rounded-card border border-soil-200 p-3 text-sm sm:grid-cols-2 lg:grid-cols-4">

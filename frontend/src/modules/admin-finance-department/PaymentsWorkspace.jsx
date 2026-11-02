@@ -4,7 +4,7 @@ import PaymentConfirmationPanel from "./PaymentConfirmationPanel.jsx";
 
 import useUrlState from "../../hooks/useUrlState.js";
 const naira = (n) => `₦${Number(n).toLocaleString("en-NG", { maximumFractionDigits: 2 })}`;
-const fmt = (d) => (d ? new Date(d).toLocaleString() : "—");
+const fmt = (d) => (d ? new Date(d).toLocaleString() : "N/A");
 const TYPES = ["order", "share", "commitment", "corps_fee", "investment", "consultancy", "savings", "repayment", "boost_deposit"];
 const TYPE_LABEL = { order: "Order", share: "Share", commitment: "Commitment", corps_fee: "NYSC AGROALLIED SAED fee", investment: "Investment", consultancy: "Consultancy", savings: "Savings", repayment: "Repayment", boost_deposit: "Boost deposit" };
 const REASON = {
@@ -52,7 +52,7 @@ function AutoConfirmed() {
             {rows.map((r) => (
               <tr key={r.id} className="border-t border-soil-200 align-top">
                 <td className="py-1.5 pr-3">{fmt(r.paid_at)}</td><td className="pr-3">{r.typeLabel}</td>
-                <td className="pr-3">{r.payer_name || "—"}<div className="text-ink-500">{r.reference}</div></td>
+                <td className="pr-3">{r.payer_name || "N/A"}<div className="text-ink-500">{r.reference}</div></td>
                 <td className="pr-3">{naira(r.net_amount)}</td><td className="pr-3">{naira(r.fee_amount)}</td><td className="pr-3">{naira(r.gross_amount)}</td>
                 <td className="pr-3 text-harvest-600">{r.review_reasons ? REASON[r.review_reasons] || r.review_reasons : ""}</td>
                 <td><input type="checkbox" checked={r.recorded} onChange={() => tick(r)} aria-label="Recorded in the books" /></td>
@@ -116,7 +116,7 @@ function Settings() {
         <input type="number" min="1" max="720" className={`${field} mt-1 block`} value={s.duplicateWindowHours} onChange={(e) => setS({ ...s, duplicateWindowHours: e.target.value })} /></label>
       <div>
         <p className="font-medium">Late share payments</p>
-        <p className="text-xs text-ink-600">A share purchase that is not paid on time is not refused: the farmer pays a late fee, which stops growing after the number of days below, then has a grace period before the share is taken down.</p>
+        <p className="text-xs text-ink-600">A late share purchase is not refused: the farmer pays a late fee that stops growing after the days below, then a grace period runs before the share is taken down.</p>
         <div className="mt-2 grid grid-cols-3 gap-3">
           {[["sharePercentPerMonth", "Late fee (% of share per month)"], ["shareLateCapDays", "Fee stops growing after (days)"], ["shareGraceDays", "Grace period (days)"]].map(([k, label]) => (
             <label key={k} className="text-xs text-ink-600">{label}<input type="number" step="any" min="0" className={field} value={s[k] ?? ""} onChange={(e) => setS({ ...s, [k]: e.target.value })} /></label>
@@ -142,7 +142,7 @@ export default function PaymentsWorkspace({ orders, onConfirm }) {
     <div className="card space-y-4">
       <div>
         <p className="text-sm text-ink-600">Payment confirmations</p>
-        <p className="mt-1 text-xs text-ink-600">Paystack payments are confirmed automatically and sent to Procurement; nothing needs your approval. Payments that cannot be used are refused by the system itself. "Review only" marks (such as a large order) are for your information. Money that cannot be applied, and any exceptional refund, is handled in the Refund room (Admin Hub).</p>
+        <p className="mt-1 text-xs text-ink-600">Payments are confirmed automatically and sent to Procurement. Payments that cannot be used are refused by the system. Money that cannot be applied, and any exceptional refund, is handled in the Refund room (Admin Hub).</p>
       </div>
       <div className="flex flex-wrap gap-2">
         {SUBTABS.map((t) => (

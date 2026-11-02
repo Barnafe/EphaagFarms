@@ -9,6 +9,7 @@ router.post("/paystack-webhook", c.paystackWebhook);
 
 router.use(requireAuth);
 router.get("/status/:reference", c.paymentStatus);
+router.get("/fee-quote", c.feeQuote);
 
 // Finance (admin)
 router.use("/admin", requireRole("admin"));

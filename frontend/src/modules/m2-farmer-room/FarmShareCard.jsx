@@ -16,15 +16,15 @@ const STATUS_TONE = {
   capital_withdrawn: "bg-soil-100 text-ink-600",
 };
 
-// Farmers' shares — "Shared Capital Investment and Rewards".
+// Farmers' shares, "Shared Capital Investment and Rewards".
 //
-// Flow (no agreement — farmers are already members):
+// Flow (no agreement, farmers are already members):
 //   1. choose how many shares   -> POST /farmers/me/shares/checkout
 //   2. pay                      -> provider screen / redirect
 //   3. the system verifies the payment itself
 //                               -> POST /farmers/me/shares/purchases/:ref/verify
 //   4. redirected to the details of the share(s) just bought.
-// Every share is its own record — own dates, own interest years, own
+// Every share is its own record, own dates, own interest years, own
 // withdrawals. Nothing is ever merged.
 
 function BannerTable() {
@@ -80,7 +80,7 @@ function ShareDetail({ share, index, onWithdrawInterest, onWithdrawCapital }) {
         {new Date(share.capitalUnlocksAt).toLocaleDateString()}
       </p>
       <p className="mt-1 text-xs text-ink-600">
-        Over {SHARE_LOCK_YEARS} years this share earns {naira(share.expectedTotalInterest)} — {naira(share.expectedPayoutAtYear5)}{" "}
+        Over {SHARE_LOCK_YEARS} years this share earns {naira(share.expectedTotalInterest)}, or {naira(share.expectedPayoutAtYear5)}{" "}
         with your capital back.
         {share.totalInterestWithdrawn > 0 && <> Interest withdrawn so far: {naira(share.totalInterestWithdrawn)}.</>}
       </p>
@@ -97,7 +97,7 @@ function ShareDetail({ share, index, onWithdrawInterest, onWithdrawCapital }) {
                 Withdraw
               </button>
             ) : (
-              <p className="text-[10px] text-ink-400">{share.status === "capital_withdrawn" ? "—" : "Locked"}</p>
+              <p className="text-[10px] text-ink-400">{share.status === "capital_withdrawn" ? "N/A" : "Locked"}</p>
             )}
           </div>
         ))}
@@ -195,8 +195,7 @@ export default function FarmShareCard() {
       // its idea of the URL stays in sync and Back never replays the payment.
       const rest = new URLSearchParams(window.location.search);
       rest.delete("sharePayment");
-      rest.set("tab", "savings");
-      rest.set("sec", "farm-share");
+      rest.set("tab", "shares");
       setSearchParams(rest, { replace: true });
       verify(ref);
     }
@@ -294,20 +293,16 @@ export default function FarmShareCard() {
         )}
         <div className="rounded-card bg-soil-50 px-3 py-2 text-sm">
           <p className="flex justify-between"><span className="text-ink-600">Shares</span><span>{purchase.quantity} × {naira(purchase.unitPrice)} = {naira(purchase.total)}</span></p>
-          {purchase.fee > 0 && <p className="flex justify-between"><span className="text-ink-600">Payment processing fee</span><span>{naira(purchase.fee)}</span></p>}
+          {purchase.fee > 0 && <p className="flex justify-between"><span className="text-ink-600">Paystack Charges</span><span>{naira(purchase.fee)}</span></p>}
           <p className="flex justify-between"><span className="text-ink-600">Reference</span><span>{purchase.reference}</span></p>
-          <p className="mt-1 flex justify-between font-medium"><span>Total to pay</span><span>{naira(purchase.amountCharged)}</span></p>
+          <p className="mt-1 flex justify-between font-medium"><span>Total</span><span>{naira(purchase.amountCharged)}</span></p>
         </div>
-        <p className="text-xs text-ink-600">
-          Each share is tracked separately, with its own interest and withdrawals. Your capital is exactly {naira(purchase.total)}:
-          the processing fee only covers the payment gateway. There's no agreement to sign. Once your payment is verified you'll
-          go straight to your share details. Pay within 24 hours or this purchase expires.
-        </p>
+        <p className="text-xs text-ink-600">Your share capital is {naira(purchase.total)}. This purchase expires after 24 hours.</p>
         {error && <p className="text-sm text-red-700">{error}</p>}
         {info && <p className="text-sm text-canopy-800">{info}</p>}
         <div className="flex flex-wrap gap-2">
           <button className="btn-primary" type="button" onClick={() => handlePay()} disabled={busy}>
-            {busy ? "Please wait…" : simulated ? `Pay ${naira(purchase.amountCharged)} (test)` : `Pay ${naira(purchase.amountCharged)} with Paystack`}
+            {busy ? "Please wait…" : simulated ? "Proceed & Pay (test)" : "Proceed & Pay"}
           </button>
           {!simulated && (
             <button className="btn-outline" type="button" onClick={() => verify(purchase.reference)} disabled={busy}>
@@ -324,7 +319,7 @@ export default function FarmShareCard() {
       <div className="card space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium text-canopy-800">
-            Payment verified — {bought.length} share{bought.length === 1 ? " is" : "s are"} now active
+            Payment verified. {bought.length} share{bought.length === 1 ? " is" : "s are"} now active
           </p>
           <button type="button" className="text-sm text-canopy-800" onClick={() => { setView("list"); setBought([]); }}>
             ← All my shares
@@ -348,16 +343,13 @@ export default function FarmShareCard() {
     <div className="card">
       <p className="text-sm text-ink-600">Shared Capital Investment and Rewards</p>
       <p className="mt-1 text-xs text-ink-600">
-        One share is {naira(SHARE_PRICE)}, locked for {SHARE_LOCK_YEARS} years. Every year you earn a return on your
-        original capital — {SHARE_YEAR_RATES.map((p, i) => `${p}% in year ${i + 1}`).join(", ")} — and each year's
-        interest can be withdrawn once that year is complete. Interest is never compounded. Each share you buy is
-        treated on its own: its own interest, its own withdrawals and its own capital.
+        One share is {naira(SHARE_PRICE)}, locked for {SHARE_LOCK_YEARS} years. Yearly returns: {SHARE_YEAR_RATES.map((p, i) => `${p}% in year ${i + 1}`).join(", ")}. Each year's interest can be withdrawn once that year is complete. Every share is tracked on its own.
       </p>
       <BannerTable />
 
       <form onSubmit={handleCheckout} className="field mt-4 flex items-end gap-2">
         <div className="flex-1">
-          <label className="text-xs text-ink-600">How many shares? (1–{MAX_SHARES_PER_PURCHASE} per purchase)</label>
+          <label className="text-xs text-ink-600">How many shares? (1 to {MAX_SHARES_PER_PURCHASE} per purchase)</label>
           <input
             type="number"
             min={1}
@@ -369,12 +361,9 @@ export default function FarmShareCard() {
           <p className="mt-1 text-xs text-ink-600">
             Capital: {naira(total)} · returns {naira(shareRow(quantity).totalRoi)} over {SHARE_LOCK_YEARS} years
           </p>
-          {quote && quote.fee > 0 && (
-            <p className="mt-1 text-xs text-ink-600">Payment processing fee {naira(quote.fee)} · you pay {naira(quote.amountCharged)} in total</p>
-          )}
         </div>
         <button className="btn-primary" type="submit" disabled={busy}>
-          {busy ? "Please wait…" : "Buy & pay"}
+          {busy ? "Please wait…" : "Continue"}
         </button>
       </form>
 
@@ -415,7 +404,7 @@ export default function FarmShareCard() {
             <tbody>
               <tr><td>Share amount</td><td className="text-right">{naira(lateQuote.late.shareAmount)}</td></tr>
               <tr><td>Late fee ({lateQuote.late.daysLate} days)</td><td className="text-right">{naira(lateQuote.late.lateFee)}</td></tr>
-              <tr><td>Payment processing fee</td><td className="text-right">{naira(lateQuote.late.processingFee)}</td></tr>
+              <tr><td>Paystack Charges</td><td className="text-right">{naira(lateQuote.late.processingFee)}</td></tr>
               <tr className="border-t border-soil-200 font-medium"><td>Total to pay today</td><td className="text-right">{naira(lateQuote.late.totalToPay)}</td></tr>
             </tbody>
           </table>
@@ -439,7 +428,7 @@ export default function FarmShareCard() {
           {pending.map((p) => (
             <div key={p.id} className="flex items-center justify-between rounded-card border border-soil-200 bg-soil-50 px-3 py-2 text-xs text-ink-900">
               <span>
-                Payment not confirmed yet — {p.quantity} share{p.quantity === 1 ? "" : "s"} ({naira(p.amountCharged)}) · {p.reference}
+                Payment not confirmed yet: {p.quantity} share{p.quantity === 1 ? "" : "s"} ({naira(p.amountCharged)}) · {p.reference}
                 {p.late && <strong className="mt-0.5 block text-harvest-700">Overdue by {p.late.daysLate} day{p.late.daysLate === 1 ? "" : "s"}: a late fee of {naira(p.late.lateFee)} applies. Pay before it is taken down.</strong>}
               </span>
               <span className="flex gap-3">

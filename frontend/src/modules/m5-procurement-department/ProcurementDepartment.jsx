@@ -16,7 +16,7 @@ import useUrlState from "../../hooks/useUrlState.js";
 // Pricing is admin-only now (2026-09-05): standardized prices are set and
 // edited exclusively via Admin's Add Catalog / Add Price tools. Procurement
 // used to have a read-only "Pricing" tab here with a non-functional "edit"
-// button (price editing was never actually wired to it) — removed rather
+// button (price editing was never actually wired to it), removed rather
 // than left as a dead, misleading control.
 const items = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -190,7 +190,7 @@ export default function ProcurementDepartment() {
                     {o.items.map((i) => `${i.quantity} ${i.unit} ${i.crop}`).join(", ")}
                   </p>
                   <p className="text-xs text-ink-600">
-                    Sourced from: {o.sourcedFrom.join(", ") || "—"} · to {o.deliveryLocation}
+                    Sourced from: {o.sourcedFrom.join(", ") || "N/A"} · to {o.deliveryLocation}
                   </p>
                   <select
                     className="mt-2 rounded-card border border-soil-200 px-2 py-1 text-sm"
@@ -217,9 +217,7 @@ export default function ProcurementDepartment() {
             <p className="text-xs uppercase tracking-wide text-canopy-300">Procurement Department</p>
             <h1 className="text-xl font-medium text-white">Purchasing</h1>
             <p className="mt-1 text-sm text-canopy-100">
-              Internal purchase requests: need verification → supplier sourcing → purchase order →
-              Finance payment → delivery → goods verification → invoice → final payment → audit.
-            </p>
+              Internal purchase requests, from need verification to final payment and audit.</p>
           </div>
           <PurchasingPanel />
         </div>

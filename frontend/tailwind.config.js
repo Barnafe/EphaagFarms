@@ -23,12 +23,12 @@ export default {
           700: "#234f27",
           800: "#1c4720",
           900: "#122e16",
-          // Darkest app-shell background (DashboardShell's outer frame) — one
+          // Darkest app-shell background (DashboardShell's outer frame), one
           // shade below 900 so the shell reads as a seamless continuation of
           // .dash-scope's own bg-canopy-900, never a gap. Added 2026-09-04:
           // every "bg-canopy-950" call site was silently rendering transparent
           // before this (950 didn't exist in this palette), which is what let
-          // the page's cream body color show through on mobile — see the
+          // the page's cream body color show through on mobile, see the
           // 2026-09-04 mobile-overflow bug note in [[ephaag-farms]] memory.
           950: "#0b2410",
         },

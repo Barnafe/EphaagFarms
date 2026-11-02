@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../../api/client.js";
 
-const when = (d) => (d ? new Date(d).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : "—");
+const when = (d) => (d ? new Date(d).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : "N/A");
 const EVENT_LABEL = {
   due_date_set: "Due date set",
   marked_complete: "Marked complete",
@@ -82,8 +82,7 @@ export default function CorpsBatches() {
       <div>
         <h1 className="text-xl font-medium text-white">Batches &amp; certificates</h1>
         <p className="mt-1 text-sm text-canopy-100">
-          Certificates are created hidden when a paid member finishes every course. Marking a batch complete (on or after its due date) releases them and emails each member, one by one.
-        </p>
+          Certificates stay hidden until the batch is marked complete, then each member is emailed.</p>
       </div>
 
       {error && <div className="card border-red-200 bg-red-50" role="alert"><p className="text-sm text-red-700">{error}</p></div>}
@@ -101,7 +100,7 @@ export default function CorpsBatches() {
               </p>
             </div>
             <span className={`rounded-card px-2 py-1 text-xs font-medium ${b.completed ? "bg-canopy-50 text-canopy-800" : "bg-amber-100 text-amber-900"}`}>
-              {b.completed ? `Complete — ${when(b.completedAt)}${b.completedBy ? ` by ${b.completedBy}` : ""}` : "Open"}
+              {b.completed ? `Complete, ${when(b.completedAt)}${b.completedBy ? ` by ${b.completedBy}` : ""}` : "Open"}
             </span>
           </div>
 
@@ -175,7 +174,7 @@ export default function CorpsBatches() {
               <summary className="cursor-pointer text-ink-600">History</summary>
               <ul className="mt-1 space-y-1">
                 {b.events.map((e, i) => (
-                  <li key={i}>{when(e.at)} — {EVENT_LABEL[e.action] || e.action}{e.by ? ` by ${e.by}` : ""}{e.note ? ` (${e.note})` : ""}</li>
+                  <li key={i}>{when(e.at)}: {EVENT_LABEL[e.action] || e.action}{e.by ? ` by ${e.by}` : ""}{e.note ? ` (${e.note})` : ""}</li>
                 ))}
               </ul>
             </details>

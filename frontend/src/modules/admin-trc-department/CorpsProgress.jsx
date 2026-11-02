@@ -47,8 +47,7 @@ export default function CorpsProgress() {
       <div>
         <h1 className="text-xl font-medium text-white">NYSC AGROALLIED SAED member progress</h1>
         <p className="mt-1 text-sm text-canopy-100">
-          Percent = courses completed out of all live NYSC AGROALLIED SAED courses. A course is complete when every lesson is done and the quiz has been submitted at least once.
-        </p>
+          Percent is courses completed out of all live courses. A course is complete when every lesson is done and the quiz is submitted.</p>
       </div>
 
       {error && <div className="card border-red-200 bg-red-50" role="alert"><p className="text-sm text-red-700">{error}</p></div>}
@@ -102,7 +101,7 @@ export default function CorpsProgress() {
                         <td className="py-2 pr-3">{c.questionCount}</td>
                         <td className="py-2 pr-3">{c.started}</td>
                         <td className="py-2 pr-3">{c.completed}</td>
-                        <td className="py-2">{c.averageBestScore === null ? "—" : `${c.averageBestScore}%`}</td>
+                        <td className="py-2">{c.averageBestScore === null ? "N/A" : `${c.averageBestScore}%`}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -181,7 +180,7 @@ export default function CorpsProgress() {
 
             {data && data.matching > limit && (
               <div className="mt-3 flex items-center justify-between text-xs text-ink-600">
-                <span>{offset + 1}–{Math.min(offset + limit, data.matching)} of {data.matching}</span>
+                <span>{offset + 1} to {Math.min(offset + limit, data.matching)} of {data.matching}</span>
                 <div className="flex gap-2">
                   <button type="button" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - limit))} className="rounded-card border border-soil-200 px-3 py-1 text-ink-900 disabled:opacity-40">Previous</button>
                   <button type="button" disabled={offset + limit >= data.matching} onClick={() => setOffset(offset + limit)} className="rounded-card border border-soil-200 px-3 py-1 text-ink-900 disabled:opacity-40">Next</button>

@@ -43,7 +43,7 @@ function OrderCard({ order, distributors, selected, onSelectDistributor, onAudit
       {audit && (
         <p className={`mt-2 text-xs font-medium ${passed ? "text-canopy-800" : "text-red-700"}`}>
           {passed ? "Audit passed" : "Audit failed"}
-          {audit.note ? ` — ${audit.note}` : ""}
+          {audit.note ? `, ${audit.note}` : ""}
         </p>
       )}
 
@@ -54,14 +54,14 @@ function OrderCard({ order, distributors, selected, onSelectDistributor, onAudit
             rows={2}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Audit note — quality/stock verification (optional)"
+            placeholder="Audit note, quality/stock verification (optional)"
           />
           <div className="flex gap-2">
             <button type="button" className="btn-outline flex-1 text-xs" onClick={() => submitAudit(false)}>
               Fails audit
             </button>
             <button type="button" className="btn-primary flex-1 text-xs" onClick={() => submitAudit(true)}>
-              Verified — passes audit
+              Verified, passes audit
             </button>
           </div>
         </div>
@@ -86,7 +86,7 @@ function OrderCard({ order, distributors, selected, onSelectDistributor, onAudit
             ))}
           </select>
           <button className="btn-primary" type="button" disabled={!selected} onClick={() => onAllocate(order.id)}>
-            Allocate — confirm taken out of store
+            Allocate, confirm taken out of store
           </button>
         </div>
       )}

@@ -36,7 +36,7 @@ export default function TransactionsPanel() {
 
   return (
     <div className="card">
-      <p className="text-sm text-ink-600">Every posting — income, expenses, payments, transfers, refunds and adjustments — in one ledger.</p>
+      <p className="text-sm text-ink-600">Every posting, income, expenses, payments, transfers, refunds and adjustments, in one ledger.</p>
 
       <div className="mt-3 flex flex-wrap gap-2">
         {types.map((t) => (

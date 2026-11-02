@@ -94,7 +94,7 @@ export default function BudgetManagementPanel() {
                 <div>
                   <p className="font-medium text-ink-900">{b.name}</p>
                   <p className="text-xs text-ink-600">
-                    {b.reference} · {b.budget_type} {b.department ? `· ${b.department}` : ""} · {b.period_start?.slice(0, 10)} – {b.period_end?.slice(0, 10)}
+                    {b.reference} · {b.budget_type} {b.department ? `· ${b.department}` : ""} · {b.period_start?.slice(0, 10)} to {b.period_end?.slice(0, 10)}
                   </p>
                 </div>
                 <button className="btn-outline text-xs" type="button" onClick={() => handleAdjust(b.id)}>Adjust</button>

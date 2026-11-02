@@ -1,4 +1,4 @@
-// Phase 16 — email and SMS
+// Phase 16, email and SMS
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
@@ -172,4 +172,25 @@ test("the messages log filters by status and channel", async () => {
   assert.equal(sent.status, 200);
   assert.ok(sent.data.messages.length > 0 && sent.data.messages.every((m) => m.status === "sent" && m.channel === "email"));
   assert.ok(Array.isArray(sent.data.counts));
+});
+
+test("a provider that never answers cannot freeze the queue: the send times out, is retried, and later messages still go out", async () => {
+  const admin = await loginAdmin();
+  await drain(admin);
+  await mailReset();
+  await fetch(`${MAIL}/__hang?ses=1`);
+  const t0 = Date.now();
+  const stuck = await api("/messaging/test-send", { method: "POST", token: admin, body: { channel: "email", to: `hang${uniq()}@example.test` } });
+  assert.equal(stuck.status, 200);
+  assert.ok(Date.now() - t0 < 15000, "the request came back instead of waiting for ever");
+  const row = (await db.query("SELECT status, attempts, last_error FROM messages WHERE id=$1", [stuck.data.message.id])).rows[0];
+  assert.equal(row.status, "queued", "a send that timed out is retried later, not lost");
+  assert.match(row.last_error, /timed out/i);
+  // the provider recovers: the queue works again straight away, for this message and for new ones
+  await fetch(`${MAIL}/__hang?ses=0`);
+  const later = await api("/messaging/test-send", { method: "POST", token: admin, body: { channel: "email", to: `after${uniq()}@example.test` } });
+  assert.equal((await waitStatus(later.data.message.id, "sent")).status, "sent", "the queue was not left frozen");
+  await db.query("UPDATE messages SET next_attempt_at = now() - interval '1 second' WHERE id=$1", [stuck.data.message.id]);
+  await api("/system/jobs/message-queue/run", { method: "POST", token: admin });
+  assert.equal((await waitStatus(stuck.data.message.id, "sent")).status, "sent", "and the timed-out message is delivered on retry");
 });

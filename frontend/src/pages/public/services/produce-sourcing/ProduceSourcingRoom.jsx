@@ -20,7 +20,7 @@ export default function ProduceSourcingRoom() {
         theme={themes.produceSourcing}
         eyebrow="Produce sourcing"
         title="Standardized pricing, sourced directly from farmers"
-        description="EPHAAG Farms buys directly from its farmer network at one published price per crop — no bargaining, no middlemen, and no price that changes depending on who's buying."
+        description="We buy directly from farmers at one published price per crop."
         badge="₦"
       />
       <RoomBackLink to="/" label="Back to home" />
@@ -31,7 +31,7 @@ export default function ProduceSourcingRoom() {
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
             Prices aren't negotiated order by order. Once a year, EPHAAG Farms holds a
             research and review meeting with farmers and buyers to agree on a standardized
-            price for each crop — the same price applies nationwide until the next review.
+            price for each crop, the same price applies nationwide until the next review.
             This protects farmers from underpricing and gives buyers a price they can plan
             around.
           </p>
@@ -50,7 +50,7 @@ export default function ProduceSourcingRoom() {
           <ul className="mt-3 space-y-2 text-sm text-ink-600">
             <li>• Local reps in every region match buyer orders to nearby farmers by crop and location.</li>
             <li>• A single order can be split across multiple farmers if that's what it takes to fill it.</li>
-            <li>• Every order also passes through processing before it moves on to delivery — see Logistics & tracking for what happens next.</li>
+            <li>• Every order also passes through processing before it moves on to delivery, see Logistics & tracking for what happens next.</li>
           </ul>
         </div>
 

@@ -5,7 +5,7 @@ import { themes } from "../../../../utils/serviceThemes.js";
 
 const stages = [
   { step: "1", title: "Payment confirmed", desc: "We confirm your payment and the order enters the pipeline." },
-  { step: "2", title: "Sourced", desc: "We match your order to farmers by crop and location — splitting across multiple farmers if needed." },
+  { step: "2", title: "Sourced", desc: "We match your order to farmers by crop and location, splitting across multiple farmers if needed." },
   { step: "3", title: "Processed", desc: "Every order is processed before it moves onward." },
   { step: "4", title: "Allocated", desc: "We allocate a Distributor to handle onward distribution." },
   { step: "5", title: "In transit", desc: "We assign a driver, who picks up and delivers." },
@@ -19,7 +19,7 @@ export default function LogisticsRoom() {
         theme={themes.logistics}
         eyebrow="Logistics & tracking"
         title="Every order, tracked from confirmation to your door"
-        description="Once your payment is confirmed, your order moves through a fixed sequence of stages — sourcing, processing, allocation and delivery — each one visible in your order history as it happens."
+        description="Every order moves through sourcing, processing, allocation and delivery, and you can follow each stage."
         badge="⇒"
       />
       <RoomBackLink to="/" label="Back to home" />
@@ -45,20 +45,15 @@ export default function LogisticsRoom() {
         <div className="mt-8 card">
           <h2 className="font-display text-lg font-semibold text-ink-900">Tracking your order</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            Every order gets a unique reference number the moment it's placed — for example{" "}
-            <span className="font-mono text-ink-900">ORD-20260723-4F2K</span> — and shipments get
-            their own reference once a driver is assigned. Your order history shows the current
-            stage at a glance, so you always know exactly where things stand without needing to
-            call in.
+            Every order gets a unique reference number the moment it's placed, for example{" "}
+            <span className="font-mono text-ink-900">ORD-20260723-4F2K</span>. Your order history shows the current stage at a glance.
           </p>
         </div>
 
         <div className="mt-8 card">
           <h2 className="font-display text-lg font-semibold text-ink-900">Proof of delivery</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            When your driver delivers, proof of delivery is captured and attached to the
-            shipment — so the order isn't marked complete until delivery is actually confirmed
-            on the ground.
+            Proof of delivery is recorded before an order is marked complete.
           </p>
         </div>
 

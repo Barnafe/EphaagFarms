@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------
-// Corps learning rules (phase 4) — PURE functions only, no database.
+// Corps learning rules (phase 4), PURE functions only, no database.
 // Everything that decides a number or a verdict lives here so it can be
 // tested on its own, and so the member dashboard, the admin screens and
 // (later) the certificate and NYSC AGROALLIED SAED export all call the very same code:
@@ -21,7 +21,7 @@
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Founder's decisions for phase 4 — kept as named switches so the rule is
+// Founder's decisions for phase 4, kept as named switches so the rule is
 // visible in one place.
 export const RULES = {
   lessonsBeforeQuiz: true, // every lesson must be done before the quiz opens
@@ -66,7 +66,7 @@ export function quizLock({ lessonCount, lessonsDone }) {
     return {
       locked: true,
       remaining,
-      reason: `Finish all lessons first — ${remaining} lesson${remaining === 1 ? "" : "s"} left.`,
+      reason: `Finish all lessons first, ${remaining} lesson${remaining === 1 ? "" : "s"} left.`,
     };
   }
   return { locked: false, remaining: 0, reason: null };
@@ -136,7 +136,7 @@ export function summariseProgress(rows, paid) {
 // the member saw the questions (kept for the review).
 //
 // Returns { error: { message, code } } or { graded: {...} }. The server
-// does all the grading — the browser never sees which option is correct
+// does all the grading, the browser never sees which option is correct
 // until after submitting.
 // ---------------------------------------------------------------------
 export function validateAnswers(questions, answers) {
@@ -170,11 +170,11 @@ export function validateAnswers(questions, answers) {
 
     const q = byQuestion.get(qid);
     if (!q) {
-      return fail("One of the questions is not part of this course's quiz — reload the quiz and try again", "UNKNOWN_QUESTION");
+      return fail("One of the questions is not part of this course's quiz, reload the quiz and try again", "UNKNOWN_QUESTION");
     }
     const chosen = q.options.find((o) => o.id === oid);
     if (!chosen) {
-      return fail("One of the chosen answers does not belong to its question — reload the quiz and try again", "UNKNOWN_OPTION");
+      return fail("One of the chosen answers does not belong to its question, reload the quiz and try again", "UNKNOWN_OPTION");
     }
     const correct = q.options.find((o) => o.isCorrect);
     items.push({

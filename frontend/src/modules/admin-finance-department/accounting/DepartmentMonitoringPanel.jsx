@@ -19,7 +19,7 @@ export default function DepartmentMonitoringPanel() {
 
   return (
     <div className="card">
-      <p className="text-sm text-ink-600">Spending and budget performance across every department — Transport, Maintenance, HR, Procurement, Admin, Store, Marketing, and any other department in the project.</p>
+      <p className="text-sm text-ink-600">Spending and budget performance for every department.</p>
       {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
 
       <div className="mt-4 space-y-2">

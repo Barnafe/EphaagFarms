@@ -8,11 +8,10 @@ const CROP_CATEGORIES = ["Grains", "Tubers", "Vegetables", "Other"];
 const LIVESTOCK_CATEGORIES = ["Goat", "Chicken", "Cattle", "Sheep", "Pig", "Turkey", "Other Livestock"];
 
 // Same fixed vocabulary as farmer_products/farmer_declarations' `unit`
-// CHECK constraint (see backend/src/db/migrations/001_init.sql) — one
+// CHECK constraint (see backend/src/db/migrations/001_init.sql), one
 // consistent set of units app-wide, whether a farmer is listing or an
 // admin is cataloging. A dropdown, not free text, so there's no risk of
-// "bag" vs "bags" vs "Bag" drifting apart across items. Crops only —
-// livestock doesn't use a measured unit at all (see below).
+// "bag" vs "bags" vs "Bag" drifting apart across items. Crops only, // livestock doesn't use a measured unit at all (see below).
 const UNITS = ["kg", "tons", "bags", "tubers", "crates", "baskets"];
 
 const EMPTY_FORM = {
@@ -26,19 +25,19 @@ const EMPTY_FORM = {
   description: "",
 };
 
-// New feature (2026-09-03 spec) — there was previously no way to add a crop
+// New feature (2026-09-03 spec), there was previously no way to add a crop
 // that didn't already exist in standard_prices; Finance's price editor could
 // only ever edit one that was already there. This is the one place a new
-// product enters the system — once created here it shows up automatically
+// product enters the system, once created here it shows up automatically
 // in the buyer's Product Catalog, the farmer's visible prices, and
 // Procurement's price list, all of which read straight from standard_prices.
 //
 // 2026-09-04: the old "type an emoji" icon field is replaced with a real
-// photo upload — admin snaps or picks an actual picture of the item, same
+// photo upload, admin snaps or picks an actual picture of the item, same
 // as any real shopping app.
 //
 // 2026-09-05 spec: crops vs livestock. A checkmark toggle switches the form
-// between the two — crops keep the existing measured-unit dropdown +
+// between the two, crops keep the existing measured-unit dropdown +
 // grains/tubers/vegetables/other categories; livestock swaps the unit
 // dropdown for a free-text age/description field (since a goat's price
 // depends on how old it is, not a measured quantity) and swaps in
@@ -146,7 +145,7 @@ export default function AddCatalogPage() {
       if (imageFile) body.append("image", imageFile);
 
       await apiUpload("/finance/prices", body);
-      setSuccess(`${form.crop.trim()} added to the catalog — it's already live in the buyer's Product Catalog.`);
+      setSuccess(`${form.crop.trim()} added to the catalog, it's already live in the buyer's Product Catalog.`);
       setForm(EMPTY_FORM);
       clearImage();
       await loadCatalog();
@@ -405,7 +404,7 @@ export default function AddCatalogPage() {
               </div>
             )}
             <div>
-              <label>Buy price (₦) — paid to farmers</label>
+              <label>Buy price (₦), paid to farmers</label>
               <input
                 type="number"
                 min="0"
@@ -415,7 +414,7 @@ export default function AddCatalogPage() {
               />
             </div>
             <div>
-              <label>Sell price (₦) — charged to buyers</label>
+              <label>Sell price (₦), charged to buyers</label>
               <input
                 type="number"
                 min="0"
@@ -436,7 +435,7 @@ export default function AddCatalogPage() {
             </div>
           </div>
           <div>
-            <label>Description (optional — shown to buyers)</label>
+            <label>Description (optional, shown to buyers)</label>
             <textarea
               rows={2}
               value={form.description}
@@ -461,7 +460,7 @@ export default function AddCatalogPage() {
           {loading ? (
             <p className="text-sm text-canopy-100">Loading…</p>
           ) : catalog.length === 0 ? (
-            <p className="text-sm text-canopy-100">Nothing added yet — the form above adds the first one.</p>
+            <p className="text-sm text-canopy-100">Nothing added yet, the form above adds the first one.</p>
           ) : (
             <div className="card overflow-x-auto">
               <input

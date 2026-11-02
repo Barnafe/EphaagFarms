@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import RoomHero from "../../../../components/public-services/RoomHero.jsx";
 import RoomBackLink from "../../../../components/public-services/RoomBackLink.jsx";
+import ConsultancyCard from "../../../../components/public-services/ConsultancyCard.jsx";
 import { themes } from "../../../../utils/serviceThemes.js";
 
 export default function Trc() {
@@ -10,7 +11,7 @@ export default function Trc() {
         theme={themes.trc}
         eyebrow="TRC"
         title="Training, Research & Consultancy"
-        description="One of EPHAAG Farms' core offerings, free to members — practical training courses, published research, and one-on-one consultancy."
+        description="One of EPHAAG Farms' core offerings, free training for members, our own research, and one-on-one consultancy open to everyone."
         badge="🎓"
       />
       <RoomBackLink to="/" label="Back to home" />
@@ -19,34 +20,20 @@ export default function Trc() {
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-ink-900">Training</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            Short courses on practical topics — spacing techniques, post-harvest storage, fertilizer
-            timing, irrigation on a budget, soil testing, and record-keeping. Each course can come with
-            downloadable materials and a link to attend the session online. New courses are announced
-            through your local Unit Leader, and completion is tracked on your farmer dashboard —
-            consistent progress factors into loan application review.
-          </p>
+            Short practical courses on spacing, storage, fertilizer timing, irrigation, soil testing and record keeping.</p>
         </div>
 
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-ink-900">Research</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            EPHAAG publishes short research write-ups on farming practice, market conditions, and
-            outcomes drawn from our own farmer network — kept practical and readable, not academic.
-          </p>
+            Internal research that shapes our training, pricing and advice.</p>
         </div>
 
-        <div className="card">
-          <h2 className="font-display text-xl font-semibold text-ink-900">Consultancy</h2>
-          <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            Members can book a one-on-one consultancy session against a published offering — for
-            example a farm-planning review or a specific production problem — and track the request
-            through to completion.
-          </p>
-        </div>
+        <ConsultancyCard heading="Consultancy" headingClass="font-display text-xl font-semibold text-ink-900" />
 
         <div className="mt-10 rounded-card bg-gradient-to-br from-canopy-800 to-harvest-600 p-8 text-center text-white">
           <h3 className="font-display text-xl font-bold">Ready to get involved?</h3>
-          <p className="mt-2 text-sm text-white/85">Register as a farmer to see the latest courses, research, and consultancy offerings.</p>
+          <p className="mt-2 text-sm text-white/85">Register as a farmer to see the latest courses and join our training.</p>
           <Link to="/register" className="mt-5 inline-block rounded-card bg-white px-6 py-3 text-sm font-semibold text-canopy-800">
             Register today
           </Link>

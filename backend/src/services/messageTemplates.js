@@ -69,7 +69,7 @@ registerTemplate("generic", (d) => ({
 registerTemplate("welcome", (d) => ({
   subject: "Welcome to EPHAAG Farms",
   title: "Welcome",
-  html: `<p>Hi ${escapeHtml(d.name)},</p><p>Your EPHAAG Farms account has been created — you're all set.</p>`,
+  html: `<p>Hi ${escapeHtml(d.name)},</p><p>Your EPHAAG Farms account has been created, you're all set.</p>`,
 }), { name: "Amina" });
 
 registerTemplate("password_reset", (d) => ({
@@ -77,7 +77,7 @@ registerTemplate("password_reset", (d) => ({
   title: "Reset your password",
   html: `<p>Hi ${escapeHtml(d.name)},</p><p>Click the link below to set a new password. This link expires in ${escapeHtml(d.minutes)} minutes.</p>
 <p><a href="${escapeHtml(d.url)}">${escapeHtml(d.url)}</a></p>
-<p>If you didn't request this, you can ignore this email — your password won't change.</p>`,
+<p>If you didn't request this, you can ignore this email, your password won't change.</p>`,
 }), { name: "Amina", minutes: 30, url: "https://example.com/reset-password?token=abc" });
 
 registerTemplate("account_locked", (d) => ({

@@ -49,7 +49,7 @@ export default function ApprovalCenterPanel() {
             <div key={r.id} className="rounded-card border border-soil-200 px-3 py-2">
               <p className="font-medium text-ink-900">{r.purpose}</p>
               <p className="text-xs text-ink-600">
-                {r.reference} · {r.department} · ₦{Number(r.amount).toLocaleString()} · by {r.requester_name || "—"}
+                {r.reference} · {r.department} · ₦{Number(r.amount).toLocaleString()} · by {r.requester_name || "N/A"}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button className="btn-primary" type="button" onClick={() => decide(r.id, "approved")}>Approve</button>
@@ -76,7 +76,7 @@ export default function ApprovalCenterPanel() {
             {history.map((h) => (
               <div key={h.id} className="rounded-card border border-soil-200 px-3 py-2 text-sm">
                 <p className="text-ink-900">
-                  {h.request_reference} — {h.decision.replace(/_/g, " ")} by {h.approver_name || "—"}
+                  {h.request_reference}: {h.decision.replace(/_/g, " ")} by {h.approver_name || "N/A"}
                 </p>
                 <p className="text-xs text-ink-600">{h.purpose}{h.comment ? ` · "${h.comment}"` : ""}</p>
               </div>

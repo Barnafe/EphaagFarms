@@ -88,7 +88,7 @@ export function callbackUrl(path) {
 
 /** Ask Paystack to return a payment to the payer (their original payment method). */
 export async function requestRefund(reference) {
-  if (!paystackConfigured()) return { ok: false, error: "Paystack is not configured" };
+  if (!paystackConfigured()) return { ok: false, error: "Online payment is not set up" };
   try {
     const r = await paystackRequest("/refund", { method: "POST", body: JSON.stringify({ transaction: reference }) });
     if (!r.ok || r.body?.status === false) return { ok: false, error: r.body?.message || "Paystack could not start the refund" };
@@ -113,7 +113,7 @@ export async function chargeAuthorization({ email, amountNaira, reference, autho
   if (r.ok === false && r.body?.message && /authorization|card/i.test(String(r.body.message))) {
     return { status: "failed", reference, gateway_response: r.body.message };
   }
-  throw Object.assign(new Error("Paystack did not answer"), { status: 502 });
+  throw Object.assign(new Error("The payment service did not answer. Please try again."), { status: 502 });
 }
 
 // ---------------------------------------------------------------------------
@@ -155,7 +155,7 @@ export async function initiateTransfer({ amountNaira, recipientCode, reference, 
   });
   if (r.body?.data) return { ...r.body.data, ok: r.ok };
   if (r.status && r.status < 500) return { status: "failed", reference, ok: false, message: r.body?.message || "Paystack refused the transfer" };
-  throw Object.assign(new Error("Paystack did not answer"), { status: 502 });
+  throw Object.assign(new Error("The payment service did not answer. Please try again."), { status: 502 });
 }
 
 export async function fetchTransfer(reference) {

@@ -5,7 +5,7 @@ import { apiFetch } from "../api/client.js";
 
 const longDate = (d) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "");
 
-// Public page — no sign-in. Shows ONLY the holder's name, batch and issue
+// Public page, no sign-in. Shows ONLY the holder's name, batch and issue
 // date for a genuine, released certificate.
 export default function VerifyCertificate() {
   const { code: urlCode } = useParams();

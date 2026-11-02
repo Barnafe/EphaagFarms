@@ -120,7 +120,7 @@ export default function SettingsPanel() {
           <input value={ruleForm.requiredRole} onChange={(e) => setRuleForm({ ...ruleForm, requiredRole: e.target.value })} placeholder="Required role (e.g. Finance Manager)" required />
           <input type="number" min="0" value={ruleForm.minAmount} onChange={(e) => setRuleForm({ ...ruleForm, minAmount: e.target.value })} placeholder="Min amount" />
           <input type="number" min="0" value={ruleForm.maxAmount} onChange={(e) => setRuleForm({ ...ruleForm, maxAmount: e.target.value })} placeholder="Max amount (optional)" />
-          <input className="sm:col-span-2" value={ruleForm.department} onChange={(e) => setRuleForm({ ...ruleForm, department: e.target.value })} placeholder="Department (optional — leave blank for all)" />
+          <input className="sm:col-span-2" value={ruleForm.department} onChange={(e) => setRuleForm({ ...ruleForm, department: e.target.value })} placeholder="Department (optional, leave blank for all)" />
           <div className="sm:col-span-2">
             <button className="btn-primary" type="submit" disabled={busy}>{busy ? "Saving…" : "Add approval rule"}</button>
           </div>
@@ -130,7 +130,7 @@ export default function SettingsPanel() {
           {approvalRules.length === 0 && <p className="text-sm text-ink-600">No approval rules configured yet.</p>}
           {approvalRules.map((r) => (
             <div key={r.id} className="rounded-card border border-soil-200 px-3 py-2 text-sm">
-              Step {r.step_order}: {r.required_role} — ₦{Number(r.min_amount).toLocaleString()}{r.max_amount ? ` to ₦${Number(r.max_amount).toLocaleString()}` : "+"}
+              Step {r.step_order}: {r.required_role}, ₦{Number(r.min_amount).toLocaleString()}{r.max_amount ? ` to ₦${Number(r.max_amount).toLocaleString()}` : "+"}
               {r.department ? ` · ${r.department}` : " · all departments"}
             </div>
           ))}

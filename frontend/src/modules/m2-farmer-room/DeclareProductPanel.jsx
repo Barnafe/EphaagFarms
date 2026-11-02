@@ -9,6 +9,7 @@ const UNIT_OPTIONS = [
   { value: "tubers", label: "Tubers" },
   { value: "crates", label: "Crates" },
   { value: "baskets", label: "Baskets" },
+  { value: "others", label: "Others" },
 ];
 
 export default function DeclareProductPanel() {
@@ -74,7 +75,7 @@ export default function DeclareProductPanel() {
         <div>
           <p className="text-sm text-ink-600">Declare product</p>
           <p className="mt-1 text-xs text-ink-600">
-            What you've harvested — for the record, whether or not you're selling it right now.
+            What you've harvested, for the record, whether or not you're selling it right now.
           </p>
         </div>
         {!showForm && (
@@ -86,7 +87,7 @@ export default function DeclareProductPanel() {
 
       {registeredCrops.length === 0 && (
         <p className="mt-3 text-sm text-harvest-600">
-          No products on your profile yet — add them from your Profile tab before declaring.
+          Add products on your Profile tab before declaring.
         </p>
       )}
 
@@ -142,7 +143,7 @@ export default function DeclareProductPanel() {
         <div className="mt-4 space-y-2">
           {declarations.map((d) => (
             <div key={d.id} className="rounded-card border border-soil-200 px-3 py-2 text-sm">
-              <p className="text-ink-900">{d.crop} — {d.quantity} {d.unit}</p>
+              <p className="text-ink-900">{d.crop}: {d.quantity} {d.unit}</p>
               <p className="text-xs text-ink-600">
                 {d.declaration_year} · {new Date(d.created_at).toLocaleDateString()}
               </p>

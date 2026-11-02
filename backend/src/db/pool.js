@@ -4,7 +4,7 @@ import { appendFileSync } from "node:fs";
 import "dotenv/config";
 
 // Neon (and most managed Postgres hosts) require SSL, and Node's default
-// TLS trust store handles Neon's cert chain fine — but on some hosts an
+// TLS trust store handles Neon's cert chain fine, but on some hosts an
 // extra hop through a connection pooler presents a cert that Node won't
 // auto-verify against, so we relax verification specifically for that
 // case rather than failing closed. Controlled by DB_SSL so a local

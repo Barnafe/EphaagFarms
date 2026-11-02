@@ -5,12 +5,12 @@ import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 
 import useUrlState from "../../hooks/useUrlState.js";
 const naira = (n) => `₦${Number(n || 0).toLocaleString("en-NG", { maximumFractionDigits: 2 })}`;
-const fmt = (d) => (d ? new Date(d).toLocaleString() : "—");
+const fmt = (d) => (d ? new Date(d).toLocaleString() : "N/A");
 const btn = "rounded-card border border-soil-200 px-3 py-1 text-xs text-ink-800 hover:bg-soil-50";
 const TABS = [["attention", "Needs attention"], ["search", "Refund a payment"], ["history", "History"]];
 
 // The one place money is returned. Full refunds only; a written reason is always required;
-// the payer is told by the system; Paystack keeps its own processing fee.
+// the payer is told by the system; Paystack Charges are not returned.
 function RefundForm({ payment, onDone, onCancel }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -24,7 +24,7 @@ function RefundForm({ payment, onDone, onCancel }) {
   }
   return (
     <div className="mt-2 space-y-2 rounded-card border border-soil-200 bg-soil-50 p-3">
-      <p className="text-xs text-ink-700">The full {naira(payment.paid_amount ?? payment.gross_amount)} goes back to the payer through Paystack. Paystack keeps its own processing fee. The payer is told automatically.</p>
+      <p className="text-xs text-ink-700">The full {naira(payment.paid_amount ?? payment.gross_amount)} goes back to the payer through Paystack. Paystack Charges are not returned. The payer is told automatically.</p>
       <textarea className="w-full rounded-card border border-soil-200 px-2 py-1 text-sm" rows={2} placeholder="Reason for the refund (required)" value={reason} onChange={(e) => setReason(e.target.value)} />
       {err && <p className="text-xs text-red-700">{err}</p>}
       <div className="flex gap-2">
@@ -42,7 +42,7 @@ function Row({ p, onChanged, showAction = true }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-medium text-ink-900">{p.typeLabel} · {naira(p.paid_amount ?? p.gross_amount)}</p>
-          <p className="text-xs text-ink-600">{p.payer_name || "—"}{p.payer_email ? ` · ${p.payer_email}` : ""}{p.payer_phone ? ` · ${p.payer_phone}` : ""}</p>
+          <p className="text-xs text-ink-600">{p.payer_name || "N/A"}{p.payer_email ? ` · ${p.payer_email}` : ""}{p.payer_phone ? ` · ${p.payer_phone}` : ""}</p>
           <p className="text-xs text-ink-500">{p.reference} · {fmt(p.paid_at)}</p>
           {p.reasonText && <p className="mt-1 text-xs text-harvest-600">Could not be applied because {p.reasonText}.</p>}
           {p.refund_status === "failed" && <p className="text-xs text-red-700">Paystack could not refund it{p.refund_note ? `: ${p.refund_note}` : ""}. Try again, or refund it in the Paystack dashboard.</p>}

@@ -1,30 +1,38 @@
-# Ephaag Farms — Full Project
+# Ephaag Farms, Full Project
 
-One repo, two apps, run together with one install and one command — set up
+One repo, two apps, run together with one install and one command, set up
 as an npm workspace so you don't need two terminals.
 
 ```
 ephaag-farms-project/
 ├── package.json  ← ties both apps together (npm workspaces)
-├── frontend/     ← React app (Vite + Tailwind) — the actual website/dashboards
-└── backend/      ← Express + PostgreSQL API — not yet connected to the frontend
+├── frontend/     ← React app (Vite + Tailwind), the actual website/dashboards
+└── backend/      ← Express + PostgreSQL API, not yet connected to the frontend
 ```
+
+## v40 notes
+
+v40 merges v39 (wording, home page, farmers, buyers) with Phases 6, 7, 9, 10 and 11 of the other build. See `docs/HANDOVER.md`.
+
+## v39 notes
+
+v39 adds four correction phases on top of v38 (general wording and payment preview, home page, farmers, buyers). See `docs/HANDOVER.md`.
 
 ## v38 notes
 
 v38 merges v37 with the Phase 5 (money flows) and Phase 8 (farmer identity) build. Two owner-requested changes sit on top: processing can be assigned to **any buyer account**, and **Admin is no longer a registration choice**: the seeded admin is the main admin and the only one who adds or removes other admins (Admin -> Positions -> Admins). See `docs/HANDOVER.md`.
 
-## Naming and structure decisions — strictly requested by the owner (v37)
+## Naming and structure decisions, strictly requested by the owner (v37)
 
-These changes were **explicitly and strictly requested by the owner** of Ephaag Farms. They are deliberate product decisions, not accidents or clean-ups — **please do not revert them or bring the old names back** when editing the system.
+These changes were **explicitly and strictly requested by the owner** of Ephaag Farms. They are deliberate product decisions, not accidents or clean-ups, **please do not revert them or bring the old names back** when editing the system.
 
 | # | Old | New (what people now see) |
 |---|-----|---------------------------|
-| 1 | NYSC / "Corps" / "Corp member" / "Corper" | **NYSC AGROALLIED SAED** — it serves as the SAED training centre for agro-allied work. Used for the registration option, the login switch, the member's room and certificate flow, the TRC tab, payments, emails, exports and charts. |
-| 2 | "Federal" governance / "top to bottom" tiers | **3EI Governance model** — our own governance structure, not a copy of the federal government. The top rank is shown as **"3EI Governance"** (loan final approval, positions, rank cards, analytics). Names only — how the system works did not change. |
+| 1 | NYSC / "Corps" / "Corp member" / "Corper" | **NYSC AGROALLIED SAED**, it serves as the SAED training centre for agro-allied work. Used for the registration option, the login switch, the member's room and certificate flow, the TRC tab, payments, emails, exports and charts. |
+| 2 | "Federal" governance / "top to bottom" tiers | **3EI Governance model**, our own governance structure, not a copy of the federal government. The top rank is shown as **"3EI Governance"** (loan final approval, positions, rank cards, analytics). Names only, how the system works did not change. |
 | 3 | A separate **Processor** profile + a **Buyer** profile | **One profile: "Buyers/Processor".** The Processor profile no longer exists (no separate sign-up, room or login). Procurement assigns processing jobs to Buyers/Processor accounts, who work them under **Processing jobs** in their room. Old processor accounts were converted automatically. |
 | 4 | Departments shown on the public home page | The company's departments are **internal only**. The public site no longer mentions or counts them (home page and the public logistics/service pages). |
-| 5 | — | This note, so everyone knows the above were requested. |
+| 5 |, | This note, so everyone knows the above were requested. |
 
 **What was deliberately left alone, so nothing breaks.** Only the *names people read* changed. These internal identifiers are unchanged on purpose: database values and tables (role `corper`, rank value `Federal`, `corper_*` tables, `processor_jobs`), web and API addresses (`/dashboard/corper`, `/api/corpers`, `/api/processor/jobs`), the `processor` value kept in the database role check for old records, certificate numbers already issued (`EPH-NYSC-…`), and the NYSC logo image on certificates. Where a name is shown to a user it goes through one place: `frontend/src/utils/governance.js` and `frontend/src/utils/roleLabels.js` (and `backend/src/utils/governance.js`), so a future rename is a one-line change.
 
@@ -47,7 +55,7 @@ cp .env.example .env
 ```
 Open `.env` and fill in `DATABASE_URL` (your PostgreSQL connection string) and
 `JWT_SECRET` (any long random string). You'll need PostgreSQL installed and a
-database created first — see `backend/README.md` if you haven't done this yet.
+database created first, see `backend/README.md` if you haven't done this yet.
 
 Then, from the **root** folder again, create the database tables:
 ```bash
@@ -72,7 +80,7 @@ From the **root** folder:
 npm run dev
 ```
 
-That's it — one terminal, one command. You'll see backend logs (blue) and
+That's it, one terminal, one command. You'll see backend logs (blue) and
 frontend logs (green) interleaved in the same window:
 
 - Backend API: `http://localhost:4000`
@@ -85,7 +93,7 @@ Press `Ctrl+C` once to stop both.
 Real, working, and connected end-to-end (tested against a live database,
 not just built): authentication, the full Farmer's Room, the full Loan
 Office (apply → Unit Leader recommend → 3EI Governance approve → Finance disburse
-→ repayment → verify — both the farmer-facing screens and the admin
+→ repayment → verify, both the farmer-facing screens and the admin
 Finance Department screens), the full Buyer's Room (catalog, cart,
 checkout, standing commitment, order history), and the full Store
 Department (order-linked receiving, running inventory pool, low-stock
@@ -93,8 +101,8 @@ flagging, order audit against stock before allocation, allocation to a
 distributor with transactional stock deduction, a durable stock movement
 ledger, and restocking via the generic Requests approval workflow).
 
-Everything else — Procurement, Transport, Investor, RTC
-content publishing, payments, file uploads — still runs on the module's own
+Everything else, Procurement, Transport, Investor, RTC
+content publishing, payments, file uploads, still runs on the module's own
 `mockData.js` and hasn't been wired to the backend yet. That's the next
 phase of work.
 
@@ -104,8 +112,7 @@ just one on its own (`frontend/README.md`, `backend/README.md`).
 ## Deploying
 
 See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for step-by-step instructions to
-put this live on Render (free tier) with a Neon Postgres database —
-useful for watching the app run for real instead of in a terminal while
+put this live on Render (free tier) with a Neon Postgres database, useful for watching the app run for real instead of in a terminal while
 you keep building.
 
 ## v29: foundations (step 1 of the gap-closing plan)

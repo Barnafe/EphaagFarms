@@ -1,8 +1,9 @@
 import { Router } from "../utils/asyncRouter.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
-import { uploadCourseMaterial } from "../middleware/upload.js";
+import { uploadCourseMaterial, uploadSeminarSlides, uploadResearchPdf } from "../middleware/upload.js";
 import * as rtc from "../controllers/rtcController.js";
 import * as content from "../controllers/trainingContentController.js";
+import * as seminar from "../controllers/seminarContentController.js";
 import * as corpsPayments from "../controllers/corperPaymentController.js";
 import * as corpsProgress from "../controllers/corperProgressAdminController.js";
 import * as corpsAdmin from "../controllers/corpsAdminController.js";
@@ -11,7 +12,7 @@ const router = Router();
 
 router.use(requireAuth);
 
-// Lesson/question ids in the URL must be real UUIDs — anything else is
+// Lesson/question ids in the URL must be real UUIDs, anything else is
 // simply "not found" rather than a database error.
 const uuidParam = (req, res, next, value) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
@@ -19,17 +20,23 @@ const uuidParam = (req, res, next, value) =>
     : res.status(404).json({ error: "Not found" });
 router.param("lessonId", uuidParam);
 router.param("questionId", uuidParam);
+router.param("itemId", uuidParam);
 
-// Admin (TRC department) — Training: upload + approve training courses.
+// Admin (TRC department), Training: upload + approve training courses.
 // This is also exactly what farmers see in their own Farmer's Room tab
-// (labeled "Seminar" there) — same endpoints, same data, just a
+// (labeled "Seminar" there), same endpoints, same data, just a
 // narrower farmer-facing label on the same underlying feature.
 router.get("/admin/dashboard", requireRole("admin"), rtc.dashboardSummary);
 router.get("/admin/courses", requireRole("admin"), rtc.adminListCourses);
 router.post("/admin/courses", requireRole("admin"), uploadCourseMaterial.single("material"), rtc.adminCreateCourse);
 router.post("/admin/courses/:id/approve", requireRole("admin"), rtc.adminApproveCourse);
 
-// Admin (TRC department) — NYSC AGROALLIED SAED courses: lessons + quiz.
+// Admin (TRC department), seminar topics for farmers: videos and slide decks.
+router.get("/admin/courses/:id/seminar-items", requireRole("admin"), seminar.adminListItems);
+router.post("/admin/courses/:id/seminar-items", requireRole("admin"), uploadSeminarSlides, seminar.adminAddItem);
+router.delete("/admin/seminar-items/:itemId", requireRole("admin"), seminar.adminDeleteItem);
+
+// Admin (TRC department), NYSC AGROALLIED SAED courses: lessons + quiz.
 router.get("/admin/courses/:id/content", requireRole("admin"), content.adminGetCourseContent);
 router.post("/admin/courses/:id/lessons", requireRole("admin"), uploadCourseMaterial.single("material"), content.adminAddLesson);
 router.put("/admin/courses/:id/lessons/:lessonId", requireRole("admin"), uploadCourseMaterial.single("material"), content.adminUpdateLesson);
@@ -40,7 +47,7 @@ router.post("/admin/courses/:id/questions", requireRole("admin"), content.adminA
 router.put("/admin/courses/:id/questions/:questionId", requireRole("admin"), content.adminUpdateQuestion);
 router.delete("/admin/courses/:id/questions/:questionId", requireRole("admin"), content.adminDeleteQuestion);
 
-// Admin (TRC department) — NYSC AGROALLIED SAED access-fee payments + the fee itself.
+// Admin (TRC department), NYSC AGROALLIED SAED access-fee payments + the fee itself.
 router.get("/admin/corps/fee", requireRole("admin"), corpsPayments.adminGetFee);
 router.put("/admin/corps/fee", requireRole("admin"), corpsPayments.adminSetFee);
 router.get("/admin/corps/payments/summary", requireRole("admin"), corpsPayments.adminPaymentSummary);
@@ -49,7 +56,7 @@ router.post("/admin/corps/payments/:id/confirm", requireRole("admin"), corpsPaym
 router.post("/admin/corps/payments/:id/reject", requireRole("admin"), corpsPayments.adminRejectPayment);
 router.post("/admin/corps/payments/:id/recheck", requireRole("admin"), corpsPayments.adminRecheckPayment);
 
-// Admin (TRC department) — NYSC AGROALLIED SAED member progress (phase 4).
+// Admin (TRC department), NYSC AGROALLIED SAED member progress (phase 4).
 router.get("/admin/corps/progress", requireRole("admin"), corpsProgress.adminCorpsProgress);
 
 // Batches, certificates and the NYSC AGROALLIED SAED export
@@ -63,29 +70,28 @@ router.get("/admin/corps/members/export", requireRole("admin"), corpsAdmin.admin
 router.post("/admin/corps/members/:userId/certificate/reissue", requireRole("admin"), corpsAdmin.adminReissueCertificate);
 router.get("/admin/corps/members/:userId/certificate", requireRole("admin"), corpsAdmin.adminDownloadCertificate);
 
-// Admin (TRC department) — Research: publish/manage research write-ups
+// Admin (TRC department), Research: publish/manage research write-ups
 router.get("/admin/research", requireRole("admin"), rtc.adminListResearch);
-router.post("/admin/research", requireRole("admin"), rtc.adminCreateResearch);
+router.post("/admin/research", requireRole("admin"), uploadResearchPdf.single("file"), rtc.adminCreateResearch);
+router.get("/admin/research/:id/file", requireRole("admin"), rtc.adminDownloadResearch);
 router.delete("/admin/research/:id", requireRole("admin"), rtc.adminDeleteResearch);
 
-// Admin (TRC department) — Consultancy: offerings + incoming requests
+// Admin (TRC department), Consultancy: offerings + incoming requests
 router.get("/admin/consultancy/offerings", requireRole("admin"), rtc.adminListConsultancyOfferings);
 router.post("/admin/consultancy/offerings", requireRole("admin"), rtc.adminCreateConsultancyOffering);
 router.delete("/admin/consultancy/offerings/:id", requireRole("admin"), rtc.adminDeleteConsultancyOffering);
-router.get("/admin/consultancy/requests", requireRole("admin"), rtc.adminListConsultancyRequests);
-router.post("/admin/consultancy/requests/:id/status", requireRole("admin"), rtc.adminUpdateConsultancyRequestStatus);
+// Consultancy requests (public booking, approval, payment, scheduling) live in /api/consultancy.
 
-// Member (farmer) — browse + complete approved courses, always free
+// Member (farmer), browse + complete approved courses, always free
 router.get("/courses", requireRole("farmer"), rtc.myCourses);
 router.post("/courses/:id/complete", requireRole("farmer"), rtc.completeCourse);
+// The app calls this by itself when a video ends or the last slide is reached.
+router.post("/seminar-items/:itemId/complete", requireRole("farmer"), seminar.completeItem);
 
-// Member (farmer) — browse research, request/track consultancy
-router.get("/research", requireRole("farmer"), rtc.listResearch);
-router.get("/consultancy/offerings", requireRole("farmer"), rtc.listConsultancyOfferings);
-router.post("/consultancy/requests", requireRole("farmer"), rtc.submitConsultancyRequest);
-router.get("/consultancy/requests/me", requireRole("farmer"), rtc.myConsultancyRequests);
+// Research is internal (staff only): no member or public research routes exist.
+// Consultancy is public: see /api/consultancy.
 
-// Shared — download a course's materials (admin can preview pending ones)
+// Shared, download a course's materials (admin can preview pending ones)
 router.get("/courses/:id/material", rtc.downloadMaterial);
 
 export default router;

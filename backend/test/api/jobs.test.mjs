@@ -1,4 +1,4 @@
-// Phase 17 — scheduled jobs
+// Phase 17, scheduled jobs
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { api, call, API, STRICT, db, loginAdmin, newUser, waitForMessage, sleep } from "../helpers/api.mjs";

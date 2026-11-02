@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Minus, Plus, X } from "lucide-react";
 import { assetUrl } from "../../api/client.js";
 
-// Full product detail modal — opened when a shopper taps a catalog card.
+// Full product detail modal, opened when a shopper taps a catalog card.
 // Shows the item's photo (or icon tile fallback)/description, price, a
 // variant ("size") selector where relevant, and a quantity stepper, then
 // "Add to cart". Colors: this is a white surface marked `.on-light` (see
 // index.css) so its text gets real black/gold colors instead of being
-// caught by .dash-scope's dark-theme text inversion — see ProductCatalog.jsx
+// caught by .dash-scope's dark-theme text inversion, see ProductCatalog.jsx
 // for the fuller note on why that matters.
 export default function ProductDetailPanel({ item, onSave, onClose }) {
   const [quantity, setQuantity] = useState(1);
@@ -132,7 +132,7 @@ export default function ProductDetailPanel({ item, onSave, onClose }) {
 
         <div className="sticky bottom-0 border-t border-gray-100 bg-white p-4">
           <button className="btn-primary w-full" type="button" onClick={handleSave}>
-            Add to cart — ₦{lineTotal.toLocaleString()}
+            Add to cart, ₦{lineTotal.toLocaleString()}
           </button>
         </div>
       </div>

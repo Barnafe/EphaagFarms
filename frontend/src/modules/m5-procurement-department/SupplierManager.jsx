@@ -43,7 +43,7 @@ export default function SupplierManager({ suppliers, onCreate, onUpdate }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-ink-600">External vendor directory — used for RFQ/quotation sourcing.</p>
+        <p className="text-sm text-ink-600">External vendor directory, used for RFQ/quotation sourcing.</p>
         <button type="button" className="btn-primary" onClick={startNew}>
           + Add supplier
         </button>

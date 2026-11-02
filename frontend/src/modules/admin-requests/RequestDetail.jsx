@@ -92,7 +92,7 @@ export default function RequestDetail({ request, currentUserId, onBack, onDecide
 
       {canDecide && (
         <div className="card mt-4 print:hidden">
-          <p className="text-sm text-ink-600">Your decision — {currentStep.label}</p>
+          <p className="text-sm text-ink-600">Your decision: {currentStep.label}</p>
           <textarea
             className="mt-2"
             rows={2}

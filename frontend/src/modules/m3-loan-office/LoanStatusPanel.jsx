@@ -6,8 +6,8 @@ import { LOAN_TYPE_LABELS } from "../../data/financingBanner.js";
 const statusCopy = {
   none: { label: "No active application", tone: "text-ink-600" },
   pending: { label: "Awaiting Unit Leader review", tone: "text-harvest-600" },
-  recommended: { label: "Recommended — awaiting Finance review", tone: "text-harvest-600" },
-  finance_verified: { label: "Finance-verified — awaiting final approval", tone: "text-harvest-600" },
+  recommended: { label: "Recommended, awaiting Finance review", tone: "text-harvest-600" },
+  finance_verified: { label: "Finance-verified, awaiting final approval", tone: "text-harvest-600" },
   approved: { label: "Approved", tone: "text-harvest-600" },
   rejected: { label: "Rejected", tone: "text-red-700" },
   active: { label: "Active loan", tone: "text-canopy-800" },
@@ -41,8 +41,8 @@ function StatusTimeline({ loanId }) {
       {history.map((h) => (
         <div key={h.id} className="text-xs text-ink-600">
           <span className="font-medium text-ink-900">{h.to_status}</span>
-          {h.actor_name ? ` — ${h.actor_name}` : ""}
-          {h.note ? ` — ${h.note}` : ""}
+          {h.actor_name ? `, ${h.actor_name}` : ""}
+          {h.note ? `, ${h.note}` : ""}
           <span className="ml-1">({new Date(h.created_at).toLocaleDateString()})</span>
         </div>
       ))}
@@ -73,8 +73,7 @@ export default function LoanStatusPanel({ loan }) {
         <div className="mt-2 space-y-1 text-sm">
           <p className="text-ink-600">Reason: {loan.rejectionReason}</p>
           <p className="text-ink-600">
-            You can reapply after {loan.reapplyAfter} — this waiting period depends on
-            the reason for rejection.
+            You can reapply after {loan.reapplyAfter}.
           </p>
         </div>
       )}

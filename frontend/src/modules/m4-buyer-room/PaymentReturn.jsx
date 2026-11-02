@@ -57,7 +57,7 @@ export default function PaymentReturn() {
       text={state.payment.type === "commitment"
         ? `${naira(state.payment.goodsTotal)} has been added to your standing commitment balance.`
         : `Thank you. Your order ${state.order?.reference || ""} is confirmed. A receipt has been emailed to you.`}
-      extra={`Total paid ${naira(state.payment.amountCharged)} (including ${naira(state.payment.fee)} processing fee)`} />;
+      extra={`Amount paid ${naira(state.payment.goodsTotal)}`} />;
   } else if (state.outcome === "refused") {
     body = <Msg icon={AlertTriangle} tone="amber" title="Your payment could not be used"
       text={`We received your payment but could not use it because ${state.refusalText || "it could not be applied"}. Nothing has been ordered with it, and our administrators have been told and will return the money to you. A message has been sent to you.`}
@@ -68,7 +68,7 @@ export default function PaymentReturn() {
     body = <Msg icon={Clock} tone="amber"
       title={state.waitingForTransfer ? "Waiting for your transfer" : "We haven't received your payment yet"}
       text={state.waitingForTransfer
-        ? "Complete the bank transfer with the details Paystack gave you. This page updates by itself once Paystack confirms it."
+        ? "Complete the bank transfer with the details shown. This page updates by itself once it is confirmed."
         : "If you have just paid, this page will update in a moment. If you closed the payment window, you can try again."}
       action={!state.waitingForTransfer && state.order && <button className="btn-primary" onClick={retry} disabled={retrying}>{retrying ? "Please wait…" : "Pay now"}</button>} />;
   } else if (state.outcome === "expired") {

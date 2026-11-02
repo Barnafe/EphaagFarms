@@ -19,7 +19,7 @@ export default function LoginMember() {
     try {
       const user = await login(email, password);
       if (user.role_type === "admin") {
-        setError("This is an admin account — use Login (admin) instead.");
+        setError("This is an admin account, use Login (admin) instead.");
         return;
       }
       if (asCorper && user.role_type !== "corper") {
@@ -39,7 +39,7 @@ export default function LoginMember() {
     <div className="mx-auto max-w-sm px-6 py-16">
       <h1 className="text-xl font-medium text-ink-900">Member login</h1>
       <p className="mt-1 text-sm text-ink-600">
-        Farmers, buyers/processors, transporters, distributors, investors, and NYSC AGROALLIED SAED members.
+        Farmers, buyers, transporters, distributors, investors and NYSC AGROALLIED SAED members.
       </p>
       <div className="mt-4 grid grid-cols-2 gap-2 text-sm" role="group" aria-label="Account type">
         <button type="button" onClick={() => setAsCorper(false)} aria-pressed={!asCorper}

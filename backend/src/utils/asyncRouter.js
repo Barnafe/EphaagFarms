@@ -1,7 +1,7 @@
 import { Router as ExpressRouter } from "express";
 
 // Express 4 does NOT automatically catch a rejected promise thrown inside
-// an async route handler — it becomes an unhandled rejection (logged by
+// an async route handler, it becomes an unhandled rejection (logged by
 // the process.on("unhandledRejection", ...) handler in server.js) and the
 // HTTP request is simply never answered. The client is left hanging
 // (spinner forever) instead of getting a clean error.
@@ -11,7 +11,7 @@ import { Router as ExpressRouter } from "express";
 // of returning a 500, because the query wasn't wrapped in try/catch.
 //
 // Rather than manually wrap every controller function, this file wraps
-// every handler registered through it — so any future route/controller
+// every handler registered through it, so any future route/controller
 // automatically gets the same safety net, with nothing extra to remember.
 function wrap(handler) {
   return async function wrapped(req, res, next) {
@@ -25,7 +25,7 @@ function wrap(handler) {
 
 const METHODS = ["get", "post", "put", "patch", "delete", "use"];
 
-/** Drop-in replacement for express.Router() — same API, but every
+/** Drop-in replacement for express.Router(), same API, but every
  * handler passed to .get/.post/.put/.patch/.delete/.use is wrapped so a
  * rejected promise reaches Express's error-handling middleware (and thus
  * the client) instead of hanging forever. */

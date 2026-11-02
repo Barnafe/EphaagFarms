@@ -156,21 +156,21 @@ async function stampCompletionIfEarned(client, userId, courseId) {
 }
 
 // ---------------------------------------------------------------------
-// GET /api/corpers/courses — my course list with status + overall %.
+// GET /api/corpers/courses, my course list with status + overall %.
 // ---------------------------------------------------------------------
 export async function listMyCourses(req, res) {
   const s = await loadMemberProgress(req.user.id);
   res.json({ courses: s.courses, overall: overallOf(s), next: s.next });
 }
 
-// GET /api/corpers/progress — the dashboard's progress card.
+// GET /api/corpers/progress, the dashboard's progress card.
 export async function getMyProgress(req, res) {
   const s = await loadMemberProgress(req.user.id);
   res.json({ ...overallOf(s), next: s.next, courses: s.courses });
 }
 
 // ---------------------------------------------------------------------
-// GET /api/corpers/courses/:id — lessons (with links / document flag) and
+// GET /api/corpers/courses/:id, lessons (with links / document flag) and
 // the quiz status for one course.
 // ---------------------------------------------------------------------
 export async function getCourse(req, res) {
@@ -241,7 +241,7 @@ export async function completeLesson(req, res) {
   const lesson = rows[0];
   if (!lesson) throw httpError("Lesson not found", 404);
   if (lesson.kind === "live" && !liveHasStarted(lesson.scheduled_at, lesson.db_now)) {
-    throw httpError("This live session hasn't started yet — you can mark it complete once it begins.", 400, "LIVE_NOT_STARTED", {
+    throw httpError("This live session hasn't started yet, you can mark it complete once it begins.", 400, "LIVE_NOT_STARTED", {
       scheduledAt: lesson.scheduled_at,
     });
   }
@@ -268,7 +268,7 @@ export async function completeLesson(req, res) {
 }
 
 // ---------------------------------------------------------------------
-// GET /api/corpers/courses/:id/lessons/:lessonId/file — the lesson's
+// GET /api/corpers/courses/:id/lessons/:lessonId/file, the lesson's
 // document. Behind the payment gate; the file itself is never served from
 // a public /uploads path.
 // ---------------------------------------------------------------------
@@ -336,7 +336,7 @@ function mapAttempt(a) {
   };
 }
 
-// GET /api/corpers/courses/:id/quiz — questions WITHOUT the answers (and
+// GET /api/corpers/courses/:id/quiz, questions WITHOUT the answers (and
 // without explanations, which usually give the answer away). Order of the
 // questions and of each question's options is shuffled on every request.
 export async function getQuiz(req, res) {
@@ -455,7 +455,7 @@ export async function submitQuiz(req, res) {
   });
 }
 
-// GET /api/corpers/courses/:id/quiz/attempts — my attempts, newest first.
+// GET /api/corpers/courses/:id/quiz/attempts, my attempts, newest first.
 export async function listAttempts(req, res) {
   const course = await loadLiveCourse(req.params.id);
   const { rows } = await pool.query(
@@ -465,7 +465,7 @@ export async function listAttempts(req, res) {
   res.json({ attempts: rows.map(mapAttempt) });
 }
 
-// GET /api/corpers/courses/:id/quiz/attempts/:attemptId — one of MY
+// GET /api/corpers/courses/:id/quiz/attempts/:attemptId, one of MY
 // attempts with its per-question review. Another member's id is simply
 // "not found".
 export async function getAttempt(req, res) {

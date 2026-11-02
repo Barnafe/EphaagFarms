@@ -5,7 +5,7 @@ import { apiUpload } from "../../api/client.js";
 import { NIGERIA_STATE_NAMES, lgasForState } from "../../data/nigeriaStatesLgas.js";
 import PasswordInput from "../../components/PasswordInput.jsx";
 
-// NYSC AGROALLIED SAED member registration — 3 short steps. Registration itself
+// NYSC AGROALLIED SAED member registration, 3 short steps. Registration itself
 // is free; the access fee is paid later from the dashboard, before any
 // training opens (that gate arrives in a later phase). Everything else
 // about the profile is completed afterwards from the Profile page.
@@ -43,7 +43,7 @@ export default function CorperRegisterWizard() {
     if (s === 0) {
       if (!form.name.trim()) return "Enter your full name.";
       if (!form.sex) return "Select your gender.";
-      if (!form.email.trim()) return "Enter your email — certificate notices are sent there.";
+      if (!form.email.trim()) return "Enter your email, certificate notices are sent there.";
       if (!form.phone.trim()) return "Enter your phone number.";
       if (form.password.length < 8) return "Password must be at least 8 characters.";
       if (form.password !== form.confirm) return "Passwords do not match.";
@@ -81,7 +81,7 @@ export default function CorperRegisterWizard() {
           fd.append("photo", photo);
           await apiUpload("/auth/me/photo", fd);
         } catch {
-          // Optional — the account exists; the photo can be added from Profile.
+          // Optional, the account exists; the photo can be added from Profile.
         }
       }
       navigate("/dashboard/corper");
@@ -149,7 +149,7 @@ export default function CorperRegisterWizard() {
 
       {step === 2 && (
         <>
-          <Field label="Passport photo (optional — add it now or later from your profile)"><input type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] || null)} /></Field>
+          <Field label="Passport photo (optional, add it now or later from your profile)"><input type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] || null)} /></Field>
           <label className="flex items-start gap-2 text-sm text-ink-800">
             <input type="checkbox" className="mt-1 !w-auto" checked={form.consentTerms} onChange={(e) => set("consentTerms", e.target.checked)} />
             <span>I agree to the programme terms and conditions. <span className="text-ink-600">(required)</span></span>

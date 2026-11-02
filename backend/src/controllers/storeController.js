@@ -3,25 +3,24 @@ import { generateReference, REF_PREFIX } from "../utils/reference.js";
 
 // Store Department (merged build). Workflow:
 //   1. An order's goods are ready once its processor job is complete. Store
-//      explicitly receives them (receiveOrder) — verifying quality and
+//      explicitly receives them (receiveOrder), verifying quality and
 //      recording the ACTUAL quantity received per line item (can differ
 //      from what was ordered, e.g. shrinkage). That recorded quantity, not
 //      the order's original ask, is what enters the shared inventory pool.
-//      One receipt per order item — a UNIQUE constraint on order_item_id
+//      One receipt per order item, a UNIQUE constraint on order_item_id
 //      blocks double-receiving the same item.
 //   2. Before an order can be allocated to a distributor, Store audits it
-//      against the pool and quality (auditOrder) — a persisted verdict,
+//      against the pool and quality (auditOrder), a persisted verdict,
 //      re-auditable if something changes. Allocation is blocked until the
 //      current audit says verified = true.
 //   3. Once an order is confirmed taken out (allocated to a distributor),
 //      inventory is decremented to keep available stock accurate
-//      (allocate) — never allowed to go negative.
+//      (allocate), never allowed to go negative.
 //   4. When stock runs low (below its reorder_level), Store raises a
 //      purchase request through the existing generic cross-department
 //      approval workflow (see requestsController.js), tagging
 //      Procurement/Finance, with Admin final approval always auto-appended.
-// Every physical stock change (in or out) is logged to stock_movements —
-// store_inventory.quantity_on_hand is the running total, stock_movements is
+// Every physical stock change (in or out) is logged to stock_movements, // store_inventory.quantity_on_hand is the running total, stock_movements is
 // the durable "why did it change" trail.
 
 // --- Dashboard (2026-09-05 spec) --------------------------------------
@@ -110,7 +109,7 @@ async function stockCheckForOrder(order) {
 }
 
 // --- Inventory ---------------------------------------------------------
-// "Responsible for company inventory" — the running stock pool, aggregated
+// "Responsible for company inventory", the running stock pool, aggregated
 // by crop across every order ever received.
 
 export async function inventory(req, res) {
@@ -154,8 +153,7 @@ export async function stockMovementHistory(req, res) {
 // --- Receiving: "Any goods that comes, store verify and store it
 // physically and update the inventory" ---------------------------------
 // A processed order's goods are ready for Store to receive once its
-// processor job is complete. Receiving is Store's own explicit action —
-// it both verifies quality and records the actual quantity received.
+// processor job is complete. Receiving is Store's own explicit action, // it both verifies quality and records the actual quantity received.
 
 export async function receivingQueue(req, res) {
   const { rows: orders } = await pool.query(
@@ -221,7 +219,7 @@ export async function receiveOrder(req, res) {
 
 // --- Production's declared company harvests --------------------------------
 // Production (admin) declares an annual harvest against a company-owned
-// farm (harvest_logs, status='declared') — that's just their own record,
+// farm (harvest_logs, status='declared'), that's just their own record,
 // same idea as a farmer declaring produce. It is NOT yet real stock.
 // Store confirms/receives it here, exactly like receiving an order's
 // goods, which is what actually adds it to the shared pool.
@@ -281,7 +279,7 @@ export async function receiveProductionHarvest(req, res) {
 
 // --- Admin: orders ready for allocation, audited against stock -------------
 // "If an order come, store verify the quality against available stock and
-// be able to audit the order" — each order shows what it needs against
+// be able to audit the order", each order shows what it needs against
 // current pool levels, plus its current audit verdict (if any).
 
 export async function allocationQueue(req, res) {
@@ -343,7 +341,7 @@ export async function auditOrder(req, res) {
 
 // --- Admin: allocate a distributor, order -> 'allocated' -------------------
 // Requires a passing audit first, then decrements the pool (never allowed
-// to go negative — a real shortfall blocks dispatch instead of silently
+// to go negative, a real shortfall blocks dispatch instead of silently
 // under-fulfilling).
 
 export async function allocate(req, res) {
@@ -380,7 +378,7 @@ export async function allocate(req, res) {
       const onHand = stockRows[0] ? Number(stockRows[0].quantity_on_hand) : 0;
       if (onHand < qty) {
         throw Object.assign(
-          new Error(`Not enough ${item.crop} in stock — have ${onHand} ${item.unit}, order needs ${qty}. Receive more stock or re-audit.`),
+          new Error(`Not enough ${item.crop} in stock, have ${onHand} ${item.unit}, order needs ${qty}. Receive more stock or re-audit.`),
           { status: 400 }
         );
       }
@@ -452,10 +450,10 @@ export async function confirmAllocation(req, res) {
 // --- Restock requests -------------------------------------------------------
 // "Stock get low, store make purchase request via the approval workflow
 // and tag relevant people eg. Procurement, finance and admin for
-// approval" — a thin convenience wrapper around the EXISTING generic
+// approval", a thin convenience wrapper around the EXISTING generic
 // department_requests system (see requestsController.js), pre-titled and
 // pre-chained to Procurement's and Finance's current department heads
-// (whichever are assigned — a head not yet assigned simply isn't added as
+// (whichever are assigned, a head not yet assigned simply isn't added as
 // a step) plus the system's always-appended Admin final approval step.
 export async function createRestockRequest(req, res) {
   const { crop, quantity, unit, note } = req.body;
@@ -485,7 +483,7 @@ export async function createRestockRequest(req, res) {
         reference,
         req.user.id,
         `Restock: ${quantity} ${unit} ${crop}`,
-        note || `Store stock is low on ${crop} — requesting ${quantity} ${unit} be sourced.`,
+        note || `Store stock is low on ${crop}, requesting ${quantity} ${unit} be sourced.`,
       ]
     );
     const request = rows[0];

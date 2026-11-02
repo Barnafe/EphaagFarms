@@ -2,13 +2,12 @@
 // Source: temikeezy/nigeria-geojson-data (MIT licensed, github.com/temikeezy/nigeria-geojson-data),
 // trimmed to just ward names (no coordinates) to keep bundle size down.
 //
-// This is a third-party community dataset, not an official INEC/NPC list —
-// it covers 774/774 LGAs and 8,809 wards, but ~7% of LGA name spellings
+// This is a third-party community dataset, not an official INEC/NPC list, // it covers 774/774 LGAs and 8,809 wards, but ~7% of LGA name spellings
 // don't line up exactly with our own NIGERIA_STATES_LGAS list (e.g. minor
 // punctuation/spacing differences, or a handful of alternate LGA names).
 // wardsForLga() normalizes names to close most of that gap; when a specific
 // state+LGA genuinely isn't found, the caller should fall back to a manual
-// text input rather than block registration — see Register.jsx.
+// text input rather than block registration, see Register.jsx.
 import RAW_WARDS from "./nigeriaWardsData.json";
 
 // Our own state list spells a couple of states differently than the source

@@ -12,7 +12,7 @@ const statusStyles = {
   cancelled: "bg-red-100 text-red-700",
 };
 
-// The lifecycle each payment moves through, in order — the panel offers
+// The lifecycle each payment moves through, in order, the panel offers
 // the next logical step plus "Failed"/"Cancelled" as exits from any
 // non-final state.
 const NEXT_STEP = {

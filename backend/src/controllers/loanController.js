@@ -3,10 +3,11 @@ import { generateReference, REF_PREFIX } from "../utils/reference.js";
 import { sendMail } from "../utils/email.js";
 import { queueLoanPayout, startRepaymentPayment, startBoostPayment } from "../services/moneyIn.js";
 import { kickPayouts } from "../services/payouts.js";
-import { getIndicesSnapshot, getIndicesHistory, computeAndStoreIndices } from "../utils/indicesEngine.js";
+import { getIndicesSnapshot, getIndicesHistory, getLoanScoreStatus, getMinimumScore, LOAN_SCORE_MAX, MIN_SCORE_SETTING } from "../utils/indicesEngine.js";
+import { setSetting } from "../utils/settings.js";
 import { getBalances as getSavingsBalances } from "./savingsController.js";
 
-// --- Loan types & terms — the approved financing banner is the single
+// --- Loan types & terms, the approved financing banner is the single
 // source of truth (2026-10-20: "the banner is the official and agreed
 // prices"). Everything below mirrors it exactly; see [[ephaag-finance-banner]].
 //
@@ -64,7 +65,7 @@ export function repayableTotal(loan) {
 // A farmer climbs one level each time a previous LT1 loan is disbursed AND
 // fully repaid (verified repayments >= the amount owed). An open or
 // defaulted loan does not advance the sequence. After level 6 the farmer
-// stays on level 6 — the banner defines no level 7.
+// stays on level 6, the banner defines no level 7.
 async function aidedTermsFor(farmerId) {
   const { rows } = await pool.query(
     `SELECT l.id, l.amount, l.loan_type, l.interest_rate,
@@ -94,7 +95,7 @@ export async function myAidedLoanTerms(req, res) {
 }
 
 // A farmer can't open a second loan of the same type while one is still
-// running — otherwise two LT1 applications could both be sized at "level 1"
+// running, otherwise two LT1 applications could both be sized at "level 1"
 // against the same savings, or an LT3 loan stacked on an unpaid LT3 loan.
 async function openLoanOfType(farmerId, loanType) {
   const { rows } = await pool.query(
@@ -111,7 +112,7 @@ async function openLoanOfType(farmerId, loanType) {
 const BOOST_CASH_DEPOSIT_PCT = 25;
 const BOOST_CASH_MIN_HOLD_MONTHS = 1; // earliest a verified deposit becomes usable
 
-// --- Audit trail (hard requirement — see spec: "otherwise it will be a
+// --- Audit trail (hard requirement, see spec: "otherwise it will be a
 // failed system if someone falsefully claim something") ------------------
 async function logTransition(client, loanId, fromStatus, toStatus, actorId, note) {
   await client.query(
@@ -121,7 +122,7 @@ async function logTransition(client, loanId, fromStatus, toStatus, actorId, note
   );
 }
 
-// Fire-and-forget notification helpers — never block the request, never
+// Fire-and-forget notification helpers, never block the request, never
 // throw (sendMail itself already never throws).
 async function notifyFinance(loan) {
   const { rows } = await pool.query(`SELECT email FROM users WHERE role_type = 'admin' AND email IS NOT NULL`);
@@ -153,7 +154,7 @@ async function notifyFinanceClearToDisburse(loan) {
   for (const { email } of rows) {
     sendMail({
       to: email,
-      subject: `Loan ${loan.reference} approved — clear to disburse`,
+      subject: `Loan ${loan.reference} approved, clear to disburse`,
       html: `<p>Loan ${loan.reference} has received final approval. Finance may proceed with disbursement.</p>`,
     }).catch(() => {});
   }
@@ -171,7 +172,7 @@ async function notifyFarmerDecision(loan, decision) {
 }
 
 // --- Boost Cash deposits (2026-08-11: deposit now happens BEFORE the loan
-// application exists — farmer declares an intended amount, pays 25%,
+// application exists, farmer declares an intended amount, pays 25%,
 // Finance verifies, then after a minimum hold period the deposit becomes
 // usable to fund exactly one loan application) -----------------------
 
@@ -222,11 +223,11 @@ export async function myBoostDeposits(req, res) {
 // The 25% deposit is paid through Paystack, which confirms it: nothing is left for Finance to verify.
 export async function adminPendingBoostDeposits(req, res) { res.json({ deposits: [] }); }
 export async function adminVerifyBoostDeposit(req, res) {
-  res.status(410).json({ error: "Boost Cash deposits are verified automatically through Paystack." });
+  res.status(410).json({ error: "Boost Cash deposits are confirmed automatically." });
 }
 
 // --- Recommendation tickets (2026-09-06 spec) ---------------------------
-// A proactive, one-time gate — separate from recommendLoan() above, which
+// A proactive, one-time gate, separate from recommendLoan() above, which
 // reviews an ALREADY-SUBMITTED pending application. This lets a Unit
 // Leader pre-authorize a specific farmer, before any application exists,
 // so that farmer's next applyForLoan() call skips the pending review step
@@ -247,7 +248,7 @@ export async function issueRecommendationTicket(req, res) {
   const farmer = farmerRows[0];
   if (!farmer) return res.status(404).json({ error: "Farmer not found" });
 
-  // Same jurisdiction rule as recommendLoan — admin bypasses (company-wide).
+  // Same jurisdiction rule as recommendLoan, admin bypasses (company-wide).
   if (req.user.role_type !== "admin") {
     const sameUnit =
       farmer.state === req.farmerProfile.state &&
@@ -298,12 +299,38 @@ export async function myRecommendationTicket(req, res) {
 
 // --- Farmer actions ---------------------------------------------------
 
+// What a farmer may see of the score: percentages and the minimum, not the internal points.
+function publicScore(sc) {
+  const pct = (n) => Math.round((n / LOAN_SCORE_MAX) * 100);
+  return {
+    quarterStart: sc.quarterStart, quarterEnd: sc.quarterEnd,
+    totalPercent: sc.totalPercent, minimumPercent: sc.minimumPercent, meetsMinimum: sc.meetsMinimum, newThisQuarter: sc.newThisQuarter,
+    fundsDetail: sc.fundsDetail,
+    breakdownPercent: {
+      savings: Math.round((sc.breakdown.savings / 6) * 100), repayment: Math.round((sc.breakdown.repayment / 12) * 100),
+      training: Math.round((sc.breakdown.training / 20) * 100), fundsUtilization: Math.round((sc.breakdown.fundsUtilization / 12) * 100),
+    },
+  };
+}
+
 export async function applyForLoan(req, res) {
   const { loan_type, reason, depositId } = req.body;
   if (!loan_type) return res.status(400).json({ error: "loan_type is required" });
   const terms = LOAN_TERMS[loan_type];
   if (!terms) {
     return res.status(400).json({ error: "loan_type must be 'aided', 'boost_cash', or 'business_fast_cash'" });
+  }
+
+
+  // Phase 6: a minimum total score is required to apply. The score that counts is the last
+  // completed calendar quarter's. Nobody is exempt: a Unit Leader recommendation ticket and a
+  // first-time application are held to the same minimum.
+  const score = await getLoanScoreStatus(req.user.id);
+  if (!score.meetsMinimum) {
+    const error = score.newThisQuarter
+      ? `Your loan score is counted from your last completed quarter (${score.quarterStart} to ${score.quarterEnd}). You joined this quarter, so you can apply after this quarter ends. The minimum is ${score.minimumPercent}% and your score is ${score.totalPercent}%.`
+      : `Your loan score for the last completed quarter (${score.quarterStart} to ${score.quarterEnd}) is ${score.totalPercent}%, and the minimum to apply is ${score.minimumPercent}%. Keep up your savings, repayments, training and produce declarations and listings to raise it.`;
+    return res.status(403).json({ error, code: "SCORE_TOO_LOW", score: publicScore(score) });
   }
 
   // No second loan of the same type while one is still running.
@@ -320,7 +347,7 @@ export async function applyForLoan(req, res) {
   let months;
 
   if (loan_type === "aided") {
-    // LT1 Progressive Savings Loan — everything is dictated by the farmer's
+    // LT1 Progressive Savings Loan, everything is dictated by the farmer's
     // current level on the banner. Whatever amount/duration the client
     // sends is ignored: the level fixes the savings needed, the loan
     // amount and the repayment period.
@@ -337,10 +364,10 @@ export async function applyForLoan(req, res) {
     requestedAmount = lvl.requiredSavings;
     months = lvl.forcedRepaymentMonths;
   } else if (loan_type === "boost_cash") {
-    // LT2 Business Boost — loan size comes from the verified 25% deposit
+    // LT2 Business Boost, loan size comes from the verified 25% deposit
     // (deposits themselves can only be declared at the banner's amounts).
     if (!depositId) {
-      return res.status(400).json({ error: "Business Boost requires an eligible, verified deposit — declare and verify one first" });
+      return res.status(400).json({ error: "Business Boost requires an eligible, verified deposit, declare and verify one first" });
     }
     const { rows } = await pool.query(
       `SELECT * FROM boost_cash_deposits WHERE id = $1 AND farmer_id = $2`,
@@ -355,31 +382,32 @@ export async function applyForLoan(req, res) {
           ? "That deposit has already been used for a loan"
           : !depositRow.verified_at
           ? "That deposit hasn't been verified by Finance yet"
-          : `That deposit isn't eligible yet — usable from ${mapped.eligibleFrom?.toISOString().slice(0, 10)}`,
+          : `That deposit isn't eligible yet, usable from ${mapped.eligibleFrom?.toISOString().slice(0, 10)}`,
       });
     }
     loanAmount = mapped.intendedLoanAmount;
     months = terms.allowedRepaymentMonths[0];
   } else {
-    // LT3 Business Enlargement — fixed loan sizes, fixed 8-month term.
+    // LT3 Business Enlargement, fixed loan sizes, fixed 8-month term.
     loanAmount = Number(req.body.amount);
     if (!FAST_CASH_LOAN_AMOUNTS.includes(loanAmount)) {
       return res.status(400).json({
-        error: `Business Enlargement loans are ${FAST_CASH_LOAN_AMOUNTS.map(fmtN).join(", ")} — pick one of those amounts`,
+        error: `Business Enlargement loans are ${FAST_CASH_LOAN_AMOUNTS.map(fmtN).join(", ")}, pick one of those amounts`,
       });
     }
     months = terms.allowedRepaymentMonths[0];
   }
 
   const client = await pool.connect();
+  let released = false;
   try {
     await client.query("BEGIN");
 
-    // Ticket check (2026-09-06 spec) — locked FOR UPDATE so two concurrent
+    // Ticket check (2026-09-06 spec), locked FOR UPDATE so two concurrent
     // applications can't both claim the same ticket. An unused ticket
     // means this application skips 'pending' entirely and starts life
     // already 'recommended', with recommended_by set to whoever issued
-    // the ticket — the same status a normal application only reaches
+    // the ticket, the same status a normal application only reaches
     // after a Unit Leader manually reviews it (see recommendLoan above).
     const { rows: ticketRows } = await client.query(
       `SELECT * FROM loan_recommendation_tickets
@@ -428,23 +456,25 @@ export async function applyForLoan(req, res) {
         null,
         "recommended",
         req.user.id,
-        `Application submitted — auto-recommended via Unit Leader ticket: ${ticket.reason}`
+        `Application submitted, auto-recommended via Unit Leader ticket: ${ticket.reason}`
       );
     } else {
       await logTransition(client, loan.id, null, "pending", req.user.id, "Application submitted");
     }
 
     await client.query("COMMIT");
+    client.release(); // hand the connection back before anything else uses the pool
+    released = true;
     if (ticket) {
       notifyFinance(loan).catch(() => {});
     }
     res.status(201).json({ loan });
   } catch (err) {
-    await client.query("ROLLBACK");
+    if (!released) await client.query("ROLLBACK");
     console.error(err);
     res.status(500).json({ error: "Could not submit loan application" });
   } finally {
-    client.release();
+    if (!released) client.release();
   }
 }
 
@@ -485,10 +515,10 @@ export async function myLoanRepayments(req, res) {
 }
 
 export async function logRepayment(req, res) {
-  res.status(410).json({ error: "Repayments are paid online now. Use Pay with Paystack on your loan." });
+  res.status(410).json({ error: "Repayments are paid online. Use Proceed & Pay on your loan." });
 }
 
-// POST /api/loans/:loanId/repay { amount } — any part of what is owed, never more.
+// POST /api/loans/:loanId/repay { amount }, any part of what is owed, never more.
 export async function payRepayment(req, res) {
   const r = await startRepaymentPayment(req.user, req.params.loanId, req.body?.amount);
   res.json({ payment: r });
@@ -502,7 +532,7 @@ export async function payBoostDeposit(req, res) {
 // --- Unit Leader actions ----------------------------------------------
 
 export async function pendingForMyUnit(req, res) {
-  // Admin: company-wide — every pending loan, not scoped to one unit
+  // Admin: company-wide, every pending loan, not scoped to one unit
   // (admin has no jurisdiction of their own to filter by). See
   // requireFarmerRankOrAdmin in middleware/farmerRank.js.
   if (req.user.role_type === "admin") {
@@ -543,7 +573,7 @@ export async function recommendLoan(req, res) {
   if (loan.status !== "pending") {
     return res.status(400).json({ error: "Only pending loans can be recommended" });
   }
-  // Admin: no jurisdiction to match against — company-wide authority, skip
+  // Admin: no jurisdiction to match against, company-wide authority, skip
   // the sameUnit check entirely (see pendingForMyUnit above for the same
   // pattern).
   if (req.user.role_type !== "admin") {
@@ -627,7 +657,7 @@ export async function recommendedLoans(req, res) {
   res.json({ loans: rows });
 }
 
-// 3EI Governance's queue — loans Finance has already verified, awaiting final approval.
+// 3EI Governance's queue, loans Finance has already verified, awaiting final approval.
 export async function financeVerifiedLoans(req, res) {
   const { rows } = await pool.query(
     `SELECT l.*, u.name AS farmer_name, r.name AS recommended_by_name
@@ -640,7 +670,7 @@ export async function financeVerifiedLoans(req, res) {
 }
 
 // Finance reviews the applicant's credit status / overall financial
-// involvement — reads the same auto-computed grading indices the farmer
+// involvement, reads the same auto-computed grading indices the farmer
 // sees, rather than re-deriving anything by hand.
 export async function financeVerifyLoan(req, res) {
   const { id } = req.params;
@@ -733,18 +763,33 @@ export async function disburseLoan(req, res) {
 // Repayments are paid through Paystack and verified by it, so there is nothing to verify by hand.
 export async function unverifiedRepayments(req, res) { res.json({ repayments: [] }); }
 export async function verifyRepayment(req, res) {
-  res.status(410).json({ error: "Repayments are verified automatically through Paystack." });
+  res.status(410).json({ error: "Repayments are confirmed automatically." });
 }
 
 // --- Grading indices (loan-eligibility prerequisite) --------------------
-// Real-time, quarter-based, stored — see indicesEngine.js. IMPORTANT: this
+// Real-time, quarter-based, stored, see indicesEngine.js. IMPORTANT: this
 // is a TRANSPARENT SCORE DISPLAY only, it does NOT gate loan applications
-// — index (v) has no assigned point value and there's no stated total-
+//, index (v) has no assigned point value and there's no stated total-
 // points threshold yet. Real eligibility gating still runs through the
 // human pipeline above (Unit Leader -> Finance -> 3EI Governance).
 export async function myEligibilityIndices(req, res) {
   const indices = await getIndicesSnapshot(req.user.id);
-  res.json(indices);
+  res.json({ ...indices, counting: publicScore(indices.counting) });
+}
+
+// Admin: the minimum total score needed to apply for a loan (points out of 50; empty/0 = no minimum).
+export async function getScoringSettings(req, res) {
+  const minimum = await getMinimumScore();
+  res.json({ minimumScore: minimum, maxScore: LOAN_SCORE_MAX, minimumPercent: Math.round((minimum / LOAN_SCORE_MAX) * 100) });
+}
+export async function putScoringSettings(req, res) {
+  const raw = req.body?.minimumScore;
+  const v = raw === "" || raw === null || raw === undefined ? 0 : Number(raw);
+  if (!Number.isFinite(v) || v < 0 || v > LOAN_SCORE_MAX) {
+    return res.status(400).json({ error: `The minimum score must be a number from 0 to ${LOAN_SCORE_MAX}.` });
+  }
+  await setSetting(MIN_SCORE_SETTING, v, req.user.id);
+  res.json({ minimumScore: v, maxScore: LOAN_SCORE_MAX, minimumPercent: Math.round((v / LOAN_SCORE_MAX) * 100) });
 }
 
 export async function myEligibilityHistory(req, res) {

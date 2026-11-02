@@ -32,7 +32,7 @@ router.patch("/parts/:id", m.updatePart);
 router.post("/parts/:id/adjust", m.adjustPartStock);
 router.get("/parts/movements", m.partMovementHistory);
 
-// Maintenance Requests — review now happens in Admin's generic Requests
+// Maintenance Requests, review now happens in Admin's generic Requests
 // inbox (see routes/requests.js decideStep), not here; see createRequest's
 // comment in the controller for how the two are linked.
 router.get("/requests", m.listRequests);

@@ -5,7 +5,7 @@
 -- account becomes a Buyers/Processor account, keeping its login and its
 -- processing jobs (processor_jobs.processor_id still points at the same user).
 -- Idempotent: safe to run on every boot. The 'processor' value stays in the
--- role CHECK only so old rows/history remain valid — no new ones can be made.
+-- role CHECK only so old rows/history remain valid, no new ones can be made.
 -- ---------------------------------------------------------------------
 INSERT INTO buyer_profiles (user_id, buyer_type)
   SELECT u.id, 'individual' FROM users u

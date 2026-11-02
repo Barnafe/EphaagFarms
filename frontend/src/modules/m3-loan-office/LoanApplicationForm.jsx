@@ -9,9 +9,9 @@ import {
 } from "../../data/financingBanner.js";
 
 // Every figure on this form comes from the approved financing banner:
-//  LT1 Progressive Savings Loan — fixed per level (savings -> loan, months)
-//  LT2 Business Boost           — fixed loan per verified 25% deposit, 5 months
-//  LT3 Business Enlargement     — 100k / 200k / 300k, repay double, 8 months
+//  LT1 Progressive Savings Loan, fixed per level (savings -> loan, months)
+//  LT2 Business Boost, fixed loan per verified 25% deposit, 5 months
+//  LT3 Business Enlargement, 100k / 200k / 300k, repay double, 8 months
 // The amount and repayment period are never typed in for LT1/LT2.
 export default function LoanApplicationForm({ onSubmit, eligibleDeposits = [], mainSavingsBalance = 0, aidedTerms }) {
   const [loanType, setLoanType] = useState("aided");
@@ -44,9 +44,9 @@ export default function LoanApplicationForm({ onSubmit, eligibleDeposits = [], m
       <div>
         <label>Loan type</label>
         <select value={loanType} onChange={(e) => setLoanType(e.target.value)}>
-          <option value="aided">{LOAN_TYPE_LABELS.aided} — 0% interest</option>
-          <option value="boost_cash">{LOAN_TYPE_LABELS.boost_cash} — 25% deposit</option>
-          <option value="business_fast_cash">{LOAN_TYPE_LABELS.business_fast_cash} — 100% interest</option>
+          <option value="aided">{LOAN_TYPE_LABELS.aided}, 0% interest</option>
+          <option value="boost_cash">{LOAN_TYPE_LABELS.boost_cash}, 25% deposit</option>
+          <option value="business_fast_cash">{LOAN_TYPE_LABELS.business_fast_cash}, 100% interest</option>
         </select>
       </div>
 
@@ -88,7 +88,7 @@ export default function LoanApplicationForm({ onSubmit, eligibleDeposits = [], m
           <p className="text-ink-600">Repayment: {BOOST_MONTHS} months, fixed. Your 25% deposit is paid up front.</p>
           {eligibleDeposits.length === 0 ? (
             <p className="mt-2 text-sm text-harvest-600">
-              You don't have an eligible Business Boost deposit yet — declare one below and get it verified first
+              You don't have an eligible Business Boost deposit yet, declare one below and get it verified first
               (it needs to mature before it's usable).
             </p>
           ) : (

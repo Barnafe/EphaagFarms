@@ -60,7 +60,7 @@ test("quiz locked until every lesson is done", () => {
   const l = quizLock({ lessonCount: 4, lessonsDone: 2 });
   assert.equal(l.locked, true);
   assert.match(l.reason, /2 lessons left/);
-  assert.equal(quizLock({ lessonCount: 4, lessonsDone: 3 }).reason, "Finish all lessons first — 1 lesson left.");
+  assert.equal(quizLock({ lessonCount: 4, lessonsDone: 3 }).reason, "Finish all lessons first, 1 lesson left.");
   assert.equal(quizLock({ lessonCount: 4, lessonsDone: 4 }).locked, false);
 });
 

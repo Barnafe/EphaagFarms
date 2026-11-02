@@ -26,8 +26,7 @@ export default function ReferralPanel() {
         <p className="text-sm text-ink-600">Your referral code</p>
         <p className="mt-1 text-lg font-medium text-canopy-800">{data.code}</p>
         <p className="mt-1 text-xs text-ink-600">
-          Share this code — anyone who enters it at registration shows up below. Referral is optional for them, so
-          not everyone will use it.
+          Share this code. Anyone who enters it at registration shows up below.
         </p>
       </div>
 

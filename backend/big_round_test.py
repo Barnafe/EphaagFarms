@@ -19,7 +19,7 @@ admin = r.json()
 admin_h = auth(admin)
 
 # ============================================================
-# Item 5: Buyer registration — individual vs organization
+# Item 5: Buyer registration, individual vs organization
 # ============================================================
 r = requests.post(f"{BASE}/auth/register", json={
     "name": "Jane Buyer", "email": "janebuyer@test.com", "password": "Passw0rd1",
@@ -83,7 +83,7 @@ check("savings deposit below the minimum is refused", r.status_code in (400, 503
 # NOTE: the rest of this pre-existing savings block (not touched by this
 # merge) has further stale field-name drift unrelated to any of the 4
 # merged zips (deposits/withdrawals vs "savings" key, admin payout response
-# shape, etc.) — flagging as out-of-scope test-script drift rather than
+# shape, etc.), flagging as out-of-scope test-script drift rather than
 # rewriting app business logic tests for an untouched module, same as the
 # buyer-address/product-declaration drift already patched above.
 print("SKIP  remainder of legacy savings admin/payout block (pre-existing drift, out of merge scope)")

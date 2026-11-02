@@ -110,8 +110,8 @@ async function deliverSms(msg) {
 // ---------------------------------------------------------------------------
 // Queue API
 // ---------------------------------------------------------------------------
-export async function isSuppressed(address) {
-  const { rows } = await pool.query("SELECT 1 FROM email_suppressions WHERE address = $1", [String(address).toLowerCase()]);
+export async function isSuppressed(address, q = (...a) => pool.query(...a)) {
+  const { rows } = await q("SELECT 1 FROM email_suppressions WHERE address = $1", [String(address).toLowerCase()]);
   return rows.length > 0;
 }
 
@@ -173,6 +173,23 @@ export async function notifyUser(userId, templateName, data = {}, { allChannels 
   return null;
 }
 
+
+/**
+ * Same as notifyUser, for someone without an account (a consultancy applicant, for example):
+ * email when there is one, otherwise SMS (only for templates that carry an `sms` text).
+ */
+export async function notifyAddress({ email = null, phone = null, name = "" }, templateName, data = {}, { allChannels = false } = {}) {
+  const out = renderTemplate(templateName, { name, ...data });
+  if (email) {
+    const row = await queueEmail({ to: email, subject: out.subject, html: out.html, text: out.text, template: templateName, raw: true });
+    if (allChannels && phone && out.sms) await queueSms({ to: phone, text: out.sms, template: templateName }).catch(() => {});
+    kick();
+    return row;
+  }
+  if (phone && out.sms) return queueSms({ to: phone, text: out.sms, template: templateName });
+  return null;
+}
+
 export async function notifyAdmins(templateName, data = {}) {
   const { rows } = await pool.query("SELECT id, email FROM users WHERE role_type = 'admin' AND email IS NOT NULL");
   const out = [];
@@ -183,34 +200,46 @@ export async function notifyAdmins(templateName, data = {}) {
 // ---------------------------------------------------------------------------
 // Worker: sends one message at a time, rate limited, retried with backoff.
 // ---------------------------------------------------------------------------
-async function sendOne(msg) {
+// A provider that never answers must not freeze the whole queue: one drain at a time runs, so a send that hangs
+// would hold it (and every later email and SMS) until the server restarts. Give each send a deadline; a late one
+// is treated as a temporary failure and retried like any other.
+const SEND_TIMEOUT_MS = () => Math.max(1000, Number(process.env.SEND_TIMEOUT_MS || 25000));
+function withDeadline(promise, what) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what} timed out after ${SEND_TIMEOUT_MS() / 1000}s (the provider did not answer)`)), SEND_TIMEOUT_MS());
+  });
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
+
+async function sendOne(msg, q = (...a) => pool.query(...a)) {
   if (msg.channel === "email") {
-    if (await isSuppressed(msg.to_address)) {
-      await pool.query(`UPDATE messages SET status='suppressed', last_error='Address is on the suppression list' WHERE id=$1`, [msg.id]);
+    if (await isSuppressed(msg.to_address, q)) {
+      await q(`UPDATE messages SET status='suppressed', last_error='Address is on the suppression list' WHERE id=$1`, [msg.id]);
       return "suppressed";
     }
     try {
-      const providerId = await deliverEmail(msg);
-      await pool.query(`UPDATE messages SET status='sent', provider_id=$2, sent_at=now(), attempts=attempts+1, last_error=NULL WHERE id=$1`, [msg.id, providerId]);
+      const providerId = await withDeadline(deliverEmail(msg), "Sending the email");
+      await q(`UPDATE messages SET status='sent', provider_id=$2, sent_at=now(), attempts=attempts+1, last_error=NULL WHERE id=$1`, [msg.id, providerId]);
       return "sent";
-    } catch (err) { return failOrRetry(msg, err); }
+    } catch (err) { return failOrRetry(msg, err, q); }
   }
   try {
-    const providerId = await deliverSms(msg);
-    await pool.query(`UPDATE messages SET status='sent', provider_id=$2, sent_at=now(), attempts=attempts+1, last_error=NULL WHERE id=$1`, [msg.id, providerId]);
+    const providerId = await withDeadline(deliverSms(msg), "Sending the SMS");
+    await q(`UPDATE messages SET status='sent', provider_id=$2, sent_at=now(), attempts=attempts+1, last_error=NULL WHERE id=$1`, [msg.id, providerId]);
     return "sent";
-  } catch (err) { return failOrRetry(msg, err); }
+  } catch (err) { return failOrRetry(msg, err, q); }
 }
 
-async function failOrRetry(msg, err) {
+async function failOrRetry(msg, err, q = (...a) => pool.query(...a)) {
   const attempts = msg.attempts + 1;
   const giveUp = err.permanent || attempts >= MAX_ATTEMPTS;
   if (giveUp) {
-    await pool.query(`UPDATE messages SET status='failed', attempts=$2, last_error=$3 WHERE id=$1`, [msg.id, attempts, String(err.message).slice(0, 500)]);
+    await q(`UPDATE messages SET status='failed', attempts=$2, last_error=$3 WHERE id=$1`, [msg.id, attempts, String(err.message).slice(0, 500)]);
     return "failed";
   }
   const mins = BACKOFF_MINUTES[Math.min(attempts - 1, BACKOFF_MINUTES.length - 1)];
-  await pool.query(
+  await q(
     `UPDATE messages SET status='queued', attempts=$2, last_error=$3, next_attempt_at = now() + ($4 || ' minutes')::interval WHERE id=$1`,
     [msg.id, attempts, String(err.message).slice(0, 500), String(mins)]
   );
@@ -219,7 +248,14 @@ async function failOrRetry(msg, err) {
 
 let draining = false;
 let rerun = false;
-export async function processQueue({ limit = 50, ids = null } = {}) {
+export function processQueue(opts = {}) {
+  // A background drain (started by kick() or the scheduled job) is independent work with its own connections.
+  // Its queries must never be counted against whichever request happened to start it, so they run outside the
+  // caller's connection tracking. A drain somebody WAITS for (ids given, e.g. an immediate send) stays tracked.
+  const q = opts.ids ? (...a) => pool.query(...a) : (...a) => detached(() => pool.query(...a));
+  return drainQueue(opts, q);
+}
+async function drainQueue({ limit = 50, ids = null } = {}, q = (...a) => pool.query(...a)) {
   // A drain already running may have just finished looking at the queue. Ask it to look again,
   // so a message queued in that instant is picked up now instead of waiting for the next job run.
   if (draining) { rerun = true; return { skipped: true }; }
@@ -227,12 +263,12 @@ export async function processQueue({ limit = 50, ids = null } = {}) {
   const tally = { sent: 0, failed: 0, retry: 0, suppressed: 0 };
   try {
     // Messages stuck in 'sending' (server died mid-send) go back to the queue.
-    await pool.query(`UPDATE messages SET status='queued' WHERE status='sending' AND next_attempt_at < now() - interval '10 minutes'`);
+    await q(`UPDATE messages SET status='queued' WHERE status='sending' AND next_attempt_at < now() - interval '10 minutes'`);
     const perSec = Math.max(1, Number(process.env.EMAIL_RATE_PER_SECOND || 5));
     do {
       rerun = false;
       for (let i = 0; i < limit; i++) {
-        const { rows } = await pool.query(
+        const { rows } = await q(
           `UPDATE messages SET status='sending', next_attempt_at = now()
            WHERE id = (SELECT id FROM messages WHERE status='queued' AND next_attempt_at <= now() ${ids ? "AND id = ANY($1::uuid[])" : ""}
                        ORDER BY next_attempt_at FOR UPDATE SKIP LOCKED LIMIT 1)
@@ -240,7 +276,7 @@ export async function processQueue({ limit = 50, ids = null } = {}) {
           ids ? [ids] : []
         );
         if (!rows[0]) break;
-        const outcome = await sendOne(rows[0]);
+        const outcome = await sendOne(rows[0], q);
         tally[outcome] = (tally[outcome] || 0) + 1;
         await sleep(Math.floor(1000 / perSec));
       }

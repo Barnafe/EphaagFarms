@@ -31,7 +31,7 @@ export default function CorperHome({ user, bundle, onCourses, onGo, onOpenCourse
     };
   }, [paid, onCourses]);
 
-  // Step 4 — the certificate (hidden until the batch is marked complete).
+  // Step 4, the certificate (hidden until the batch is marked complete).
   const [cert, setCert] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -48,7 +48,7 @@ export default function CorperHome({ user, bundle, onCourses, onGo, onOpenCourse
       ? "Not started yet"
       : next.lessonsDone < next.lessonCount
         ? `${next.lessonsDone} of ${next.lessonCount} lessons done`
-        : "All lessons done — take the quiz";
+        : "All lessons done, take the quiz";
 
   const steps = [
     { n: 1, title: "Register", note: "Done", state: "done" },
@@ -59,7 +59,7 @@ export default function CorperHome({ user, bundle, onCourses, onGo, onOpenCourse
       ? { n: 3, title: "Train", note: "Unlocked", state: "next" }
       : { n: 3, title: "Train", note: "Locked until paid", state: "locked" },
     cert?.status === "ready"
-      ? { n: 4, title: "Certificate", note: "Ready — download it", state: "done" }
+      ? { n: 4, title: "Certificate", note: "Ready, download it", state: "done" }
       : cert?.status === "awaiting_batch"
         ? { n: 4, title: "Certificate", note: "Awaiting batch completion", state: "next" }
         : { n: 4, title: "Certificate", note: "Locked until you finish every course", state: "locked" },

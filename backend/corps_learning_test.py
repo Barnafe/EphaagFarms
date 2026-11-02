@@ -1,5 +1,5 @@
 """
-Phase 4 (corps learning, quizzes, progress) — API tests.
+Phase 4 (corps learning, quizzes, progress), API tests.
 
 Run against a LIVE backend on a TEST database (never production):
 

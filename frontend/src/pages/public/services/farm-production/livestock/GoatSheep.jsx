@@ -10,7 +10,7 @@ export default function GoatSheep() {
         theme={themes.farmProduction}
         eyebrow="Livestock farming → Goat & Sheep"
         title="Goat & sheep farming"
-        description="Small ruminants raised for meat — a lower-cost, faster-turnaround line alongside our larger livestock operations."
+        description="Small ruminants raised for meat, a lower-cost, faster-turnaround line alongside our larger livestock operations."
         badge="🐐"
       />
       <RoomBackLink to="/services/farm-production/livestock" label="Livestock farming" />
@@ -19,10 +19,7 @@ export default function GoatSheep() {
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-ink-900">What we raise</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            Goats and sheep are raised together on the same pens and grazing land, offering
-            a shorter production cycle than cattle. They're a steady meat supply line that
-            scales more easily and turns over faster than the larger livestock operations.
-          </p>
+            Goats and sheep raised together for meat, with a shorter cycle than cattle.</p>
         </div>
 
         <div className="mt-8 card">

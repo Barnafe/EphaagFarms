@@ -28,7 +28,7 @@ export default function PayoutsPage() {
       <div className="max-w-4xl space-y-4">
         <div className="card space-y-3">
           <div className="flex items-center gap-2"><Send size={18} className="text-canopy-700" /><p className="text-sm font-medium text-ink-900">Payouts</p></div>
-          <p className="text-xs text-ink-600">Money out is sent by Paystack transfer once the last approval is given: loans, savings and share withdrawals, ROI payouts and produce settlements. Nothing here needs a manual step unless a payout fails.</p>
+          <p className="text-xs text-ink-600">Money out is sent automatically once the last approval is given. A manual step is needed only if a payout fails.</p>
           {err && <p className="text-xs text-red-700" role="alert">{err}</p>}
           {s && (
             <div className="space-y-2 text-sm text-ink-900">

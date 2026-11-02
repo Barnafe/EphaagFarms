@@ -19,16 +19,13 @@ export default function FruitsCashCrops() {
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-ink-900">What we grow</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            This line covers fruit orchards alongside cash crops like groundnut and soybean.
-            Fruit is grown for direct fresh sale, while cash crops feed both direct sale and
-            onward processing once they are received.
-          </p>
+            Fruit orchards and cash crops like groundnut and soybean, sold fresh or sent for processing.</p>
         </div>
 
         <div className="mt-8 card">
           <h2 className="font-display text-lg font-semibold text-ink-900">How it's managed</h2>
           <ul className="mt-3 space-y-2 text-sm text-ink-600">
-            <li>• Orchard upkeep — pruning, pest control — on a fixed seasonal schedule.</li>
+            <li>• Orchard upkeep, pruning, pest control, on a fixed seasonal schedule.</li>
             <li>• Cash crops rotated with grains and legumes to protect soil health.</li>
             <li>• Harvested produce moved into the same supply pool as sourced produce.</li>
           </ul>

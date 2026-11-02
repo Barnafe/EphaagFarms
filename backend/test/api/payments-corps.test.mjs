@@ -18,7 +18,7 @@ const start = (m, accept = true) => pay("/corpers/payments/initiate", { method: 
 const verify = (m, ref) => pay(`/corpers/payments/${ref}/verify`, { method: "POST", token: m.token, body: {} });
 const cp = async (ref) => (await db.query("SELECT * FROM corper_payments WHERE reference=$1", [ref])).rows[0];
 const gp = async (ref) => (await db.query("SELECT * FROM gateway_payments WHERE reference=$1", [ref])).rows[0];
-const income = async (ref) => (await db.query("SELECT amount FROM finance_income WHERE description = $1", [`Corps access fee ${ref}`])).rows;
+const income = async (ref) => (await db.query("SELECT amount FROM finance_income WHERE description = $1", [`NYSC AGROALLIED SAED access fee ${ref}`])).rows;
 const flags = async (ref) => (await db.query("SELECT f.* FROM payment_flags f JOIN gateway_payments p ON p.id=f.payment_id WHERE p.reference=$1", [ref])).rows;
 async function begin(m = null) { m = m || await newCorper(); const r = await start(m); assert.equal(r.status, 201, JSON.stringify(r.data)); return { m, p: r.data.payment }; }
 const OLD_WEBHOOK = `${PAY}/api/corpers/paystack-webhook`;
@@ -73,7 +73,7 @@ test("a verified payment (shared webhook) unlocks access; Finance income is the 
   assert.ok(await waitForMessage("to_user_id=$1 AND template='corps_receipt'", [m.id]), "member receipt");
   assert.ok(await waitForMessage("template='payment_finance_notice' AND body_text ILIKE $1", [`%${p.reference}%`]), "Finance notice");
   const led = (await api("/payments/admin/ledger?type=corps_fee", { token: admin })).data.payments.find((x) => x.reference === p.reference);
-  assert.ok(led); assert.equal(led.typeLabel, "Corps fee");
+  assert.ok(led); assert.equal(led.typeLabel, "NYSC AGROALLIED SAED fee");
   const v = await verify(m, p.reference);
   assert.equal(v.data.outcome, "success"); assert.equal(v.data.access.paid, true);
   assert.equal((await pay("/corpers/payments/initiate", { method: "POST", token: m.token, body: { acceptNonRefundable: true } })).status, 409, "already paid");

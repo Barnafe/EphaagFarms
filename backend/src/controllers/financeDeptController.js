@@ -8,8 +8,8 @@ function httpError(message, status = 400) {
 // Money amounts from a request body: must be a finite number > 0. Used by
 // every endpoint below that moves or records money. Before the
 // 2026-10-20 payment audit most of them only checked "is it truthy", so a
-// NEGATIVE amount was accepted — e.g. a negative "withdrawal" credited the
-// account — and a non-numeric string reached the database as a 500.
+// NEGATIVE amount was accepted, e.g. a negative "withdrawal" credited the
+// account, and a non-numeric string reached the database as a 500.
 function positiveAmount(raw, label = "amount") {
   const n = Number(raw);
   if (raw === undefined || raw === null || raw === "" || !Number.isFinite(n) || n <= 0) {
@@ -20,7 +20,7 @@ function positiveAmount(raw, label = "amount") {
 
 // Posts a ledger row and keeps finance_accounts.current_balance in sync.
 // Runs inside the caller's own client/transaction when one is passed
-// (transfers need that — two account balances must move together);
+// (transfers need that, two account balances must move together);
 // otherwise runs its own single-statement writes against the pool,
 // matching the rest of this codebase's convention of only reaching for
 // an explicit BEGIN/COMMIT when more than one write must be atomic.
@@ -55,7 +55,7 @@ async function assertFunds(client, accountId, amount) {
   const { rows } = await client.query(`SELECT current_balance FROM finance_accounts WHERE id = $1 FOR UPDATE`, [accountId]);
   if (!rows[0]) throw httpError("Account not found", 404);
   if (Number(rows[0].current_balance) < amount) {
-    throw httpError(`Insufficient balance — the account holds ₦${Number(rows[0].current_balance).toLocaleString()}`);
+    throw httpError(`Insufficient balance, the account holds ₦${Number(rows[0].current_balance).toLocaleString()}`);
   }
 }
 
@@ -109,7 +109,7 @@ export async function dashboardSummary(req, res) {
 }
 
 // Scans current data for alert-worthy conditions and files any not
-// already open — run on-demand from the Alerts panel rather than a
+// already open, run on-demand from the Alerts panel rather than a
 // background job, to keep this build self-contained.
 export async function scanAlerts(req, res) {
   const created = [];
@@ -284,7 +284,7 @@ export async function decideRequest(req, res) {
     else if (decision === "rejected") { newStatus = "rejected"; }
     else if (decision === "returned") { newStatus = "returned"; }
     else if (decision === "escalated") { nextStep = request.current_step + 1; newStatus = "pending"; }
-    // clarification_requested leaves status/step untouched — it's a note, not a state change.
+    // clarification_requested leaves status/step untouched, it's a note, not a state change.
 
     const { rows: updated } = await client.query(
       `UPDATE finance_requests SET status = $1, current_step = $2, updated_at = now() WHERE id = $3 RETURNING *`,
@@ -688,7 +688,7 @@ export async function updatePaymentStatus(req, res) {
     // A payment that's already completed/cancelled is final. Without this
     // guard, setting "completed" a second time posted a SECOND ledger
     // transaction (deducting the account again) and added the amount to
-    // the payable's amount_paid again — paying the same bill twice.
+    // the payable's amount_paid again, paying the same bill twice.
     if (["completed", "cancelled"].includes(payment.status)) {
       throw httpError(`This payment is already ${payment.status} and can't be changed`, 409);
     }

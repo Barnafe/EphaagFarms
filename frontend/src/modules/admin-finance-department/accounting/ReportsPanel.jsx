@@ -43,7 +43,7 @@ export default function ReportsPanel() {
                 label: "Income statement",
                 node: (
       <div className="card">
-        <p className="text-sm font-medium text-ink-900">Income statement — {incomeStatement.period.start} to {incomeStatement.period.end}</p>
+        <p className="text-sm font-medium text-ink-900">Income statement: {incomeStatement.period.start} to {incomeStatement.period.end}</p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
           <div>
             <p className="text-xs uppercase text-ink-600">Income</p>

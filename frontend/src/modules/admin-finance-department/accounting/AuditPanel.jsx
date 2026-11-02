@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "../../../api/client.js";
 
 // Financial Audit Trail draws on finance_approvals (decisions) and
-// finance_transactions (postings) directly — the two sources that
+// finance_transactions (postings) directly, the two sources that
 // already capture "who did what, when" for the vast majority of finance
-// activity — plus finance_audit_log for anything else. Shown together
+// activity, plus finance_audit_log for anything else. Shown together
 // here as one chronological trail rather than three separate screens.
 export default function AuditPanel() {
   const [approvals, setApprovals] = useState([]);
@@ -27,12 +27,12 @@ export default function AuditPanel() {
     ...approvals.map((a) => ({
       id: `approval-${a.id}`,
       at: a.decided_at,
-      label: `${a.request_reference} — ${a.decision.replace(/_/g, " ")} by ${a.approver_name || "—"}`,
+      label: `${a.request_reference}, ${a.decision.replace(/_/g, " ")} by ${a.approver_name || "N/A"}`,
     })),
     ...transactions.map((t) => ({
       id: `txn-${t.id}`,
       at: t.transacted_at,
-      label: `${t.reference} — ${t.txn_type} of ₦${Number(t.amount).toLocaleString()}${t.department ? ` (${t.department})` : ""}`,
+      label: `${t.reference}, ${t.txn_type} of ₦${Number(t.amount).toLocaleString()}${t.department ? ` (${t.department})` : ""}`,
     })),
   ].sort((a, b) => new Date(b.at) - new Date(a.at));
 

@@ -37,7 +37,7 @@ export default function CropProductionRoom() {
         theme={themes.farmProduction}
         eyebrow="Farm production → Crop production"
         title="Crop production"
-        description="Company-owned farmland growing grains, tubers, vegetables and cash crops, planted and harvested on a rotation that keeps supply flowing through the year."
+        description="Company-owned farmland growing grains, tubers, vegetables and cash crops."
         badge="🌾"
       />
       <RoomBackLink to="/services/farm-production" label="Farm production" />

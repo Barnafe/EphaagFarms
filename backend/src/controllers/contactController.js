@@ -2,7 +2,7 @@ import { pool } from "../db/pool.js";
 import { sendMail } from "../utils/email.js";
 
 // --- Public contact form -----------------------------------------------
-// No auth required — anyone visiting the public site can submit this.
+// No auth required, anyone visiting the public site can submit this.
 
 export async function submitContactMessage(req, res) {
   const { name, email, message } = req.body;
@@ -19,7 +19,7 @@ export async function submitContactMessage(req, res) {
   );
   const saved = rows[0];
 
-  // Fire-and-forget — never block the visitor's submission on email delivery.
+  // Fire-and-forget, never block the visitor's submission on email delivery.
   notifyAdmins(saved).catch(() => {});
 
   res.status(201).json({ message: saved });
@@ -30,7 +30,7 @@ async function notifyAdmins(msg) {
   for (const { email } of rows) {
     sendMail({
       to: email,
-      subject: "New contact form message — EPHAAG Farms website",
+      subject: "New contact form message from the EPHAAG Farms website",
       html: `<p>New message from <strong>${msg.name}</strong>${msg.email ? ` (${msg.email})` : ""}:</p><p>${msg.message}</p>`,
     }).catch(() => {});
   }

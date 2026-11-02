@@ -30,7 +30,7 @@ import useUrlState from "../../hooks/useUrlState.js";
 // Maintenance Request -> Supervisor reviews -> Work Order created ->
 // Technician assigned -> Diagnosis -> Repair/Parts Used -> Inspection/
 // Testing -> Work Completed -> Cost Recorded -> Maintenance History.
-// Preventive Maintenance is deliberately NOT one of these sections — it's
+// Preventive Maintenance is deliberately NOT one of these sections, it's
 // its own top-level tab (see PreventiveMaintenance.jsx).
 const sections = [
   { key: "requests", label: "Maintenance Requests", icon: ClipboardList, description: "Reported problems awaiting review." },

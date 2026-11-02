@@ -11,17 +11,17 @@ const statusStyles = {
 };
 
 const statusMessage = {
-  submitted: "Sent to Admin's Requests inbox — awaiting review",
-  under_review: "Sent to Admin's Requests inbox — awaiting review",
+  submitted: "Sent to Admin's Requests inbox, awaiting review",
+  under_review: "Sent to Admin's Requests inbox, awaiting review",
   approved: "Approved by admin",
   rejected: "Rejected by admin",
-  converted: "Approved — work order created",
+  converted: "Approved, work order created",
 };
 
 const emptyForm = { title: "", description: "", location: "", priority: "medium", assetId: "" };
 
 // Step 1 of the workflow: report a fault. Approving/rejecting the report
-// no longer happens here — every submission is mirrored into Admin's
+// no longer happens here, every submission is mirrored into Admin's
 // generic Requests inbox (see maintenanceController.createRequest) for a
 // different admin to open, review the photo, and decide. This panel is
 // now report + read-only status tracking.
@@ -102,7 +102,7 @@ export default function RequestsPanel() {
   return (
     <div className="card">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-ink-600">Problems reported — routed to Admin's Requests inbox for review</p>
+        <p className="text-sm text-ink-600">Problems reported, routed to Admin's Requests inbox for review</p>
         <button className="btn-outline" type="button" onClick={() => setShowForm((v) => !v)}>
           + Report a problem
         </button>
@@ -173,7 +173,7 @@ export default function RequestsPanel() {
                 <div>
                   <p className="font-medium text-ink-900">{r.title}</p>
                   <p className="text-xs text-ink-600">
-                    {r.reference} · {r.asset_name || "No asset"} · {r.priority} · reported by {r.reported_by_name || "—"}
+                    {r.reference} · {r.asset_name || "No asset"} · {r.priority} · reported by {r.reported_by_name || "N/A"}
                   </p>
                   {r.description && <p className="mt-1 text-sm text-ink-700">{r.description}</p>}
                   <p className="mt-1 text-xs text-ink-600">{statusMessage[r.status]}</p>

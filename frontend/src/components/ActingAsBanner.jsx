@@ -4,7 +4,7 @@ import { useActingAs } from "../context/ActingAsContext.jsx";
 
 // Shown at the top of a department's own DashboardShell whenever that
 // department is being visited via "Login As" (see LoginAsPage.jsx /
-// ActingAsContext.jsx). Self-contained — reads actingAs straight from
+// ActingAsContext.jsx). Self-contained, reads actingAs straight from
 // context, so any department page can just drop this in without wiring
 // props. Renders nothing when actingAs is empty (i.e. the department was
 // reached directly by URL, not via Login As).
@@ -16,8 +16,7 @@ export default function ActingAsBanner() {
 
   function handleExit() {
     // Clear actingAs first so the back-button trap (ActingAsContext.jsx)
-    // disarms itself, then replace (not push) into the admin dashboard —
-    // this is the one sanctioned door out of a department.
+    // disarms itself, then replace (not push) into the admin dashboard, // this is the one sanctioned door out of a department.
     setActingAs(null);
     navigate("/admin", { replace: true });
   }
@@ -25,7 +24,7 @@ export default function ActingAsBanner() {
   return (
     <div className="mb-6 flex items-center justify-between gap-3 rounded-card border border-harvest-400/40 bg-harvest-400/10 px-4 py-2.5">
       <p className="text-sm text-canopy-100">
-        <span className="font-medium text-white">Acting as: {actingAs}</span> — navigating and
+        <span className="font-medium text-white">Acting as: {actingAs}</span>. Navigating and
         acting just as that department's head would.
       </p>
       <button

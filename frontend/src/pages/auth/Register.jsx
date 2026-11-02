@@ -7,8 +7,7 @@ import { NIGERIA_STATE_NAMES, lgasForState } from "../../data/nigeriaStatesLgas.
 import FarmerRegisterWizard from "./FarmerRegisterWizard.jsx";
 import CorperRegisterWizard from "./CorperRegisterWizard.jsx";
 
-// Transporter and Distributor are deliberately NOT self-service roles —
-// the Transport Department now owns dispatch and driver/distributor
+// Transporter and Distributor are deliberately NOT self-service roles, // the Transport Department now owns dispatch and driver/distributor
 // assignment internally. Admin is not self-service either: the main admin
 // is seeded, and the main admin promotes existing accounts from Positions.
 const roleOptions = [
@@ -19,7 +18,7 @@ const roleOptions = [
 ];
 
 // Farmer registration is now its own dedicated wizard (FarmerRegisterWizard,
-// see below) with its own location/ward/crop fields — this shared form and
+// see below) with its own location/ward/crop fields, this shared form and
 // LocationFields no longer need to handle the farmer case at all.
 
 function LocationFields({ state, setState, lga, setLga }) {
@@ -84,7 +83,7 @@ export default function Register() {
 
       const user = await register({ ...fields, role_type: role });
 
-      // Photo is optional and never blocks account creation — if it
+      // Photo is optional and never blocks account creation, if it
       // fails to upload for any reason, the account still exists and the
       // person can add a photo later from their profile.
       const photoFile = e.target.elements.photo?.files?.[0];
@@ -94,7 +93,7 @@ export default function Register() {
           photoForm.append("photo", photoFile);
           await apiUpload("/auth/me/photo", photoForm);
         } catch {
-          // Non-fatal — account creation already succeeded.
+          // Non-fatal, account creation already succeeded.
         }
       }
 
@@ -110,7 +109,7 @@ export default function Register() {
     <div className="mx-auto max-w-lg px-6 py-12">
       <h1 className="text-xl font-medium text-ink-900">Create your account</h1>
       <p className="mt-1 text-sm text-ink-600">
-        Choose the account type that fits you. Each type has its own form.
+        Choose the account type that fits you.
       </p>
 
       <div className="field mt-6">
@@ -135,7 +134,7 @@ export default function Register() {
             <option value="organization">Organization</option>
           </select>
           <p className="mt-1 text-xs text-ink-600">
-            Organization covers companies, NGOs, and government bodies alike.
+            Organization covers companies, NGOs and government bodies.
           </p>
         </div>
       )}
@@ -207,10 +206,10 @@ export default function Register() {
               name="address"
               type="text"
               required
-              placeholder="Street, city — where your orders should be delivered"
+              placeholder="Street, city, where your orders should be delivered"
             />
             <p className="mt-1 text-xs text-ink-600">
-              You can add exact directions or a landmark per order later — this is your default.
+              This is your default delivery address. You can change it per order.
             </p>
           </div>
         )}

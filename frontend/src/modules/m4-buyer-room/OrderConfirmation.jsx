@@ -9,7 +9,7 @@ export default function OrderConfirmation({ order, onContinue }) {
       <p className="mt-2 text-sm text-canopy-700">Order placed</p>
       <p className="text-2xl font-medium text-gray-900">{order.reference}</p>
       <p className="mt-1 text-sm text-gray-500">
-        Save this reference — it tracks this order through sourcing, transport, and delivery.
+        Save this reference to track your order.
       </p>
       <p className="mt-3 text-sm text-gray-700">
         ₦{order.total.toLocaleString()} · {order.deliveryLocation}

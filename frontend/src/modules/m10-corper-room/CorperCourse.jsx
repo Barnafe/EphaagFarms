@@ -7,7 +7,7 @@ const KIND = { video: { label: "Video", Icon: Video }, document: { label: "Docum
 
 // One course: its lessons (Open / Download / Join + Mark complete) and the
 // quiz, which stays locked until every lesson is done. "Mark complete" is an
-// honour system — videos and live sessions happen on other sites.
+// honour system, videos and live sessions happen on other sites.
 export default function CorperCourse({ courseId, onBack, onQuiz, onError }) {
   const [data, setData] = useState(null);
   const [message, setMessage] = useState(null);
@@ -32,7 +32,7 @@ export default function CorperCourse({ courseId, onBack, onQuiz, onError }) {
     setMessage(null);
     try {
       const r = await apiFetch(`/corpers/courses/${courseId}/lessons/${lesson.id}/complete`, { method: "POST", body: {} });
-      if (r.courseJustCompleted) setMessage("Course complete — well done!");
+      if (r.courseJustCompleted) setMessage("Course complete, well done!");
       await load();
     } catch (err) {
       if (err.code === "PAYMENT_REQUIRED") onError?.(err);

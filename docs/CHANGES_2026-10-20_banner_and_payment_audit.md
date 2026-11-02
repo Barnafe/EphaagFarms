@@ -1,4 +1,4 @@
-# 2026-10-20 — Banner alignment + payment audit
+# 2026-10-20, Banner alignment + payment audit
 
 The approved financing banner is the source of truth for farmer loans, savings levels and shares.
 

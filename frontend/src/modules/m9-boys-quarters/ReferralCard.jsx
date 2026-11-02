@@ -5,7 +5,7 @@ export default function ReferralCard({ referral, threshold }) {
   const qualifies = byAmount || byReferrals;
 
   const partnerLabel = {
-    none: qualifies ? "Eligible — Partner review not yet started" : "Not yet eligible",
+    none: qualifies ? "Eligible. Partner review not yet started" : "Not yet eligible",
     pending: "Partner status pending Finance review",
     approved: "Partner Investor",
   };

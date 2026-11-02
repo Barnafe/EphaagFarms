@@ -51,11 +51,11 @@ export async function updateMyProfile(req, res) {
 
 // --- List product (farmer's own for-sale listings) -----------------------
 
-// Validates a crop against the farmer's own registered crops list — never
+// Validates a crop against the farmer's own registered crops list, never
 // trust the client dropdown alone (2026-08-12: "admin needs correct data
 // from it, and users must not declare/list product they did not select
 // during registration").
-// Farmer-visible price list — shows only buy_price (what the company pays
+// Farmer-visible price list, shows only buy_price (what the company pays
 // them), never sell_price (what buyers pay), per the 2026-08-30 dual-price
 // spec. Surfaced in Declare/List so a farmer knows what they'll be paid
 // before declaring or listing.
@@ -74,11 +74,11 @@ async function assertRegisteredCrop(farmerId, crop) {
 
 // --- Declared-inventory balance (2026-08-29 spec) -------------------------
 // A farmer can never list more than they've declared, and a purchase (order
-// sourcing) consumes against that same declared balance — see the
+// sourcing) consumes against that same declared balance, see the
 // [[ephaag-farms]] memory note on this round. Formula, kept consistent both
 // directions: remaining = declaredTotal - purchased - currentlyListedAvailable.
 // "purchased" comes from order_sourcing.quantity_sourced (set only once a
-// specific listing is actually sourced for a real order — see
+// specific listing is actually sourced for a real order, see
 // procurementController.sourceOrder); "currentlyListedAvailable" is what's
 // still sitting in farmer_products as unsold, since that quantity is already
 // spoken for even before anyone buys it.
@@ -142,11 +142,11 @@ export async function createMyProduct(req, res) {
   }
   const balance = await declaredBalanceForCrop(req.user.id, crop);
   if (balance.declaredTotal === 0) {
-    return res.status(400).json({ error: "Declare this product before listing it — see Declare product above" });
+    return res.status(400).json({ error: "Declare this product before listing it, see Declare product above" });
   }
   if (Number(quantity) > balance.remaining) {
     return res.status(400).json({
-      error: `You can't list more than your declared balance — you have ${balance.remaining} ${balance.unit} of ${crop} left to list`,
+      error: `You can't list more than your declared balance, you have ${balance.remaining} ${balance.unit} of ${crop} left to list`,
     });
   }
   const { rows } = await pool.query(
@@ -154,6 +154,7 @@ export async function createMyProduct(req, res) {
      VALUES ($1, $2, $3, $4, $5) RETURNING id, crop, quantity, unit, address, status, created_at`,
     [req.user.id, crop, quantity, unit, address]
   );
+  computeAndStoreIndices(req.user.id).catch((err) => console.error("indices recompute failed", err)); // listing counts toward funds utilization
   res.status(201).json({ product: rows[0] });
 }
 
@@ -171,7 +172,7 @@ export async function updateMyProduct(req, res) {
   res.json({ product: rows[0] });
 }
 
-// --- Produce declarations (separate from listings — see the migration
+// --- Produce declarations (separate from listings, see the migration
 // note in farmer_declarations for why these split apart 2026-08-12) -----
 
 export async function listMyDeclarations(req, res) {
@@ -191,7 +192,7 @@ export async function createMyDeclaration(req, res) {
   if (!(await assertRegisteredCrop(req.user.id, crop))) {
     return res.status(400).json({ error: "You can only declare a crop you selected during registration" });
   }
-  // Wrapped in try/catch — an invalid unit used to violate
+  // Wrapped in try/catch, an invalid unit used to violate
   // farmer_declarations' CHECK constraint as an unhandled rejection, which
   // per server.js's global handler means the request never gets a
   // response at all (hangs until the client times out) rather than a
@@ -203,10 +204,11 @@ export async function createMyDeclaration(req, res) {
        RETURNING id, crop, quantity, unit, declaration_year, created_at`,
       [req.user.id, crop, quantity, unit, declarationYear || null]
     );
+    computeAndStoreIndices(req.user.id).catch((err) => console.error("indices recompute failed", err)); // declaring counts toward funds utilization
     res.status(201).json({ declaration: rows[0] });
   } catch (err) {
     if (err.code === "23514") {
-      return res.status(400).json({ error: "unit must be one of: kg, tons, bags, tubers, crates, baskets" });
+      return res.status(400).json({ error: "unit must be one of: kg, tons, bags, tubers, crates, baskets, others" });
     }
     console.error(err);
     res.status(500).json({ error: "Could not save declaration" });
@@ -230,7 +232,7 @@ export async function deleteMyProduct(req, res) {
   }
 }
 
-// --- Transactions (selling only — loan activity lives in the Loan Office) -
+// --- Transactions (selling only, loan activity lives in the Loan Office) -
 
 export async function myTransactions(req, res) {
   const { rows: orderPayments } = await pool.query(
@@ -341,7 +343,7 @@ export async function recordAttendance(req, res) {
     return res.status(400).json({ error: "attendedUserIds must be a JSON array" });
   }
 
-  // Admin: no jurisdiction of their own — every farmer company-wide is a
+  // Admin: no jurisdiction of their own, every farmer company-wide is a
   // valid attendee (2026-08-30 admin-universal-access spec).
   const { rows: jurisdictionFarmers } =
     req.user.role_type === "admin"
@@ -359,7 +361,7 @@ export async function recordAttendance(req, res) {
   }
 
   // Only accept attended IDs that genuinely belong to this leader's own
-  // jurisdiction — never trust the client's list blindly.
+  // jurisdiction, never trust the client's list blindly.
   const jurisdictionSet = new Set(jurisdictionIds);
   const attendedSet = new Set(attendedIds.filter((id) => jurisdictionSet.has(id)));
 
@@ -383,8 +385,7 @@ export async function recordAttendance(req, res) {
       );
     }
 
-    // Recompute each touched farmer's running attendance percentage —
-    // attended seminars / all seminars they've ever been marked for.
+    // Recompute each touched farmer's running attendance percentage, // attended seminars / all seminars they've ever been marked for.
     for (const farmerId of jurisdictionIds) {
       await client.query(
         `UPDATE farmer_profiles SET attendance_pct = (
@@ -397,7 +398,7 @@ export async function recordAttendance(req, res) {
 
     await client.query("COMMIT");
 
-    // Real-time indices recompute (2026-08-11 spec) — only for farmers
+    // Real-time indices recompute (2026-08-11 spec), only for farmers
     // actually marked attended (that's the only thing that changed their
     // training score); fire-and-forget, never blocks the response.
     for (const farmerId of attendedSet) {
@@ -467,7 +468,7 @@ export async function attendanceHistory(req, res) {
 // Distinct from attendanceHistory() above, which is a Unit Leader's own
 // record of what THEY marked. This is the other side: what an individual
 // farmer has personally attended, for their own "Attendance" screen.
-// Self-marking doesn't exist and never has — attended/absent is only ever
+// Self-marking doesn't exist and never has, attended/absent is only ever
 // set by a Unit Leader (see recordAttendance), this is read-only.
 export async function myAttendanceRecord(req, res) {
   const [{ rows: profileRows }, { rows }] = await Promise.all([
@@ -486,7 +487,7 @@ export async function myAttendanceRecord(req, res) {
     present: rows.filter((r) => r.attended).length,
     total: rows.length,
     // Same stored figure JurisdictionOverview shows leaders about this
-    // farmer — kept identical rather than recomputed, so the two never
+    // farmer, kept identical rather than recomputed, so the two never
     // disagree.
     attendancePct: profileRows[0]?.attendance_pct != null ? Number(profileRows[0].attendance_pct) : 0,
     records: rows.map((r) => ({
@@ -500,7 +501,7 @@ export async function myAttendanceRecord(req, res) {
 
 // --- Jurisdiction report (2026-08-13 spec) --------------------------
 // Unit/Ward/LGA/State Coordinators (and 3EI Governance, nationally) can pull a
-// report scoped to their own jurisdiction on demand — same shape as the
+// report scoped to their own jurisdiction on demand, same shape as the
 // admin Analytics department's farmer/produce/savings/loan/training
 // sections, just pre-filtered to what that leader actually oversees.
 
@@ -514,7 +515,7 @@ function jurisdictionFilter(rank, u) {
 }
 
 export async function myJurisdictionReport(req, res) {
-  // Admin: company-wide, same as 3EI Governance rank — no jurisdiction of their
+  // Admin: company-wide, same as 3EI Governance rank, no jurisdiction of their
   // own to filter by (2026-08-30 admin-universal-access spec).
   let filter, scope;
   if (req.user.role_type === "admin") {
@@ -586,27 +587,9 @@ export async function myJurisdictionReport(req, res) {
   });
 }
 
-// --- Company growth (Farmer's Room "Home" tab, 2026-08-12) --------------
-// Real registration data, not fabricated — cumulative farmer count by
-// month, for a simple growth bar chart. Open to any authenticated user
-// (not sensitive), not just farmers, in case other rooms want it later.
-export async function companyGrowth(req, res) {
-  const { rows } = await pool.query(
-    `SELECT date_trunc('month', created_at) AS month, COUNT(*) AS n
-     FROM users WHERE role_type = 'farmer'
-     GROUP BY month ORDER BY month ASC`
-  );
-  let cumulative = 0;
-  const months = rows.map((r) => {
-    cumulative += Number(r.n);
-    return { month: r.month, newFarmers: Number(r.n), totalFarmers: cumulative };
-  });
-  res.json({ months, totalFarmers: cumulative });
-}
-
 // --- Training-completion ranking -------------------------------------
 // Distinct from farmer_profiles.rank (the leadership rank). Earned purely
-// by trainings a Unit Leader has cleared attendance for — computed live
+// by trainings a Unit Leader has cleared attendance for, computed live
 // from seminar_attendance rather than a stored counter, since that's
 // already the ground truth attendance_pct is computed from too.
 
@@ -626,7 +609,7 @@ export async function myRanking(req, res) {
   });
 }
 
-// Admin view — supports the "criteria for choosing leaders" use case the
+// Admin view, supports the "criteria for choosing leaders" use case the
 // user described, plus doubles as an analytics-ready export (state/LGA/
 // ward/unit already on `users`, filterable/aggregatable per the data
 // mandate in memory).
@@ -658,7 +641,7 @@ export async function adminListRanking(req, res) {
 }
 
 // --- Feedback ---------------------------------------------------------------
-// A direct line to admin — challenges, concerns about leadership or
+// A direct line to admin, challenges, concerns about leadership or
 // suspicious activity, or general recommendations.
 
 export async function listMyFeedback(req, res) {

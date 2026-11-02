@@ -109,7 +109,7 @@ export default function FinancialRequestsPanel() {
               <div>
                 <p className="font-medium text-ink-900">{r.purpose}</p>
                 <p className="text-xs text-ink-600">
-                  {r.reference} · {r.department} · ₦{Number(r.amount).toLocaleString()} · by {r.requester_name || "—"}
+                  {r.reference} · {r.department} · ₦{Number(r.amount).toLocaleString()} · by {r.requester_name || "N/A"}
                 </p>
               </div>
               <span className={`shrink-0 rounded-full px-2 py-1 text-xs ${statusStyles[r.status]}`}>{r.status}</span>

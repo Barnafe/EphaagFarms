@@ -28,10 +28,7 @@ export default function MonthlyPlan() {
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-ink-900">How it works</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            You choose a monthly amount of ₦5,000 or above — whatever fits your financial
-            capacity — and pay it consistently for your agreed term. Your return is calculated
-            on the total amount you've invested that year, at the rate below.
-          </p>
+            Pay a monthly amount of ₦5,000 or more for your agreed term. Returns are paid on the total you invest each year.</p>
         </div>
 
         <div className="mt-8">
@@ -49,7 +46,7 @@ export default function MonthlyPlan() {
           <ul className="mt-3 space-y-2 text-sm text-ink-600">
             <li>• Your invested capital can't be refunded before your term ends.</li>
             <li>• Monthly payments can't be stopped before the halfway point of your term.</li>
-            <li>• Inconsistent payments aren't accepted — see full terms for the penalties.</li>
+            <li>• Inconsistent payments aren't accepted, see full terms for the penalties.</li>
           </ul>
           <Link to="/services/investment/terms" className="mt-4 inline-block text-sm font-medium text-canopy-800 hover:text-clay-600">
             Read the full terms & conditions →

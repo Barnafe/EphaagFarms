@@ -38,6 +38,7 @@ import refundsRoutes from "./routes/refunds.js";
 import bankAccountRoutes from "./routes/bankAccount.js";
 import payoutsRoutes from "./routes/payouts.js";
 import { securityHeaders, corsMiddleware } from "./middleware/security.js";
+import consultancyRoutes from "./routes/consultancy.js";
 import { certificateVerifyLimiter } from "./middleware/rateLimits.js";
 import { registerAllJobs } from "./jobs/index.js";
 import { startInternalScheduler, healthCheck } from "./jobs/runner.js";
@@ -45,20 +46,20 @@ import { checkEnvironment, formatReport } from "./utils/preflight.js";
 
 const app = express();
 
-// Render (and most PaaS hosts) sit behind a reverse proxy — this makes
+// Render (and most PaaS hosts) sit behind a reverse proxy, this makes
 // req.ip/req.secure reflect the real client instead of the proxy hop.
 // Harmless locally too.
 app.set("trust proxy", 1);
 
 // Safety net: a single unguarded async error in any route handler should
-// never take the whole server down (this has happened before — one bad
+// never take the whole server down (this has happened before, one bad
 // query crashed every other in-flight and future request too). Express 4
 // doesn't catch async rejections automatically, and every controller
 // SHOULD have its own try/catch, but this is the last line of defense if
 // one is ever missing. The affected request will still hang/timeout
 // rather than succeed, but every other request keeps working.
 process.on("unhandledRejection", (err) => {
-  console.error("[unhandled rejection — a route is missing its own try/catch]", err);
+  console.error("[unhandled rejection, a route is missing its own try/catch]", err);
 });
 
 // Same reasoning as above, for the synchronous-throw case. Node's default
@@ -95,7 +96,7 @@ app.use(securityHeaders());
 app.use(corsMiddleware());
 // SES bounce/complaint events arrive from Amazon SNS as text/plain JSON.
 app.use("/api/messaging/ses-events", express.text({ type: "*/*", limit: "256kb" }));
-// Keep the exact bytes of the Paystack webhook body — its HMAC signature is
+// Keep the exact bytes of the Paystack webhook body, its HMAC signature is
 // computed over the raw payload, which a re-serialised JSON object can't match.
 app.use(
   express.json({
@@ -105,7 +106,7 @@ app.use(
   })
 );
 
-// Profile photos and catalog/product photos only — agreement PDFs stay
+// Profile photos and catalog/product photos only, agreement PDFs stay
 // behind the authenticated download route in investments.js, deliberately
 // not exposed here.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -132,6 +133,7 @@ app.use("/api/store", storeRoutes);
 app.use("/api/transport", transportRoutes);
 app.use("/api/investments", investmentRoutes);
 app.use("/api/rtc", rtcRoutes);
+app.use("/api/consultancy", consultancyRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/requests", requestsRoutes);
 app.use("/api/admin/positions", adminPositionsRoutes);
@@ -160,7 +162,7 @@ app.use("/api/payouts", payoutsRoutes);
 // Serve the built frontend from this same service in production, so the
 // whole app is one Render web service (one free-tier dyno, no separate
 // static site, no cross-origin requests to worry about). Only kicks in
-// when the built files actually exist — local dev keeps using the Vite
+// when the built files actually exist, local dev keeps using the Vite
 // dev server on :5173 untouched. Must come AFTER every /api and /uploads
 // route above: the SPA catch-all below matches anything not already
 // handled, so registering it earlier would swallow API requests.
@@ -178,7 +180,7 @@ app.use((err, req, res, next) => {
   // body from body-parser carries statusCode 400, while controller-thrown
   // errors across the app carry status via `Object.assign(new Error(...), 
   // { status })` / the httpError() helper) instead of always reporting
-  // 500 — a bad request from the client isn't a server failure. Pre-existing
+  // 500, a bad request from the client isn't a server failure. Pre-existing
   // bug fixed 2026-09-04: this only ever checked `err.statusCode`, so every
   // controller-thrown validation error (400s/404s from maintenanceController,
   // investmentController, orderController, etc., all of which set `.status`

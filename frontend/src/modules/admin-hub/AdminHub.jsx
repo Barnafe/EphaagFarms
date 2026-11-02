@@ -15,7 +15,7 @@ import {
   ArrowUpCircle,
   CreditCard,
   ArrowLeftRight,
-  Undo2, MapPin, Send,
+  Undo2, MapPin, Send, Gauge,
   Scale,
   Building2,
   BarChart3,
@@ -56,10 +56,10 @@ const TXN_META = {
   adjustment: { icon: Scale, color: GOLD, verb: "" },
 };
 
-// Admin's home screen — a quick-brief summary of the company's real
+// Admin's home screen, a quick-brief summary of the company's real
 // numbers (finance, users, approvals), not another place to explain the
 // whole system. Departments are reached via "Login As" (see
-// AdminDashboardShell's sidebar), not a grid here — this page answers
+// AdminDashboardShell's sidebar), not a grid here, this page answers
 // "how's everything doing right now" at a glance, with the key figures
 // and lists linking straight through to where the full detail lives.
 //
@@ -101,7 +101,7 @@ export default function AdminHub() {
       setAwaiting(awaitingRes.requests);
 
       // Bucket this month's transactions into per-day inflow/outflow for
-      // the cash flow chart — income counts as inflow, expense/payment as
+      // the cash flow chart, income counts as inflow, expense/payment as
       // outflow; transfers/refunds/adjustments are left out of this chart
       // (they're not revenue or spend) but still show in Recent Transactions.
       const byDay = new Map();
@@ -122,7 +122,7 @@ export default function AdminHub() {
       setCashFlow(dailyFlow);
 
       // Sparklines for the three stat tiles below, all derived from the
-      // same real per-day transaction data above — not separate fetches.
+      // same real per-day transaction data above, not separate fetches.
       // Revenue/expenses trends are just the daily inflow/outflow values;
       // the cash balance trend is the running cumulative net, anchored so
       // its last point lands exactly on the current cash position from
@@ -411,6 +411,10 @@ export default function AdminHub() {
                 <Link to="/admin/payouts" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
                   <Send size={20} className="text-canopy-300" />
                   <span className="text-xs text-white">Payouts</span>
+                </Link>
+                <Link to="/admin/loan-scoring" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
+                  <Gauge size={20} className="text-canopy-300" />
+                  <span className="text-xs text-white">Loan scoring</span>
                 </Link>
                 <Link to="/admin/units" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
                   <MapPin size={20} className="text-canopy-300" />

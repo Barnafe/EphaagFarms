@@ -13,7 +13,7 @@ import { sendFileRef } from "../utils/fileRefs.js";
 
 async function notifyApprover(step, request) {
   if (!step.approver_id) {
-    // Final step — notify every admin, since it's "any admin" territory.
+    // Final step, notify every admin, since it's "any admin" territory.
     const { rows } = await pool.query(`SELECT email FROM users WHERE role_type = 'admin' AND email IS NOT NULL`);
     for (const { email } of rows) {
       sendMail({
@@ -48,7 +48,7 @@ async function notifyRequester(request, decision) {
 export async function createRequest(req, res) {
   const { department, title, description } = req.body;
   // Multipart bodies (when a file is attached) stringify everything,
-  // including the approvers array — parse it back if needed.
+  // including the approvers array, parse it back if needed.
   let approvers = req.body.approvers;
   if (typeof approvers === "string") {
     try {
@@ -61,7 +61,7 @@ export async function createRequest(req, res) {
     return res.status(400).json({ error: "department and title are required" });
   }
   const approverList = Array.isArray(approvers) ? approvers : [];
-  // Stored as just the filename — served back out through an authenticated
+  // Stored as just the filename, served back out through an authenticated
   // download endpoint below, not a public static path (unlike photos,
   // these can contain sensitive department/financial details).
   const attachmentFilename = req.file ? req.file.filename : null;
@@ -128,7 +128,7 @@ async function attachSteps(requests) {
 
 // Requests raised from a Maintenance fault report (see
 // maintenanceController.createRequest) carry a photo of the equipment
-// instead of the generic PDF/doc attachment_url — pulled in here via the
+// instead of the generic PDF/doc attachment_url, pulled in here via the
 // linked maintenance_requests row so the reviewing admin can see it.
 const MAINTENANCE_PHOTO_JOIN = `LEFT JOIN maintenance_requests mr ON mr.department_request_id = dr.id`;
 const MAINTENANCE_PHOTO_SELECT = `mr.photo_url AS maintenance_photo_url`;
@@ -235,7 +235,7 @@ export async function decideStep(req, res) {
     if (requestStatus !== "pending") {
       await client.query(`UPDATE department_requests SET status = $1 WHERE id = $2`, [requestStatus, id]);
       // Write the decision back onto the originating maintenance_requests
-      // row (if this request came from a Maintenance fault report — see
+      // row (if this request came from a Maintenance fault report, see
       // maintenanceController.createRequest) so the Maintenance module's
       // own "approved -> convert to work order" step keeps working off
       // that table, even though the actual review happened here.

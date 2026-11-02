@@ -49,16 +49,15 @@ const items = [
 ];
 
 // Same persistent-left-sidebar shell as every member room, applied to the
-// admin side too — a constant menu that never changes no matter which
+// admin side too, a constant menu that never changes no matter which
 // screen is open underneath it.
 //
 // "Add Catalog" (create a new crop/product), "Add Price" (edit an existing
 // crop's price), and "TRC" are real, already-wired features surfaced
-// here directly for easy access. "Login As" is the department picker —
-// picking one there drops the admin into that department's OWN shell
+// here directly for easy access. "Login As" is the department picker, // picking one there drops the admin into that department's OWN shell
 // (its own hamburger with that department's sections), not this generic
 // one. Because of that, departments themselves are deliberately NOT listed
-// here (2026-09-04) — this sidebar is for admin-wide tools; "Dashboard" is
+// here (2026-09-04), this sidebar is for admin-wide tools; "Dashboard" is
 // the one item that always brings you back to the summary/welcome screen.
 export default function AdminDashboardShell({ children }) {
   const navigate = useNavigate();

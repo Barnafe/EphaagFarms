@@ -35,7 +35,7 @@ export default function AttendanceMarker({ farmers, onRecorded }) {
       formData.append("sheet", sheet);
 
       const result = await apiUpload("/farmers/attendance", formData);
-      setSuccess(`Recorded — ${result.attendedCount} of ${result.markedCount} marked present.`);
+      setSuccess(`Recorded, ${result.attendedCount} of ${result.markedCount} marked present.`);
       setTitle("");
       setEventDate("");
       setLocation("");

@@ -9,7 +9,7 @@ import { getSetting, setSetting } from "../utils/settings.js";
 
 const bad = (res, error, extra = {}) => res.status(400).json({ error, ...extra });
 
-// POST /api/auth/verify-nin { nin, consent }  — before registration; nothing is saved yet.
+// POST /api/auth/verify-nin { nin, consent }, before registration; nothing is saved yet.
 export async function verifyNinPublic(req, res) {
   const { nin, consent } = req.body || {};
   if (!isValidNin(nin)) return bad(res, "Enter your 11-digit NIN.", { code: "NIN_INVALID" });
@@ -25,7 +25,7 @@ export async function verifyNinPublic(req, res) {
   }
 }
 
-// POST /api/farmers/me/verify-nin { nin, consent } — an existing farmer verifies later. NIMC data then replaces and locks the matching fields.
+// POST /api/farmers/me/verify-nin { nin, consent }, an existing farmer verifies later. NIMC data then replaces and locks the matching fields.
 export async function verifyMyNin(req, res) {
   const { nin, consent } = req.body || {};
   const { rows: me } = await pool.query("SELECT nin_verified FROM users WHERE id = $1", [req.user.id]);
@@ -71,7 +71,7 @@ const ENUMS = {
   additionalIncomeType: ["work", "business", "both"],
 };
 
-// PUT /api/farmers/me — everything NIMC did not provide can be edited. Location is NOT edited here (see residence).
+// PUT /api/farmers/me, everything NIMC did not provide can be edited. Location is NOT edited here (see residence).
 export async function updateMyProfile(req, res) {
   const b = req.body || {};
   if (["state", "lga", "ward", "unit"].some((k) => b[k] !== undefined && b[k] !== null && b[k] !== "")) {
@@ -122,7 +122,7 @@ export async function updateMyProfile(req, res) {
 
 const inRange = (n, lo, hi) => Number.isFinite(n) && n >= lo && n <= hi;
 
-// PUT /api/farmers/me/residence — the residential address can change at any time; the unit follows it automatically.
+// PUT /api/farmers/me/residence, the residential address can change at any time; the unit follows it automatically.
 export async function changeResidence(req, res) {
   const b = req.body || {};
   const address = String(b.address || "").trim();

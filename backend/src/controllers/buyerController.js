@@ -3,7 +3,7 @@ import { pool } from "../db/pool.js";
 // --- Buyer's own profile ---------------------------------------------------
 // Buyers previously had no edit flow at all (display + photo only, per the
 // AccountProfileCard comment). 2026-09-01 spec: buyers get real edit tools,
-// same shape as farmerController.updateMyProfile — only touch a column if
+// same shape as farmerController.updateMyProfile, only touch a column if
 // the caller actually sent a value for it (COALESCE against the existing
 // value), so a partial edit never blanks out fields it didn't mean to touch.
 
@@ -78,7 +78,7 @@ export async function updateMyProfile(req, res) {
 // --- Admin: buyer directory -------------------------------------------------
 // Every registered buyer, full registration info, same visibility model as
 // the admin branch of farmers.jurisdictionOverview (company-wide, not
-// scoped) — 2026-09-01 "buyers need to be accessible to admin same way as
+// scoped), 2026-09-01 "buyers need to be accessible to admin same way as
 // farmers" spec.
 
 export async function adminListBuyers(req, res) {

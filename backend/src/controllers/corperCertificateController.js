@@ -23,7 +23,7 @@ function httpError(message, status = 400) {
 }
 
 // ---------------------------------------------------------------------
-// Progress — read through the SAME loader the member dashboard, the admin
+// Progress, read through the SAME loader the member dashboard, the admin
 // progress table and the export use (v27 learning), so they cannot disagree.
 // "Completed every course" = paid now AND every live NYSC AGROALLIED SAED course earned.
 // ---------------------------------------------------------------------
@@ -98,7 +98,7 @@ export async function issueCertificateIfEligible(userId) {
 }
 
 // ---------------------------------------------------------------------
-// Emails — one by one, small delay, outcome recorded per certificate
+// Emails, one by one, small delay, outcome recorded per certificate
 // ---------------------------------------------------------------------
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const emailDelayMs = () => {
@@ -112,10 +112,10 @@ function readyEmail(name) {
     subject: "Your EPHAAG Farms certificate is ready",
     html:
       `<p>Dear ${escapeHtml(name)},</p>` +
-      `<p>Congratulations — your batch has been marked complete and your EPHAAG Farms training certificate is now ready.</p>` +
+      `<p>Congratulations, your batch has been marked complete and your EPHAAG Farms training certificate is now ready.</p>` +
       `<p>Sign in and open the <strong>Certificate</strong> tab to download it as a PDF:<br/><a href="${link}">${link}</a></p>` +
       `<p>The certificate carries a QR code anyone can scan to confirm it is genuine.</p>` +
-      `<p>— EPHAAG Farms</p>`,
+      `<p>EPHAAG Farms</p>`,
   };
 }
 function escapeHtml(s) {
@@ -123,10 +123,10 @@ function escapeHtml(s) {
 }
 
 // Sends the "ready" email for one certificate and records what happened.
-//   sent            – SMTP accepted it
-//   failed          – SMTP error (can be resent)
-//   not_configured  – no SMTP on this server, so nothing really left (can be resent later)
-//   no_email        – the member has no email address
+//   sent, SMTP accepted it
+//   failed, SMTP error (can be resent)
+//   not_configured, no SMTP on this server, so nothing really left (can be resent later)
+//   no_email, the member has no email address
 export async function notifyOne(certId) {
   const { rows } = await pool.query(
     `SELECT c.id, c.visible, u.name, u.email FROM corper_certificates c JOIN users u ON u.id = c.user_id WHERE c.id = $1`,
@@ -209,7 +209,7 @@ export async function myCertificate(req, res) {
   const batch = bRows[0] || {};
   const base = { progress: { done: prog.done, total: prog.total }, batch: { dueDate: batch.due_date || null, closed: !!batch.completed } };
 
-  // Decision 1: members who have not finished see "not completed" — no
+  // Decision 1: members who have not finished see "not completed", no
   // certificate and no email. A finished member whose batch is still open
   // sees "awaiting batch completion" (the record exists but stays hidden).
   if (cert?.visible) {
@@ -231,7 +231,7 @@ export async function myCertificate(req, res) {
   res.json({ ...base, status: "not_completed" });
 }
 
-// GET /api/corpers/certificate/download — only a VISIBLE certificate of the
+// GET /api/corpers/certificate/download, only a VISIBLE certificate of the
 // signed-in member.
 export async function downloadMyCertificate(req, res) {
   const { rows } = await pool.query(`SELECT * FROM corper_certificates WHERE user_id = $1 AND visible = TRUE`, [req.user.id]);
@@ -248,7 +248,7 @@ export async function downloadMyCertificate(req, res) {
 }
 
 // ---------------------------------------------------------------------
-// Public verification — name, batch and issue date only
+// Public verification, name, batch and issue date only
 // ---------------------------------------------------------------------
 const hits = new Map(); // ip -> [timestamps]
 function tooManyAttempts(ip) {

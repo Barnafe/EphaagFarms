@@ -2,15 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../api/client.js";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 
-// Moved out of Finance Department's "Prices" tab (2026-09-03 spec) — same
+// Moved out of Finance Department's "Prices" tab (2026-09-03 spec), same
 // /finance/prices GET/PATCH wiring, just reachable directly from the
 // hamburger menu instead of buried a tab-click deep.
 //
 // 2026-09-05 spec (item #5): admin has usually already added a good number
 // of catalog items by the time they come here, so a table listing every one
-// of them at once got long and cluttered. Replaced with a single dropdown —
-// pick the item, its current buy/sell price (and unit or age/description,
-// read-only here — edit those from Add Catalog instead) fills in below, and
+// of them at once got long and cluttered. Replaced with a single dropdown, // pick the item, its current buy/sell price (and unit or age/description,
+// read-only here, edit those from Add Catalog instead) fills in below, and
 // there's just the one editing form on screen at a time.
 export default function AddPricePage() {
   const [prices, setPrices] = useState([]);
@@ -99,7 +98,7 @@ export default function AddPricePage() {
         ) : prices.length === 0 ? (
           <div className="card">
             <p className="text-sm text-ink-600">
-              No crops in the catalog yet — add one from Add Catalog first.
+              No crops in the catalog yet, add one from Add Catalog first.
             </p>
           </div>
         ) : (
@@ -132,7 +131,7 @@ export default function AddPricePage() {
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="text-xs">Buy price (₦) — paid to farmers</label>
+                    <label className="text-xs">Buy price (₦), paid to farmers</label>
                     <input
                       type="number"
                       min="0"
@@ -141,7 +140,7 @@ export default function AddPricePage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs">Sell price (₦) — charged to buyers</label>
+                    <label className="text-xs">Sell price (₦), charged to buyers</label>
                     <input
                       type="number"
                       min="0"

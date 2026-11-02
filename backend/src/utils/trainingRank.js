@@ -1,13 +1,12 @@
-// Training-completion rank — distinct from the leadership rank in
+// Training-completion rank, distinct from the leadership rank in
 // farmer_profiles.rank (Unit Leader/Ward Leader/etc). This one is earned
 // by completed training CYCLES (calendar quarters with at least one
-// cleared attendance), not individual sessions — corrected 2026-08-11
+// cleared attendance), not individual sessions, corrected 2026-08-11
 // after the user clarified trainings happen 2x/month (~24/year). Ranking
 // by raw session count would blow through every tier in ~6 weeks, so
 // tiers now advance one per QUARTER engaged with, matching the same
 // quarterly cadence the loan grading indices use. See
-// [[ephaag-farms-farmer-room-specs]] memory for the full reasoning —
-// this is Claude's judgment call to fix the pacing problem, not something
+// [[ephaag-farms-farmer-room-specs]] memory for the full reasoning, // this is Claude's judgment call to fix the pacing problem, not something
 // the user specified in these exact terms, flagged to them accordingly.
 //
 // 0 quarters -> Novice

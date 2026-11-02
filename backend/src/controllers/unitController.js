@@ -1,6 +1,6 @@
 import { pool } from "../db/pool.js";
 
-// Unit Leader "create unit" (2026-09-06 spec) — a Unit Leader proposes a
+// Unit Leader "create unit" (2026-09-06 spec), a Unit Leader proposes a
 // new unit from a nearby community once it's built up a strong, consistent
 // group; it sits pending until admin approves it into an official company
 // unit. Always visible in the proposing leader's own list regardless of

@@ -234,6 +234,7 @@ export default function BuyerRoom() {
             <div className="space-y-6">
               <div>
                 <h1 className="text-xl font-medium text-white">Welcome, {user.name}</h1>
+                <p className="mt-1 text-sm text-canopy-100">You can place an order against a committed period of time instead of paying per order.</p>
               </div>
               <StandingCommitmentCard commitment={commitment} onCommit={handleCommit} />
             </div>

@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
         const { user } = await apiFetch("/auth/me");
         setSession(toSession(user));
       } catch {
-        // Token invalid/expired — clear it silently and fall back to logged-out.
+        // Token invalid/expired, clear it silently and fall back to logged-out.
         setToken(null);
       } finally {
         setLoading(false);
@@ -42,7 +42,7 @@ export function AuthProvider({ children }) {
     return user;
   }
 
-  // Registration is free and immediate — creates the account and logs
+  // Registration is free and immediate, creates the account and logs
   // the user straight in, same as login().
   async function register(payload) {
     const { user, token } = await apiFetch("/auth/register", {

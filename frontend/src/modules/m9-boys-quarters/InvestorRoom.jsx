@@ -118,7 +118,7 @@ export default function InvestorRoom() {
         <div className={`card mb-6 ${returned.outcome === "success" ? "border-canopy-200 bg-canopy-50" : returned.outcome === "pending" ? "border-harvest-200 bg-harvest-50" : "border-red-200 bg-red-50"}`} role="status">
           <p className="text-sm text-ink-900">
             {returned.outcome === "success" && "Payment received. Thank you. A receipt has been sent to you."}
-            {returned.outcome === "pending" && "We are still waiting for Paystack to confirm your payment. This page updates by itself; you will also get a message."}
+            {returned.outcome === "pending" && "We are still waiting to confirm your payment. This page updates by itself."}
             {returned.outcome === "failed" && "The payment did not go through. Nothing was taken, so you can try again."}
             {returned.outcome === "refused" && `Your payment arrived but could not be used because ${returned.refusalText || "it could not be applied"}. Our administrators have been told and will return the money to you.`}
             {returned.outcome === "expired" && "That payment page has expired. Please start again."}

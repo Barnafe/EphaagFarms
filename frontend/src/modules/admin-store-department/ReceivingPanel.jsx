@@ -1,10 +1,10 @@
 import { useState } from "react";
 
 // "Any goods that comes, store verify and store it physically and update
-// the inventory on the portal" — Store's explicit receiving action.
+// the inventory on the portal", Store's explicit receiving action.
 // Quantity received defaults to what the order expected but is editable
-// (e.g. shrinkage), and that entered number — not the order's original
-// ask — is what actually enters the stock pool.
+// (e.g. shrinkage), and that entered number, not the order's original
+// ask, is what actually enters the stock pool.
 export default function ReceivingPanel({ orders, onReceive }) {
   const [quantities, setQuantities] = useState({});
 
@@ -24,7 +24,7 @@ export default function ReceivingPanel({ orders, onReceive }) {
     <div className="card">
       <p className="text-sm text-ink-600">Goods awaiting receipt</p>
       <p className="mt-1 text-xs text-ink-600">
-        Processed orders ready to be physically received into store — verify quantity before confirming.
+        Processed orders ready to be physically received into store, verify quantity before confirming.
       </p>
       <div className="mt-3 space-y-3">
         {orders.length === 0 && <p className="text-sm text-ink-600">Nothing waiting on receipt.</p>}
@@ -34,7 +34,7 @@ export default function ReceivingPanel({ orders, onReceive }) {
             <div className="field mt-2 space-y-2">
               {o.items.map((i) => (
                 <div key={i.id} className="flex items-center gap-2 text-sm">
-                  <span className="flex-1 text-ink-900">{i.crop} — expected {i.quantity} {i.unit}</span>
+                  <span className="flex-1 text-ink-900">{i.crop}, expected {i.quantity} {i.unit}</span>
                   <input
                     type="number"
                     min="0"

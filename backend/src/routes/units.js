@@ -8,7 +8,7 @@ const router = Router();
 
 router.use(requireAuth);
 
-// Unit Leader (or admin acting as one) — propose a new unit / see their own.
+// Unit Leader (or admin acting as one), propose a new unit / see their own.
 router.post("/", requireFarmerRankOrAdmin("Unit Leader"), units.proposeUnit);
 router.get("/mine", requireFarmerRankOrAdmin("Unit Leader"), units.myUnits);
 
@@ -19,7 +19,7 @@ router.put("/catalog/:id", requireRole("admin"), catalog.updateCatalogUnit);
 router.get("/mine/location", requireFarmerRankOrAdmin("Unit Leader"), catalog.getMyUnitLocation);
 router.put("/mine/location", requireFarmerRankOrAdmin("Unit Leader"), catalog.setMyUnitLocation);
 
-// Admin — review queue.
+// Admin, review queue.
 router.get("/admin/pending", requireRole("admin"), units.adminPendingUnits);
 router.post("/admin/:id/decide", requireRole("admin"), units.adminDecideUnit);
 

@@ -8,6 +8,7 @@ const UNIT_OPTIONS = [
   { value: "tubers", label: "Tubers" },
   { value: "crates", label: "Crates" },
   { value: "baskets", label: "Baskets" },
+  { value: "others", label: "Others" },
 ];
 
 export default function ListProductPanel() {
@@ -83,7 +84,7 @@ export default function ListProductPanel() {
   }
 
   async function handleDelete(product) {
-    if (!window.confirm(`Remove this listing (${product.crop} — ${product.quantity} ${product.unit})?`)) return;
+    if (!window.confirm(`Remove this listing (${product.crop}, ${product.quantity} ${product.unit})?`)) return;
     try {
       await apiFetch(`/farmers/me/products/${product.id}`, { method: "DELETE" });
       await load();
@@ -98,7 +99,7 @@ export default function ListProductPanel() {
         <div>
           <p className="text-sm text-ink-600">List product</p>
           <p className="mt-1 text-xs text-ink-600">
-            Put something up for sale, whenever you're ready — this morning, this evening, anytime.
+            Put something up for sale, whenever you're ready, this morning, this evening, anytime.
           </p>
         </div>
         {!showForm && (
@@ -110,7 +111,7 @@ export default function ListProductPanel() {
 
       {balances.length === 0 && (
         <p className="mt-3 text-sm text-harvest-600">
-          You haven't declared any products yet — declare one above before listing it for sale.
+          You haven't declared any products yet, declare one above before listing it for sale.
         </p>
       )}
 
@@ -121,7 +122,7 @@ export default function ListProductPanel() {
             <select value={crop} onChange={(e) => { setCrop(e.target.value); setQuantity(""); }}>
               {balances.map((b) => (
                 <option key={b.crop} value={b.crop}>
-                  {b.crop} — {b.remaining} {b.unit} left to list
+                  {b.crop}: {b.remaining} {b.unit} left to list
                 </option>
               ))}
             </select>
@@ -180,7 +181,7 @@ export default function ListProductPanel() {
           {products.map((p) => (
             <div key={p.id} className="flex items-center justify-between rounded-card border border-soil-200 px-3 py-2 text-sm">
               <div>
-                <p className="text-ink-900">{p.crop} — {p.quantity} {p.unit}</p>
+                <p className="text-ink-900">{p.crop}: {p.quantity} {p.unit}</p>
                 <p className="text-xs text-ink-600">{p.address}</p>
               </div>
               <div className="flex items-center gap-3">

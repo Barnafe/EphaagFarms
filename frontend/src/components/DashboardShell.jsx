@@ -19,17 +19,16 @@ function initials(name = "") {
 // every member room (Farmer, Buyers/Processor, Investor, ...). Matches the
 // reference layout: logo at the top, a fixed list of rooms down the left
 // that never changes no matter what's open, and the active room's content
-// on the right. Clicking a menu item swaps the content in place — no more
+// on the right. Clicking a menu item swaps the content in place, no more
 // "back, back, back to reach the dashboard" navigation.
 //
 // items: [{ key, label, icon: LucideComponent }]
 // activeKey / onSelect: which item is showing + how to switch
 //
 // exitTo: only passed by the admin-facing department shells (Production,
-// Procurement, Transport, Store, Finance, Maintenance, TRC — see each
+// Procurement, Transport, Store, Finance, Maintenance, TRC, see each
 // department's *Department.jsx). When set, an "Exit" entry is always
-// available in the hamburger menu itself, not just in ActingAsBanner —
-// that banner only renders when the department was reached via "Login
+// available in the hamburger menu itself, not just in ActingAsBanner, // that banner only renders when the department was reached via "Login
 // As" (see ActingAsContext.jsx), so a department opened directly from
 // AdminDashboardShell's own sidebar (TRC, most commonly) previously had
 // no banner and therefore no way back at all. This is unconditional
@@ -41,7 +40,7 @@ export default function DashboardShell({ items, activeKey, onSelect, exitTo, chi
   const { setActingAs } = useActingAs();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  // Closed by default on EVERY screen size — the whole nav lives behind the
+  // Closed by default on EVERY screen size, the whole nav lives behind the
   // hamburger now, not just on mobile, so the working area isn't competing
   // with a permanently-visible menu column. Opening it slides an overlay in
   // over the content rather than pushing it, on desktop and mobile alike.
@@ -67,7 +66,7 @@ export default function DashboardShell({ items, activeKey, onSelect, exitTo, chi
   function handleExit() {
     // Clear actingAs first so the back-button trap (ActingAsContext.jsx)
     // disarms itself, then replace (not push) so this department's history
-    // entry doesn't linger as a stray back-stop — mirrors ActingAsBanner's
+    // entry doesn't linger as a stray back-stop, mirrors ActingAsBanner's
     // own Exit button, which does the same thing for the "Login As" case.
     setActingAs(null);
     setNavOpen(false);

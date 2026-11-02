@@ -67,7 +67,7 @@ export default function Header() {
           <span className="font-display text-lg font-semibold text-white sm:text-xl">Ephaag Farms</span>
         </Link>
 
-        {/* Desktop nav + actions — only shown once there's genuinely enough
+        {/* Desktop nav + actions, only shown once there's genuinely enough
             room for the logo + 5 links + 3 buttons on one line (xl+).
             Anything narrower (including most laptop windows) gets the
             hamburger below instead of a squeezed, wrapping row. */}
@@ -92,7 +92,7 @@ export default function Header() {
 
         <div className="hidden shrink-0 gap-1.5 xl:flex">{authLinks}</div>
 
-        {/* Hamburger toggle — covers everything below xl, including normal
+        {/* Hamburger toggle, covers everything below xl, including normal
             laptop widths (~1024-1280px), so the nav never gets a chance to
             wrap into a messy multi-row mess. */}
         <button

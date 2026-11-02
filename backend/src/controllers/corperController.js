@@ -34,7 +34,7 @@ export async function getMyProfile(req, res) {
   }
 }
 
-// PUT /api/corpers/me/profile/:section — saves one profile tab at a time.
+// PUT /api/corpers/me/profile/:section, saves one profile tab at a time.
 // Only fields belonging to that tab are ever written, and each is
 // validated against the shared spec (utils/corperProfile.js).
 export async function updateMySection(req, res) {
@@ -46,7 +46,7 @@ export async function updateMySection(req, res) {
   const { cols, error } = coerceSection(section, req.body || {});
   if (error) return res.status(400).json({ error });
 
-  // The three consent flags are NOT NULL (default false) — an unanswered
+  // The three consent flags are NOT NULL (default false), an unanswered
   // (null) value from the form just means "leave as is", never "clear".
   for (const c of ["consent_terms", "consent_data", "consent_media"]) {
     if (cols[c] === null) delete cols[c];

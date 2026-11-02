@@ -44,14 +44,14 @@ export default function PayPanel({ application, onError }) {
       <table className="w-full max-w-sm text-sm">
         <tbody>
           <tr><td className="text-ink-600">{activating && application.planType === "bulk" ? "Investment amount" : "Monthly payment"}</td><td className="text-right text-ink-900">{naira(ob.amount)}</td></tr>
-          <tr><td className="text-ink-600">Payment processing fee (Paystack)</td><td className="text-right text-ink-900">{naira(ob.fee)}</td></tr>
-          <tr className="border-t border-soil-200 font-medium"><td className="text-ink-900">Total to pay</td><td className="text-right text-ink-900">{naira(ob.total)}</td></tr>
+          <tr><td className="text-ink-600">Paystack Charges</td><td className="text-right text-ink-900">{naira(ob.fee)}</td></tr>
+          <tr className="border-t border-soil-200 font-medium"><td className="text-ink-900">Total</td><td className="text-right text-ink-900">{naira(ob.total)}</td></tr>
         </tbody>
       </table>
       {activating && application.planType === "monthly" && application.paymentMode === "auto" && (
-        <p className="text-xs text-ink-600">You chose automatic payments: pay this first month by card and the card is saved, then charged on each due date.</p>
+        <p className="text-xs text-ink-600">You chose automatic payments. Pay this month by card; it is saved and charged on each due date.</p>
       )}
-      <button type="button" className="btn-primary" disabled={busy} onClick={start}>{busy ? "Opening Paystack…" : "Pay securely with Paystack"}</button>
+      <button type="button" className="btn-primary" disabled={busy} onClick={start}>{busy ? "Please wait…" : "Proceed & Pay"}</button>
     </div>
   );
 }

@@ -5,17 +5,17 @@ const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i);
 const UNIT_OPTIONS = ["kg", "tons", "bags", "tubers", "crates", "baskets"];
 
 // "Just to take note of our development and farming achievements
-// annually" — the actual point of this department, split into two
+// annually", the actual point of this department, split into two
 // distinct things (2026-09-05):
 //
-// 1. "Declare annual production" — the company's own single official
+// 1. "Declare annual production", the company's own single official
 //    figure per crop for the year, company-wide. No farm selection here
 //    on purpose: this is Ephaag declaring one combined total ("we
 //    produced X yam in 2026"), not a per-farm breakdown. Backed by
 //    production_annual_declarations (one row per year+crop).
-// 2. "Farm harvest totals" — a read-only rollup of the Harvests tab's
+// 2. "Farm harvest totals", a read-only rollup of the Harvests tab's
 //    per-farm records (that tab is where farm-by-farm output actually
-//    gets tracked — see HarvestLog/FarmList), shown here just so the two
+//    gets tracked, see HarvestLog/FarmList), shown here just so the two
 //    views sit side by side for comparison.
 export default function AnnualSummary({ year, onYearChange, summary, declarations, onDeclareAnnual }) {
   const [crop, setCrop] = useState("");
@@ -51,7 +51,7 @@ export default function AnnualSummary({ year, onYearChange, summary, declaration
         <div className="flex items-center justify-between">
           <p className="text-sm text-ink-600">Annual production summary</p>
           {/* on-light: this is a white control sitting inside the dark
-              .dash-scope area — without it, the dashboard's global light-text
+              .dash-scope area, without it, the dashboard's global light-text
               rule (meant for dark cards) would make the selected year
               unreadable on the select's white background. See the on-light
               block in index.css. */}
@@ -72,7 +72,7 @@ export default function AnnualSummary({ year, onYearChange, summary, declaration
 
         <p className="mt-3 text-sm text-ink-600">Declare annual production</p>
         <p className="mt-1 text-xs text-ink-600">
-          The company's own combined total for the year, by crop — not tied to any one farm. For
+          The company's own combined total for the year, by crop, not tied to any one farm. For
           per-farm output, use the Harvests tab instead.
         </p>
         <form onSubmit={handleSubmit} className="field mt-3 grid gap-3 sm:grid-cols-3">
@@ -122,7 +122,7 @@ export default function AnnualSummary({ year, onYearChange, summary, declaration
                       <td className="py-2 pr-3 text-ink-900">
                         {d.quantity} {d.unit}
                       </td>
-                      <td className="py-2 text-ink-600">{d.note || "—"}</td>
+                      <td className="py-2 text-ink-600">{d.note || "N/A"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -147,17 +147,19 @@ export default function AnnualSummary({ year, onYearChange, summary, declaration
                   <th className="pb-2 pr-3">Crop</th>
                   <th className="pb-2 pr-3">Declarations</th>
                   <th className="pb-2 pr-3">Total declared</th>
+                  <th className="pb-2 pr-3">Worth</th>
                   <th className="pb-2">Confirmed by Store</th>
                 </tr>
               </thead>
               <tbody>
                 {summary.map((row) => (
-                  <tr key={row.crop} className="border-t border-soil-200">
-                    <td className="py-2 pr-3 font-medium text-ink-900">{row.crop}</td>
+                  <tr key={`${row.crop}-${row.unit}-${row.kind}`} className="border-t border-soil-200">
+                    <td className="py-2 pr-3 font-medium text-ink-900">{row.crop}{row.kind === "livestock" ? <span className="ml-1 text-xs font-normal text-ink-600">(livestock)</span> : null}</td>
                     <td className="py-2 pr-3 text-ink-600">{row.declarations}</td>
                     <td className="py-2 pr-3 text-ink-900">
                       {row.totalDeclared} {row.unit}
                     </td>
+                    <td className="py-2 pr-3 text-ink-600">{row.totalRevenue ? `₦${Number(row.totalRevenue).toLocaleString()}` : "N/A"}</td>
                     <td className="py-2 text-ink-900">
                       {row.totalReceived} {row.unit}
                     </td>

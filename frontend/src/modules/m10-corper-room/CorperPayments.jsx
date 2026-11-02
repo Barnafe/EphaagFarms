@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import PaymentPreview from "../../components/PaymentPreview.jsx";
 import { CheckCircle2, CalendarClock, X, Receipt } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
 
@@ -102,7 +103,7 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
 
       {error && <p role="alert" className="rounded-card border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       {outcomeMsg && !verifying && <p role="status" className="rounded-card border border-[#dba532] bg-[#fbf1dd] p-3 text-sm text-ink-900">{outcomeMsg}</p>}
-      {verifying && <p className="rounded-card border border-[#dba532] bg-[#fbf1dd] p-3 text-sm text-ink-900">Checking your payment with the gateway…</p>}
+      {verifying && <p className="rounded-card border border-[#dba532] bg-[#fbf1dd] p-3 text-sm text-ink-900">Checking your payment…</p>}
       {notice && !verifying && <p role="status" className="rounded-card border border-[#dba532] bg-[#fbf1dd] p-3 text-sm text-ink-900">{notice}</p>}
 
       {/* Paid: receipt */}
@@ -116,8 +117,6 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
           <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
             <div><dt className="text-xs uppercase tracking-wide text-ink-600">Receipt reference</dt><dd className="font-semibold text-ink-900">{paidPayment.reference}</dd></div>
             <div><dt className="text-xs uppercase tracking-wide text-ink-600">Access fee</dt><dd className="font-semibold text-ink-900">{naira(paidPayment.accessFee)}</dd></div>
-            {paidPayment.processingFee > 0 && <div><dt className="text-xs uppercase tracking-wide text-ink-600">Payment processing fee</dt><dd className="font-semibold text-ink-900">{naira(paidPayment.processingFee)}</dd></div>}
-            <div><dt className="text-xs uppercase tracking-wide text-ink-600">Total paid</dt><dd className="font-semibold text-ink-900">{naira(paidPayment.totalCharged)}</dd></div>
             <div><dt className="text-xs uppercase tracking-wide text-ink-600">Paid on</dt><dd className="font-semibold text-ink-900">{when(paidPayment.confirmedAt)}</dd></div>
             <div><dt className="text-xs uppercase tracking-wide text-ink-600">Member</dt><dd className="font-semibold text-ink-900">{user.name}</dd></div>
           </dl>
@@ -136,14 +135,14 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
           </div>
           <p className="mt-2 text-sm text-ink-800">
             {access.pending.provider === "paystack"
-              ? "If you have finished paying, press “I’ve paid — check now”. If you left the payment page, you can start again below."
-              : "Your payment is recorded. Pay using the details our team gave you and quote the reference below — once we confirm it, your training unlocks and you’ll get an email receipt."}
+              ? "If you have finished paying, press “I’ve paid, check now”. If you left the payment page, start again below."
+              : "Your payment is recorded. Pay with the details our team gave you and quote the reference below. Your training unlocks once we confirm it."}
           </p>
           <p className="mt-3 text-sm text-ink-900">Reference: <strong>{access.pending.reference}</strong> · Total to pay: <strong>{naira(access.pending.totalCharged)}</strong></p>
           <div className="mt-4 flex flex-wrap gap-3">
             {access.pending.provider === "paystack" && (
               <>
-                <button type="button" disabled={busy} onClick={() => recheck(access.pending.reference)} className="h-11 rounded-card bg-[#2c6b2f] px-5 text-sm font-semibold text-white disabled:opacity-60">I’ve paid — check now</button>
+                <button type="button" disabled={busy} onClick={() => recheck(access.pending.reference)} className="h-11 rounded-card bg-[#2c6b2f] px-5 text-sm font-semibold text-white disabled:opacity-60">I’ve paid, check now</button>
                 {access.pending.authorizationUrl && (
                   <a href={access.pending.authorizationUrl} className="inline-flex h-11 items-center rounded-card border border-[#2c6b2f] px-5 text-sm font-medium text-[#2c6b2f]">Open payment page</a>
                 )}
@@ -172,18 +171,21 @@ export default function CorperPayments({ user, verifying, notice, onChanged }) {
           {fee ? (
             <>
               <p className="mt-3 font-display text-4xl font-semibold text-ink-900">{naira(fee)}</p>
-              {quote && quote.processingFee > 0 && (
-                <p className="mt-1 text-sm text-ink-800">Payment processing fee {naira(quote.processingFee)} · you pay <strong>{naira(quote.totalToPay)}</strong> in total</p>
-              )}
-              <p className="mt-1 text-sm text-ink-800">Pay once to unlock all NYSC AGROALLIED SAED training, quizzes and your certificate. Nothing opens or counts toward your progress until the fee is paid.</p>
+              <p className="mt-1 text-sm text-ink-800">One payment unlocks all NYSC AGROALLIED SAED training, quizzes and your certificate.</p>
               <label className="mt-4 flex items-start gap-2 text-sm text-ink-900">
                 <input type="checkbox" className="mt-1" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
                 <span><strong>This fee is non-refundable once paid.</strong> I understand and agree.</span>
               </label>
-              <button type="button" disabled={busy || !agreed} onClick={payNow} className="mt-3 h-11 rounded-card bg-[#2c6b2f] px-6 text-sm font-semibold text-white disabled:opacity-60">
-                {busy ? "Please wait…" : "Pay now"}
-              </button>
-              {mode === "manual" && <p className="mt-2 text-xs text-ink-600">Online card payment isn’t switched on yet — we’ll confirm your payment by hand.</p>}
+              {quote && mode !== "manual" ? (
+                <div className="mt-3"><PaymentPreview amount={fee} fee={quote.processingFee} total={quote.totalToPay} amountLabel="Access fee" onProceed={payNow} busy={busy} disabled={!agreed} /></div>
+              ) : (
+                <>
+                  <button type="button" disabled={busy || !agreed} onClick={payNow} className="mt-3 h-11 rounded-card bg-[#2c6b2f] px-6 text-sm font-semibold text-white disabled:opacity-60">
+                    {busy ? "Please wait…" : "Proceed & Pay"}
+                  </button>
+                  {mode === "manual" && <p className="mt-2 text-xs text-ink-600">Online payment is not available yet. Our team will confirm your payment.</p>}
+                </>
+              )}
             </>
           ) : (
             <p className="mt-3 text-sm text-ink-800">The access fee hasn’t been announced yet. Please check back soon.</p>

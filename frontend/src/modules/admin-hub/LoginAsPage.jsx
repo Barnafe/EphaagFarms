@@ -6,10 +6,9 @@ import { useActingAs } from "../../context/ActingAsContext.jsx";
 import SectionDropdown from "../../components/SectionDropdown.jsx";
 
 // The 7 positions a real hire would eventually fill (kept in sync with
-// DEPARTMENTS in backend/src/controllers/adminPositionsController.js — the
+// DEPARTMENTS in backend/src/controllers/adminPositionsController.js, the
 // same list used for HOD appointment). Every one of these routes is already
-// gated by role_type='admin' alone, so there's nothing to authenticate —
-// clicking straight-up takes the admin into that department's real,
+// gated by role_type='admin' alone, so there's nothing to authenticate, // clicking straight-up takes the admin into that department's real,
 // fully-working screen with every control active, same as if that
 // department's head were logged in themselves.
 const departments = [
@@ -19,9 +18,9 @@ const departments = [
   { key: "Store", to: "/admin/store", desc: "Inventory, receiving, allocation, restock requests.", icon: Warehouse },
   { key: "Finance", to: "/admin/finance", desc: "Payments, the loan pipeline, settlements.", icon: Landmark },
   { key: "Maintenance", to: "/admin/maintenance", desc: "Vehicle and equipment upkeep.", icon: Wrench },
-  { key: "TRC", to: "/admin/trc", desc: "Training, Research & Consultancy — courses, research, and consultancy bookings.", icon: GraduationCap },
+  { key: "TRC", to: "/admin/trc", desc: "Training, Research & Consultancy, courses, research, and consultancy bookings.", icon: GraduationCap },
   // Not one of the 7 HOD-appointed positions (no department_head_of value
-  // for this) — Unit Leader is a farmer rank, not a department. Added here
+  // for this), Unit Leader is a farmer rank, not a department. Added here
   // anyway (2026-09-06 spec) purely as another "step into this seat"
   // entry point, wired the same way: the backend already treats
   // role_type='admin' as a company-wide Unit Leader bypass on every
@@ -39,8 +38,7 @@ export default function LoginAsPage() {
   function handleLoginAs(dept) {
     setActingAs(dept.key, dept.to);
     // replace, not push: this picker screen shouldn't linger in history as
-    // an extra back-stop between the department and the admin dashboard —
-    // see ActingAsContext.jsx for the back-button guard that takes over
+    // an extra back-stop between the department and the admin dashboard, // see ActingAsContext.jsx for the back-button guard that takes over
     // from here while acting as a department.
     navigate(dept.to, { replace: true });
   }

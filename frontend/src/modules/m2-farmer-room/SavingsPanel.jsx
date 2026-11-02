@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import PaymentPreview from "../../components/PaymentPreview.jsx";
 import { apiFetch } from "../../api/client.js";
 
 import SectionStack from "../../components/SectionStack.jsx";
@@ -17,7 +18,7 @@ function ConsentModal({ onAgree, onCancel }) {
         <p className="mt-2 text-sm text-ink-700">
           You're about to make a savings deposit. Deposits are only accepted between the
           <strong> 1st and 5th of every month</strong>. Every deposit you make automatically sets
-          aside ₦500 into your insurance (risk mitigation) account — the remainder goes into your
+          aside ₦500 into your insurance (risk mitigation) account, the remainder goes into your
           main savings.
         </p>
         <p className="mt-2 text-sm text-ink-700">
@@ -82,7 +83,7 @@ export default function SavingsPanel() {
     setError(null);
     try {
       const r = await apiFetch("/farmers/me/savings/deposit", { method: "POST", body: { amount: amt } });
-      window.location.assign(r.payment.authorizationUrl); // Paystack adds its fee; the deposit is recorded when it confirms
+      window.location.assign(r.payment.authorizationUrl); // the deposit is recorded when the payment confirms
     } catch (err) {
       setError(err.message);
     } finally {
@@ -113,7 +114,7 @@ export default function SavingsPanel() {
       <div>
         <h2 className="text-lg font-medium text-white">Savings</h2>
         <p className="mt-1 text-sm text-canopy-100">
-          A small monthly deposit goes a long way — part of it builds your savings, part of it
+          A small monthly deposit goes a long way, part of it builds your savings, part of it
           protects you.
         </p>
       </div>
@@ -143,7 +144,7 @@ export default function SavingsPanel() {
             {data?.canWithdrawMain
               ? "Withdrawable now."
               : data?.mainWithdrawalUnlocksAt
-              ? `Locked until ${new Date(data.mainWithdrawalUnlocksAt).toLocaleDateString()} — one full year after your first deposit.`
+              ? `Locked until ${new Date(data.mainWithdrawalUnlocksAt).toLocaleDateString()}, one full year after your first deposit.`
               : "Locked for 1 year from your first deposit."}
           </p>
         </div>
@@ -205,23 +206,13 @@ export default function SavingsPanel() {
               </div>
             )}
 
-            <div className="flex gap-3">
-              <button className="btn-outline flex-1" type="button" onClick={() => setShowChoices(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn-primary flex-1"
-                type="button"
-                disabled={!resolvedAmount() || submitting}
-                onClick={handleDeposit}
-              >
-                {submitting ? "Opening Paystack…" : "Pay with Paystack"}
-              </button>
-            </div>
+            {resolvedAmount() && <PaymentPreview amount={resolvedAmount()} onProceed={handleDeposit} busy={submitting} />}
+            <button className="btn-outline w-full" type="button" onClick={() => setShowChoices(false)}>
+              Cancel
+            </button>
             {data && !data.depositWindowOpen && (
               <p className="text-xs text-harvest-600">
-                Deposits are only accepted 1st–5th of the month — you can fill this in now, but it
-                will be rejected until the window opens.
+                Deposits are accepted from the 1st to the 5th of each month.
               </p>
             )}
           </div>
@@ -251,7 +242,7 @@ export default function SavingsPanel() {
           </button>
         </form>
         <p className="mt-2 text-xs text-ink-600">
-          Requests are reviewed by Finance — insurance funds can't be withdrawn by farmers.
+          Requests are reviewed by Finance, insurance funds can't be withdrawn by farmers.
         </p>
       </div>
                 ),
@@ -268,7 +259,7 @@ export default function SavingsPanel() {
         <div className="mt-3 space-y-2">
           {data?.deposits.map((d) => (
             <div key={d.id} className="rounded-card border border-soil-200 px-3 py-2 text-sm">
-              <p className="text-ink-900">Deposit — ₦{d.amount.toLocaleString()}</p>
+              <p className="text-ink-900">Deposit, ₦{d.amount.toLocaleString()}</p>
               <p className="text-xs text-ink-600">
                 ₦{d.mainPortion.toLocaleString()} to main, ₦{d.insurancePortion.toLocaleString()} to
                 insurance · {new Date(d.createdAt).toLocaleDateString()}
@@ -278,7 +269,7 @@ export default function SavingsPanel() {
           {data?.withdrawals.map((w) => (
             <div key={w.id} className="rounded-card border border-soil-200 px-3 py-2 text-sm">
               <p className="text-ink-900">
-                Withdrawal ({w.accountType}) — ₦{w.amount.toLocaleString()}
+                Withdrawal ({w.accountType}), ₦{w.amount.toLocaleString()}
               </p>
               <p className="text-xs text-ink-600">
                 {w.status} · {new Date(w.requestedAt).toLocaleDateString()}

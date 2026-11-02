@@ -1,4 +1,4 @@
-// The approved EPHAAG financing banner — the single source of truth for
+// The approved EPHAAG financing banner, the single source of truth for
 // farmer loan, savings and share figures on the frontend. These mirror the
 // backend (loanController.js / farmerSharesController.js); if the banner
 // ever changes, change both places together.
@@ -12,7 +12,7 @@ export const LOAN_TYPE_LABELS = {
   business_fast_cash: "LT3 · Business Enlargement",
 };
 
-// LT1 — 0% interest. savings -> loan, repayment months.
+// LT1, 0% interest. savings -> loan, repayment months.
 export const AIDED_LEVELS = [
   { level: 1, savings: 10000, loan: 20000, months: 5 },
   { level: 2, savings: 20000, loan: 40000, months: 8 },
@@ -22,7 +22,7 @@ export const AIDED_LEVELS = [
   { level: 6, savings: 60000, loan: 180000, months: 12 },
 ];
 
-// LT2 — 25% deposit, 1-90 day maturity period, 5-month repayment.
+// LT2, 25% deposit, 1-90 day maturity period, 5-month repayment.
 export const BOOST_TIERS = [
   { deposit: 12500, loan: 50000 },
   { deposit: 25000, loan: 100000 },
@@ -31,7 +31,7 @@ export const BOOST_TIERS = [
 ];
 export const BOOST_MONTHS = 5;
 
-// LT3 — 100% interest (repay double), 8-month repayment, faithful participants only.
+// LT3, 100% interest (repay double), 8-month repayment, faithful participants only.
 export const FAST_CASH_TIERS = [
   { loan: 100000, repay: 200000 },
   { loan: 200000, repay: 400000 },

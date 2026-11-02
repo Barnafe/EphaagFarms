@@ -24,7 +24,7 @@ export default function HistoryPanel() {
                 <p className="font-medium text-ink-900">{h.title}</p>
                 <p className="text-xs text-ink-600">
                   {h.reference} · {h.asset_name || "No asset"} · {h.technician_name || h.contractor_name || "Unassigned"} ·{" "}
-                  completed {h.completed_at ? new Date(h.completed_at).toLocaleDateString() : "—"}
+                  completed {h.completed_at ? new Date(h.completed_at).toLocaleDateString() : "N/A"}
                 </p>
                 {h.work_performed && <p className="mt-1 text-sm text-ink-700">{h.work_performed}</p>}
               </div>

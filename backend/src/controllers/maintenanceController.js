@@ -144,7 +144,7 @@ export async function updateTechnician(req, res) {
   res.json({ technician: rows[0] });
 }
 
-// Technician workload — open/active work orders per technician, used by
+// Technician workload, open/active work orders per technician, used by
 // the assignment picker so the HOD can see who's free before assigning.
 export async function technicianWorkload(req, res) {
   const { rows } = await pool.query(
@@ -227,7 +227,7 @@ export async function updatePart(req, res) {
   res.json({ part: rows[0] });
 }
 
-// Manual stock adjustment (restock or correction) — mirrors the Store
+// Manual stock adjustment (restock or correction), mirrors the Store
 // Department's stock_movements pattern: every quantity change is a ledger
 // row, quantity_on_hand is the running total kept in sync alongside it.
 export async function adjustPartStock(req, res) {
@@ -289,7 +289,7 @@ export async function listRequests(req, res) {
   res.json({ requests: rows });
 }
 
-// Step 1: report a fault. No more free-text "reported on behalf of" — the
+// Step 1: report a fault. No more free-text "reported on behalf of", the
 // reporter instead snaps/uploads a photo of the equipment as proof
 // (req.file, via uploadPhoto middleware). Step 2 is no longer a review
 // inside this module: the report is mirrored straight into the generic
@@ -324,7 +324,7 @@ export async function createRequest(req, res) {
       [dReference, req.user.id, title, description || null]
     );
     const departmentRequest = dRows[0];
-    // Single step: the always-final, any-admin step — same rule the generic
+    // Single step: the always-final, any-admin step, same rule the generic
     // workflow auto-appends after any hand-picked chain, used here as the
     // whole chain since a maintenance fault report has no specific
     // per-department approver to name ahead of time.
@@ -472,7 +472,7 @@ export async function recordDiagnosis(req, res) {
   res.json({ workOrder: rows[0] });
 }
 
-// Generic status update — moves the order through in_progress /
+// Generic status update, moves the order through in_progress /
 // awaiting_parts / testing without requiring a dedicated endpoint each.
 export async function updateWorkOrderStatus(req, res) {
   const { id } = req.params;
@@ -487,7 +487,7 @@ export async function updateWorkOrderStatus(req, res) {
   res.json({ workOrder: rows[0] });
 }
 
-// Step 7: Repair / Parts Used — logs a part against the order and
+// Step 7: Repair / Parts Used, logs a part against the order and
 // deducts it from inventory in the same transaction.
 export async function addWorkOrderPart(req, res) {
   const { id } = req.params;
@@ -545,7 +545,7 @@ export async function addInspection(req, res) {
   res.status(201).json({ inspection: rows[0] });
 }
 
-// Step 9-10: Work Completed + Cost Recorded, in one action — closes the
+// Step 9-10: Work Completed + Cost Recorded, in one action, closes the
 // order, marks the asset serviced, and optionally logs a labor/other cost
 // line so completion and its cost land together.
 export async function completeWorkOrder(req, res) {
@@ -633,7 +633,7 @@ export async function createExpense(req, res) {
 }
 
 // =======================================================================
-// Inspections (standalone listing — routine/safety inspections not tied
+// Inspections (standalone listing, routine/safety inspections not tied
 // to closing out a specific work order still get logged via addInspection
 // above with work_order_id omitted... but that requires a work order id.
 // Provide a direct route for asset-only routine/safety checks too.)
@@ -663,7 +663,7 @@ export async function createStandaloneInspection(req, res) {
 }
 
 // =======================================================================
-// Maintenance History — derived view of completed work, not its own
+// Maintenance History, derived view of completed work, not its own
 // table: every step of the workflow already lands somewhere (work order,
 // parts used, inspections, expenses), so History joins them together
 // rather than duplicating the data.
@@ -686,7 +686,7 @@ export async function maintenanceHistory(req, res) {
 }
 
 // =======================================================================
-// Reports — aggregate rollups, computed on demand rather than stored.
+// Reports, aggregate rollups, computed on demand rather than stored.
 // =======================================================================
 
 export async function reports(req, res) {
@@ -729,7 +729,7 @@ export async function reports(req, res) {
 }
 
 // =======================================================================
-// Preventive Maintenance — Asset -> Schedule -> due date -> reminder ->
+// Preventive Maintenance, Asset -> Schedule -> due date -> reminder ->
 // Work Order -> Maintenance -> next due date. Deliberately separate
 // screen/flow from the reactive request/work-order pipeline above.
 // =======================================================================
@@ -777,7 +777,7 @@ export async function updateSchedule(req, res) {
   res.json({ schedule: rows[0] });
 }
 
-// Automatic Reminder — the HOD portal calls this on load (or a cron could
+// Automatic Reminder, the HOD portal calls this on load (or a cron could
 // later); it just flags schedules due within 7 days as reminded, it
 // doesn't need to actually send email/SMS to be useful as an in-app flag.
 export async function runReminderCheck(req, res) {
@@ -789,7 +789,7 @@ export async function runReminderCheck(req, res) {
   res.json({ remindersSent: rows.length, schedules: rows });
 }
 
-// Generates the Work Order for a due schedule — the flow's "-> Work
+// Generates the Work Order for a due schedule, the flow's "-> Work
 // Order" step. next_due_date only rolls forward once that order is
 // completed (see completeWorkOrder above), not at generation time.
 export async function generateWorkOrderFromSchedule(req, res) {

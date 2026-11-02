@@ -15,7 +15,7 @@ import { apiFetch } from "../../api/client.js";
 const GREEN = "#2c6b2f"; // canopy-600
 const RED = "#c81020"; // clay-600
 
-// Groups records into calendar weeks (Mon–Sun) for the chart, same idea as
+// Groups records into calendar weeks (Mon-Sun) for the chart, same idea as
 // the reference design's "weekly attendance" view.
 function groupByWeek(records) {
   const weeks = new Map();
@@ -30,7 +30,7 @@ function groupByWeek(records) {
     const key = monday.toISOString().slice(0, 10);
 
     if (!weeks.has(key)) {
-      weeks.set(key, { label: `${fmt(monday)} – ${fmt(sunday)}`, present: 0, notPresent: 0, sortKey: key });
+      weeks.set(key, { label: `${fmt(monday)}, ${fmt(sunday)}`, present: 0, notPresent: 0, sortKey: key });
     }
     const bucket = weeks.get(key);
     if (r.attended) bucket.present += 1;
@@ -74,7 +74,7 @@ export default function AttendanceRoom() {
       <div>
         <h1 className="text-lg font-medium text-white">Attendance</h1>
         <p className="mt-1 text-sm text-canopy-100">
-          Marked by your Unit Leader at each seminar — nothing here needs any action from you.
+          Marked by your Unit Leader at each seminar.
         </p>
       </div>
 

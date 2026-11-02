@@ -89,7 +89,7 @@ export default function TechniciansPanel() {
             <div>
               <p className="font-medium text-ink-900">{t.name}</p>
               <p className="text-xs text-ink-600">
-                {t.specialty || "General"} · {t.phone || "—"} · {activeOrders(t.id)} active order{activeOrders(t.id) === 1 ? "" : "s"}
+                {t.specialty || "General"} · {t.phone || "N/A"} · {activeOrders(t.id)} active order{activeOrders(t.id) === 1 ? "" : "s"}
               </p>
             </div>
             <button

@@ -35,9 +35,9 @@ function hashToken(raw) {
 }
 
 // ---------------------------------------------------------------------
-// Registration — free and immediate (no verification gate). Many farmers
-// don't have reliable personal email/phone access — sometimes a unit
-// leader creates an account on someone else's device — so account
+// Registration, free and immediate (no verification gate). Many farmers
+// don't have reliable personal email/phone access, sometimes a unit
+// leader creates an account on someone else's device, so account
 // creation must never depend on receiving a code. The account is usable
 // the moment it's created; a token is issued right away.
 //
@@ -63,7 +63,7 @@ export async function register(req, res) {
     return res.status(400).json({ error: "There is no separate Processor account. Register as Buyers/Processor instead." });
   }
 
-  // Email is deliberately NOT required — a lot of farmers in villages
+  // Email is deliberately NOT required, a lot of farmers in villages
   // don't have reliable personal email access, and registration must
   // never depend on having one. But the account needs SOME way to log
   // back in, so at least one of email/phone has to be present.
@@ -71,7 +71,7 @@ export async function register(req, res) {
     return res.status(400).json({ error: "Provide at least an email or a phone number" });
   }
 
-  // Gender isn't meaningful for an organization account — the "name"
+  // Gender isn't meaningful for an organization account, the "name"
   // there is the org's registered contact, not an individual.
   const isOrganizationBuyer = role_type === "buyer" && extra.buyerType === "organization";
   if (!isOrganizationBuyer && (!sex || !["male", "female"].includes(sex))) {
@@ -79,10 +79,10 @@ export async function register(req, res) {
   }
 
   // 2026-09-01 spec: individual buyers must give a delivery address at
-  // registration — delivery location matters too much to leave for later.
+  // registration, delivery location matters too much to leave for later.
   // Organization buyers use registeredAddress instead and are NOT asked
   // for a CAC/registration document at registration anymore (dropped
-  // per the same spec — company_doc_url stays in the schema unused).
+  // per the same spec, company_doc_url stays in the schema unused).
   if (role_type === "buyer" && !isOrganizationBuyer && !extra.address) {
     return res.status(400).json({ error: "Delivery address is required" });
   }
@@ -164,7 +164,7 @@ export async function register(req, res) {
     const user = rows[0];
     user._place = place;
 
-    // Universal referral code — deterministic from the new row's own id,
+    // Universal referral code, deterministic from the new row's own id,
     // so it's guaranteed unique with no retry loop needed. Referral entry
     // is optional (2026-09-06 spec: "referral is optional not mandatory"),
     // so an invalid/unrecognized code is silently ignored rather than
@@ -191,7 +191,7 @@ export async function register(req, res) {
       [ownReferralCode, referredByCode, user.id]
     );
     // Snake_case to match every other base `users` column returned as-is
-    // from Postgres (photo_url, state, lga, etc.) — the frontend already
+    // from Postgres (photo_url, state, lga, etc.), the frontend already
     // reads those defensively (camelCase || snake_case), see
     // ProfilePhotoUploader.jsx.
     user.referral_code = ownReferralCode;
@@ -204,7 +204,7 @@ export async function register(req, res) {
         ? String(extra.crops).split(",").map((c) => c.trim()).filter(Boolean)
         : [];
 
-      // Section C (additional income) sub-fields vary by type — kept as
+      // Section C (additional income) sub-fields vary by type, kept as
       // one JSONB blob rather than a wide sparse set of columns.
       let additionalIncome = null;
       if (extra.additionalIncomeType === "work" || extra.additionalIncomeType === "both") {
@@ -310,7 +310,7 @@ export async function register(req, res) {
     // would deadlock under load (found by the load test; present in v28).
     releaseClient();
 
-    // Non-blocking, purely a nice-to-have — registration never depends on
+    // Non-blocking, purely a nice-to-have, registration never depends on
     // this succeeding.
     if (user.email) {
       const welcome = renderTemplate("welcome", { name: user.name });
@@ -391,7 +391,7 @@ export async function login(req, res) {
   res.json({ user: fullUser, token: signToken(user) });
 }
 
-// POST /auth/logout-all — "Sign out of all devices". Every older token stops
+// POST /auth/logout-all, "Sign out of all devices". Every older token stops
 // working at once, this device's included.
 export async function logoutAll(req, res) {
   await pool.query("UPDATE users SET token_version = token_version + 1 WHERE id = $1", [req.user.id]);
@@ -399,7 +399,7 @@ export async function logoutAll(req, res) {
   res.json({ ok: true });
 }
 
-// POST /auth/change-password — needs the current password; ends all other sessions
+// POST /auth/change-password, needs the current password; ends all other sessions
 // and hands back a fresh token for this one.
 export async function changePassword(req, res) {
   if (req.actingAs) return res.status(403).json({ error: "Not allowed while acting as a department" });
@@ -419,9 +419,9 @@ export async function changePassword(req, res) {
   res.json({ ok: true, token: signToken(upd[0]) });
 }
 
-// Public (no auth — registration hasn't created a token yet). Lets the
+// Public (no auth, registration hasn't created a token yet). Lets the
 // registration form recognize a referral code as it's typed and show whose
-// it is, without exposing anything beyond name/role — see
+// it is, without exposing anything beyond name/role, see
 // FarmerRegisterWizard.jsx step 4 ("Photo & password").
 export async function referralLookup(req, res) {
   const code = String(req.query.code || "").trim().toUpperCase();
@@ -445,7 +445,7 @@ export async function me(req, res) {
 }
 
 // ---------------------------------------------------------------------
-// Forgot / reset password — unrelated to registration, left as-is.
+// Forgot / reset password, unrelated to registration, left as-is.
 // ---------------------------------------------------------------------
 
 export async function forgotPassword(req, res) {
@@ -467,7 +467,7 @@ export async function forgotPassword(req, res) {
     );
 
     // FRONTEND_ORIGIN can be a comma-separated list (see server.js CORS
-    // setup) — the reset link always uses the first entry.
+    // setup), the reset link always uses the first entry.
     const primaryOrigin = (process.env.FRONTEND_ORIGIN || "http://localhost:5173").split(",")[0].trim();
     const resetUrl = `${primaryOrigin}/reset-password?token=${rawToken}&uid=${user.id}`;
     if (process.env.OTP_DEBUG_LOG === "true") console.log(`[otp-debug] reset url: ${resetUrl}`);
@@ -498,7 +498,7 @@ export async function resetPassword(req, res) {
     return res.status(400).json({ error: "Invalid or expired reset link" });
   }
   if (new Date(record.expires_at) < new Date()) {
-    return res.status(400).json({ error: "This reset link has expired — request a new one" });
+    return res.status(400).json({ error: "This reset link has expired, request a new one" });
   }
 
   const password_hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
@@ -509,11 +509,11 @@ export async function resetPassword(req, res) {
   await logSecurityEvent("password_reset", { userId: uid, req });
   await pool.query(`UPDATE password_resets SET consumed_at = now() WHERE id = $1`, [record.id]);
 
-  res.json({ message: "Password updated — you can now log in with your new password." });
+  res.json({ message: "Password updated, you can now log in with your new password." });
 }
 
 // ---------------------------------------------------------------------
-// Profile photo (passport) upload — unrelated to registration, left as-is.
+// Profile photo (passport) upload, unrelated to registration, left as-is.
 // ---------------------------------------------------------------------
 export async function uploadProfilePhoto(req, res) {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });

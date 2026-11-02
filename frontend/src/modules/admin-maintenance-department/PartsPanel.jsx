@@ -103,7 +103,7 @@ export default function PartsPanel() {
                   <div>
                     <p className="font-medium text-ink-900">{p.name}</p>
                     <p className="text-xs text-ink-600">
-                      {p.part_number || "—"} · {p.category || "—"} · ₦{Number(p.unit_cost).toLocaleString()}/{p.unit}
+                      {p.part_number || "N/A"} · {p.category || "N/A"} · ₦{Number(p.unit_cost).toLocaleString()}/{p.unit}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -136,7 +136,7 @@ export default function PartsPanel() {
           {movements.length === 0 && <p className="text-sm text-ink-600">No movements yet.</p>}
           {movements.slice(0, 20).map((m) => (
             <div key={m.id} className="flex items-center justify-between text-sm">
-              <span className="text-ink-800">{m.part_name} — {m.reason.replace(/_/g, " ")}</span>
+              <span className="text-ink-800">{m.part_name}: {m.reason.replace(/_/g, " ")}</span>
               <span className={m.direction === "in" ? "text-canopy-800" : "text-clay-700"}>
                 {m.direction === "in" ? "+" : "−"}{Number(m.quantity)}
               </span>

@@ -12,7 +12,7 @@ export default function MovementHistory({ movements }) {
             </span>
             <span className="text-ink-600">
               {m.reason.replace("_", " ")}
-              {m.order_reference ? ` — ${m.order_reference}` : ""}
+              {m.order_reference ? `, ${m.order_reference}` : ""}
               {m.recorded_by_name ? ` · ${m.recorded_by_name}` : ""}
             </span>
           </div>

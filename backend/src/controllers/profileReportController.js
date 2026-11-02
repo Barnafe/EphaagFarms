@@ -1,6 +1,6 @@
 import { pool } from "../db/pool.js";
 
-// Unit Leader "report profile" (2026-09-06 spec) — a leader can flag a
+// Unit Leader "report profile" (2026-09-06 spec), a leader can flag a
 // profile within their own jurisdiction with a reason and an optional
 // proof image; it goes straight to admin as a pending review.
 
@@ -10,7 +10,7 @@ export async function submitReport(req, res) {
     return res.status(400).json({ error: "reportedUserId and reason are required" });
   }
 
-  // Admin has no jurisdiction of its own — company-wide, any farmer is a
+  // Admin has no jurisdiction of its own, company-wide, any farmer is a
   // valid target (same pattern as the other admin-universal-access
   // branches in farmerRank.js).
   if (req.user.role_type !== "admin") {

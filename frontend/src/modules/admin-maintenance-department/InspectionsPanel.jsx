@@ -87,9 +87,9 @@ export default function InspectionsPanel() {
         {inspections.map((i) => (
           <div key={i.id} className="flex items-center justify-between rounded-card border border-soil-200 px-3 py-2">
             <div>
-              <p className="font-medium text-ink-900">{i.asset_name || "—"}</p>
+              <p className="font-medium text-ink-900">{i.asset_name || "N/A"}</p>
               <p className="text-xs text-ink-600">
-                {i.inspection_type.replace("_", " ")} · {i.inspected_by_name || "—"} · {new Date(i.inspected_at).toLocaleDateString()}
+                {i.inspection_type.replace("_", " ")} · {i.inspected_by_name || "N/A"} · {new Date(i.inspected_at).toLocaleDateString()}
                 {i.work_order_reference ? ` · ${i.work_order_reference}` : ""}
               </p>
               {i.notes && <p className="mt-1 text-sm text-ink-700">{i.notes}</p>}

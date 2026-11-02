@@ -17,7 +17,7 @@ router.post(
 );
 router.get("/mine", requireFarmerRankOrAdmin("Unit Leader"), reports.myReports);
 
-// Admin — review queue.
+// Admin, review queue.
 router.get("/admin/pending", requireRole("admin"), reports.adminPendingReports);
 router.post("/admin/:id/decide", requireRole("admin"), reports.adminDecideReport);
 

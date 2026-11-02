@@ -217,7 +217,7 @@ r = requests.post(f"{BASE}/store/orders/{order_a}/allocate", headers=main_h, jso
 check("allocate blocked before any audit", r.status_code == 400, r.text[:300])
 
 # ============================================================
-# Receive order A's goods — but only 40 of the 60 ordered arrive
+# Receive order A's goods, but only 40 of the 60 ordered arrive
 # (shrinkage). Store records the ACTUAL quantity received.
 # ============================================================
 r = requests.get(f"{BASE}/store/receiving-queue", headers=main_h)
@@ -241,7 +241,7 @@ check("inventory list reachable", r.status_code == 200, r.text[:300])
 maize_stock = next(s for s in r.json()["inventory"] if s["crop"] == "Maize")
 check("pool now has 40 bags maize", float(maize_stock["quantity_on_hand"]) == 40.0, maize_stock)
 
-# Order A needs 60 bags, pool only has 40 — audit should reflect insufficiency
+# Order A needs 60 bags, pool only has 40, audit should reflect insufficiency
 r = requests.post(f"{BASE}/store/orders/{order_a}/audit", headers=main_h, json={"verified": False, "note": "Not enough stock yet"})
 check("audit recorded as failed while stock insufficient", r.status_code == 200 and r.json()["audit"]["verified"] is False, r.text[:300])
 check("audit response includes stock check breakdown", r.json()["stockCheck"]["sufficient"] is False, r.json())

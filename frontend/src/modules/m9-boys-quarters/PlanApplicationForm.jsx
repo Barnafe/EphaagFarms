@@ -31,8 +31,8 @@ export default function PlanApplicationForm({ onSubmit }) {
       <div>
         <label>Plan type</label>
         <select value={planType} onChange={(e) => setPlanType(e.target.value)}>
-          <option value="monthly">Monthly — ₦5,000 and above</option>
-          <option value="bulk">Bulk (one-time payment) — ₦100,000 and above</option>
+          <option value="monthly">Monthly, ₦5,000 and above</option>
+          <option value="bulk">Bulk (one-time payment), ₦100,000 and above</option>
         </select>
       </div>
 
@@ -82,8 +82,7 @@ export default function PlanApplicationForm({ onSubmit }) {
         Submit application
       </button>
       <p className="text-xs text-ink-600">
-        This is a proposal — Finance Department reviews it, then a physical agreement is signed
-        before your investment goes active.
+        This is a proposal. Finance reviews it, then a physical agreement is signed before your investment goes active.
       </p>
     </form>
   );

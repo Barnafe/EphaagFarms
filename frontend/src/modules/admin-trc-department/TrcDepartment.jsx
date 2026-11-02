@@ -10,18 +10,20 @@ import DeptDashboardCards from "../../components/DeptDashboardCards.jsx";
 import DepartmentRequestsPanel from "../../components/DepartmentRequestsPanel.jsx";
 import SectionStack from "../../components/SectionStack.jsx";
 import CorpsCourseEditor from "./CorpsCourseEditor.jsx";
+import SeminarContentEditor from "./SeminarContentEditor.jsx";
 import CorpsPayments from "./CorpsPayments.jsx";
 import CorpsProgress from "./CorpsProgress.jsx";
 import CorpsBatches from "./CorpsBatches.jsx";
 import CorpsMembers from "./CorpsMembers.jsx";
+import ConsultancyRequests from "./ConsultancyRequests.jsx";
 
 import useUrlState from "../../hooks/useUrlState.js";
-// TRC — Training, Research & Consultancy. Restored 2026-09-05 to its
+// TRC: Training, Research & Consultancy. Restored 2026-09-05 to its
 // full three-part scope after a 2026-09-02 round had narrowed the whole
 // department to training-courses-only under the name "Seminal". That
 // narrowing was only ever meant for the farmer-facing tab inside
 // Farmer's Room (which keeps a "Seminar" label and stays courses-only
-// on purpose) — this admin department is the real thing, with all
+// on purpose), this admin department is the real thing, with all
 // three functions.
 
 const items = [
@@ -66,6 +68,9 @@ export default function TrcDepartment() {
   const [submittingResearch, setSubmittingResearch] = useState(false);
   const [researchTitle, setResearchTitle] = useState("");
   const [researchSummary, setResearchSummary] = useState("");
+  const [researchFile, setResearchFile] = useState(null);
+  const [researchFileKey, setResearchFileKey] = useState(0); // changing it empties the file picker after a save
+  const [consultCounts, setConsultCounts] = useState({});
 
   // Consultancy
   const [offerings, setOfferings] = useState([]);
@@ -96,12 +101,13 @@ export default function TrcDepartment() {
 
   const loadConsultancy = useCallback(async () => {
     try {
-      const [{ offerings: o }, { requests: r }] = await Promise.all([
+      const [{ offerings: o }, { requests: r, counts }] = await Promise.all([
         apiFetch("/rtc/admin/consultancy/offerings"),
-        apiFetch("/rtc/admin/consultancy/requests"),
+        apiFetch("/consultancy/admin/requests"),
       ]);
       setOfferings(o);
       setRequests(r);
+      setConsultCounts(counts || {});
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -136,7 +142,8 @@ export default function TrcDepartment() {
       await loadCourses();
       // A NYSC AGROALLIED SAED course is empty until lessons + a quiz are added, so go
       // straight to its editor.
-      if (created?.audience === "corps") setEditingCourse(created);
+      // A seminar topic is empty until videos or slides are added, so open its editor too.
+      if (created) setEditingCourse(created);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -173,19 +180,32 @@ export default function TrcDepartment() {
   async function handleSubmitResearch(e) {
     e.preventDefault();
     if (!researchTitle) return;
+    if (!researchFile) { setError("Attach the research as a PDF file."); return; }
     setSubmittingResearch(true);
     try {
-      await apiFetch("/rtc/admin/research", {
-        method: "POST",
-        body: { title: researchTitle, summary: researchSummary || undefined },
-      });
+      const fd = new FormData();
+      fd.append("title", researchTitle);
+      if (researchSummary) fd.append("summary", researchSummary);
+      fd.append("file", researchFile);
+      await apiUpload("/rtc/admin/research", fd);
       setResearchTitle("");
       setResearchSummary("");
+      setResearchFile(null);
+      setResearchFileKey((k) => k + 1);
+      setError(null);
       await loadResearch();
     } catch (err) {
       setError(err.message);
     } finally {
       setSubmittingResearch(false);
+    }
+  }
+
+  async function handleDownloadResearch(r) {
+    try {
+      await apiDownload(`/rtc/admin/research/${r.id}/file`, r.fileName || `${r.title}.pdf`);
+    } catch (err) {
+      setError(err.message);
     }
   }
 
@@ -226,18 +246,6 @@ export default function TrcDepartment() {
     }
   }
 
-  async function handleUpdateRequestStatus(id, status) {
-    try {
-      await apiFetch(`/rtc/admin/consultancy/requests/${id}/status`, {
-        method: "POST",
-        body: { status },
-      });
-      await loadConsultancy();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
   if (!user) return null;
 
   return (
@@ -254,22 +262,21 @@ export default function TrcDepartment() {
         <div className="max-w-4xl space-y-6">
           <div>
             <p className="text-xs uppercase tracking-wide text-canopy-300">Admin department</p>
-            <h1 className="text-xl font-medium text-white">TRC — Training, Research & Consultancy</h1>
+            <h1 className="text-xl font-medium text-white">TRC: Training, Research & Consultancy</h1>
             <p className="mt-1 text-sm text-canopy-100">
-              Farmer courses are free; NYSC AGROALLIED SAED members pay a one-time access fee (see NYSC AGROALLIED SAED). Use the sidebar to open Training, Research, or Consultancy.
-            </p>
+              Open Training, Research or Consultancy from the sidebar.</p>
           </div>
           <DeptDashboardCards
             endpoint="/rtc/admin/dashboard"
             onNavigate={setTab}
             buildCards={(d) => [
               { label: "Approved courses", value: d.approvedCourses, hint: "General (farmers)", nav: "training" },
-              { label: "Draft courses", value: d.draftCourses, hint: "General — awaiting approval", nav: "training" },
+              { label: "Draft courses", value: d.draftCourses, hint: "General, awaiting approval", nav: "training" },
               { label: "NYSC AGROALLIED SAED courses live", value: d.corpsApprovedCourses, hint: "NYSC AGROALLIED SAED members", nav: "training" },
               { label: "NYSC AGROALLIED SAED drafts", value: d.corpsDraftCourses, hint: "Awaiting lessons, quiz or approval", nav: "training" },
               { label: "NYSC AGROALLIED SAED payments to confirm", value: d.corpsPaymentsPending, hint: "Access fees awaiting confirmation", nav: "corps" },
               { label: "NYSC AGROALLIED SAED members paid", value: d.corpsPaidMembers, hint: "Training unlocked", nav: "corps" },
-              { label: "Published research", value: d.publishedResearch, nav: "research" },
+              { label: "Research items", value: d.publishedResearch, nav: "research" },
               {
                 label: "Pending consultancy requests",
                 value: d.pendingConsultancyRequests,
@@ -280,7 +287,18 @@ export default function TrcDepartment() {
         </div>
       )}
 
-      {tab === "training" && editingCourse && (
+      {tab === "training" && editingCourse && editingCourse.audience !== "corps" && (
+        <SeminarContentEditor
+          course={editingCourse}
+          onBack={() => {
+            setEditingCourse(null);
+            loadCourses();
+          }}
+          onChanged={loadCourses}
+        />
+      )}
+
+      {tab === "training" && editingCourse && editingCourse.audience === "corps" && (
         <CorpsCourseEditor
           course={editingCourse}
           onBack={() => {
@@ -294,7 +312,7 @@ export default function TrcDepartment() {
       {tab === "training" && !editingCourse && (
         <div className="max-w-4xl space-y-6">
           <div>
-            <p className="text-xs uppercase tracking-wide text-canopy-300">TRC — Training</p>
+            <p className="text-xs uppercase tracking-wide text-canopy-300">TRC: Training</p>
             <h1 className="text-xl font-medium text-white">Training courses</h1>
             <p className="mt-1 text-sm text-canopy-100">
               Choose who a course is for. <strong>General</strong> courses are free for farmers and appear in
@@ -334,25 +352,10 @@ export default function TrcDepartment() {
                     placeholder="Description"
                   />
                   {courseAudience === "general" ? (
-                    <>
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <input
-                          value={onlineLink}
-                          onChange={(e) => setOnlineLink(e.target.value)}
-                          placeholder="Online hosting link (optional)"
-                        />
-                        <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="text-xs text-ink-600">Materials (optional — PDF, Word, PowerPoint, or image)</label>
-                        <input type="file" onChange={(e) => setMaterial(e.target.files?.[0] || null)} />
-                      </div>
-                    </>
+                    <p className="text-xs text-ink-600">Add videos and slides after creating it, then approve it.</p>
                   ) : (
                     <p className="text-xs text-ink-600">
-                      After creating a NYSC AGROALLIED SAED course you add its lessons (video, document or live session) and its quiz,
-                      then approve it.
-                    </p>
+                      Add lessons and a quiz after creating a course, then approve it.</p>
                   )}
                   <button className="btn-primary" type="submit" disabled={submittingCourse}>
                     {submittingCourse ? "Saving…" : courseAudience === "corps" ? "Create NYSC AGROALLIED SAED course" : "Upload course"}
@@ -420,9 +423,13 @@ export default function TrcDepartment() {
                           )}
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-2">
-                          {c.audience === "corps" && (
+                          {c.audience === "corps" ? (
                             <button type="button" className="text-xs text-canopy-800 underline" onClick={() => setEditingCourse(c)}>
                               Manage lessons &amp; quiz
+                            </button>
+                          ) : (
+                            <button type="button" className="text-xs text-canopy-800 underline" onClick={() => setEditingCourse(c)}>
+                              Videos &amp; slides
                             </button>
                           )}
                           {c.approved ? (
@@ -470,9 +477,9 @@ export default function TrcDepartment() {
       {tab === "research" && (
         <div className="max-w-4xl space-y-6">
           <div>
-            <p className="text-xs uppercase tracking-wide text-canopy-300">TRC — Research</p>
+            <p className="text-xs uppercase tracking-wide text-canopy-300">TRC: Research</p>
             <h1 className="text-xl font-medium text-white">Research write-ups</h1>
-            <p className="mt-1 text-sm text-canopy-100">Company-authored, published immediately — no approval gate.</p>
+            <p className="mt-1 text-sm text-canopy-100">Internal to EPHAAG: only staff can read or download these. Members and the public cannot see them.</p>
           </div>
 
           <SectionStack
@@ -480,10 +487,10 @@ export default function TrcDepartment() {
             sections={[
               {
                 key: "publish",
-                label: "Publish a research item",
+                label: "Add a research item",
                 node: (
               <div className="card">
-                <p className="text-sm text-ink-600">Publish a research item</p>
+                <p className="text-sm text-ink-600">Add a research item</p>
                 <form onSubmit={handleSubmitResearch} className="field mt-3 space-y-2">
                   <input value={researchTitle} onChange={(e) => setResearchTitle(e.target.value)} placeholder="Title" />
                   <textarea
@@ -492,8 +499,10 @@ export default function TrcDepartment() {
                     onChange={(e) => setResearchSummary(e.target.value)}
                     placeholder="Summary"
                   />
+                  <label htmlFor="research-pdf" className="text-sm text-ink-600">The research as a PDF</label>
+                  <input key={researchFileKey} id="research-pdf" type="file" accept="application/pdf,.pdf" onChange={(e) => setResearchFile(e.target.files?.[0] || null)} />
                   <button className="btn-primary" type="submit" disabled={submittingResearch}>
-                    {submittingResearch ? "Publishing…" : "Publish"}
+                    {submittingResearch ? "Saving…" : "Save research"}
                   </button>
                 </form>
               </div>
@@ -501,11 +510,11 @@ export default function TrcDepartment() {
               },
               {
                 key: "published",
-                label: "Published research",
+                label: "Research library",
                 node: (
               <div className="card">
-                <p className="text-sm text-ink-600">Published research</p>
-                {research.length === 0 && <p className="mt-2 text-sm text-ink-600">Nothing published yet.</p>}
+                <p className="text-sm text-ink-600">Research library (staff only)</p>
+                {research.length === 0 && <p className="mt-2 text-sm text-ink-600">Nothing added yet.</p>}
                 <div className="mt-3 space-y-2">
                   {research.map((r) => (
                     <div key={r.id} className="rounded-card border border-soil-200 px-3 py-2">
@@ -514,13 +523,16 @@ export default function TrcDepartment() {
                           <p className="font-medium text-ink-900">{r.title}</p>
                           {r.summary && <p className="text-sm text-ink-600">{r.summary}</p>}
                         </div>
-                        <button
-                          type="button"
-                          className="shrink-0 text-xs text-red-700 underline"
-                          onClick={() => handleDeleteResearch(r.id)}
-                        >
-                          Remove
-                        </button>
+                        <div className="flex shrink-0 gap-3">
+                          {r.hasFile && (
+                            <button type="button" className="text-xs text-canopy-800 underline" onClick={() => handleDownloadResearch(r)}>
+                              Download PDF
+                            </button>
+                          )}
+                          <button type="button" className="text-xs text-red-700 underline" onClick={() => handleDeleteResearch(r.id)}>
+                            Remove
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -536,10 +548,10 @@ export default function TrcDepartment() {
       {tab === "consultancy" && (
         <div className="max-w-4xl space-y-6">
           <div>
-            <p className="text-xs uppercase tracking-wide text-canopy-300">TRC — Consultancy</p>
-            <h1 className="text-xl font-medium text-white">Consultancy offerings & requests</h1>
+            <p className="text-xs uppercase tracking-wide text-canopy-300">TRC: Consultancy</p>
+            <h1 className="text-xl font-medium text-white">Consultancy services & requests</h1>
             <p className="mt-1 text-sm text-canopy-100">
-              Publish what members can book, then track incoming requests through to completion.
+              Anyone can book, with or without an account. Approve a request with its fee and payment terms; once it is paid, set the session date, time and place.
             </p>
           </div>
 
@@ -599,49 +611,7 @@ export default function TrcDepartment() {
               {
                 key: "requests",
                 label: "Requests",
-                node: (
-              <div className="card">
-                <p className="text-sm text-ink-600">Requests</p>
-                {requests.length === 0 && <p className="mt-2 text-sm text-ink-600">No requests yet.</p>}
-                <div className="mt-3 space-y-2">
-                  {requests.map((r) => (
-                    <div key={r.id} className="rounded-card border border-soil-200 px-3 py-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium text-ink-900">
-                            {r.userName} — {r.offeringTitle}
-                          </p>
-                          {r.message && <p className="text-sm text-ink-600">{r.message}</p>}
-                          <p className="mt-1 text-xs text-ink-600">Status: {r.status}</p>
-                        </div>
-                        {r.status !== "completed" && (
-                          <div className="flex shrink-0 gap-2">
-                            {r.status === "pending" && (
-                              <button
-                                type="button"
-                                className="btn-primary"
-                                onClick={() => handleUpdateRequestStatus(r.id, "scheduled")}
-                              >
-                                Mark scheduled
-                              </button>
-                            )}
-                            {r.status === "scheduled" && (
-                              <button
-                                type="button"
-                                className="btn-primary"
-                                onClick={() => handleUpdateRequestStatus(r.id, "completed")}
-                              >
-                                Mark completed
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-                ),
+                node: <ConsultancyRequests requests={requests} counts={consultCounts} reload={loadConsultancy} setError={setError} />,
               },
             ]}
           />

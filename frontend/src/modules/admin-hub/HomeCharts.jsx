@@ -3,11 +3,11 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 // Brand-consistent chart palette for the dark red (.card) surfaces used
 // throughout the admin dashboard. Deliberately built around the company's
 // green + red identity: canopy (green) for money coming in / healthy /
-// remaining, clay (red) for money going out / spent / used — with harvest
+// remaining, clay (red) for money going out / spent / used, with harvest
 // gold and soil tan as the neutral accents for anything that's neither.
 // Colors are pulled a shade lighter than the base brand tones (canopy-300,
 // clay-300-ish) since the card background itself is already a dark red
-// (clay-800) — darker chart colors on a dark red card would disappear.
+// (clay-800), darker chart colors on a dark red card would disappear.
 export const FLOW_GREEN = "#7bb066"; // canopy-300
 export const FLOW_RED = "#f0827f"; // lightened clay, readable on clay-800
 export const GOLD = "#f0b93f"; // matches the .on-light gold used elsewhere
@@ -31,7 +31,7 @@ function nairaShort(n) {
   return `₦${v}`;
 }
 
-// Dual-line cash flow chart — inflow (green) vs outflow (red) over a
+// Dual-line cash flow chart, inflow (green) vs outflow (red) over a
 // series of dated points. `data` is [{ label, inflow, outflow }, ...].
 export function CashFlowChart({ data, height = 240 }) {
   const rows = data || [];
@@ -81,7 +81,7 @@ export function SplitDonut({ segments, centerLabel, centerSubLabel, height = 200
   );
 }
 
-// Category donut with a side legend showing share % and amount — used for
+// Category donut with a side legend showing share % and amount, used for
 // "top expenses by category". `data` is [{ key, value }, ...].
 export function CategoryDonut({ data, height = 200 }) {
   const rows = (data || []).filter((r) => Number(r.value) > 0).sort((a, b) => b.value - a.value);
@@ -120,10 +120,10 @@ export function CategoryDonut({ data, height = 200 }) {
   );
 }
 
-// Small sparkline for a stat tile — just the shape of the trend, no axes
+// Small sparkline for a stat tile, just the shape of the trend, no axes
 // or gridlines, so it drops straight under a big number without competing
 // with it. `data` is a plain array of numbers (already computed by the
-// caller from real transaction data — see AdminHub.jsx).
+// caller from real transaction data, see AdminHub.jsx).
 export function MiniTrendChart({ data, color = FLOW_GREEN, height = 36 }) {
   const rows = (data || []).map((v, i) => ({ i, v }));
   if (rows.length < 2) return null;

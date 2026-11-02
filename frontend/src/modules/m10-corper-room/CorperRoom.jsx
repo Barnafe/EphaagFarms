@@ -61,7 +61,7 @@ export default function CorperRoom() {
       .then((r) => setNotice(
         r.outcome === "refused" ? `Your payment could not be used because ${r.refusalText || "it could not be applied"}. Our administrators have been told and will return the money to you.`
         : r.outcome === "failed" ? "The payment did not go through and you have not been charged. You can try again."
-        : r.outcome === "pending" ? "We haven't received your payment yet. If you have just paid, press “I’ve paid — check now”."
+        : r.outcome === "pending" ? "We haven't received your payment yet. If you have just paid, press “I’ve paid, check now”."
         : null))
       .catch((err) => setNotice(err.message))
       .finally(() => {

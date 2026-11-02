@@ -1,5 +1,5 @@
 """
-Corps batches, certificates, emails and NYSC export — API tests.
+Corps batches, certificates, emails and NYSC export, API tests.
 
 Run against a LIVE backend on a TEST database (never production), with the
 email delay shortened and no SMTP so emails are only logged:
@@ -299,18 +299,18 @@ ws = wb.active
 hdr = [c.value for c in ws[1]]
 want = ["Name", "Gender", "Email", "Phone", "Call-up number", "State code", "Batch", "Stream", "State of deployment", "PPA", "Discipline", "Paid", "Courses completed", "Completion date", "Certificate number"]
 check("export has every requested column", all(w in hdr for w in want), str(hdr))
-check("export has a consent column", "Consent to share with NYSC" in hdr)
+check("export has a consent column", "Consent to share with NYSC AGROALLIED SAED" in hdr)
 rows = [dict(zip(hdr, [c.value for c in row])) for row in ws.iter_rows(min_row=2)]
 names = [x["Name"] for x in rows]
 check("export: non-consenting m3 left out by default", f"Corper m3 {RUN}" not in names and f"Corper m2 {RUN}" in names, str(names))
-check("export: consent column says Yes for all", all(x["Consent to share with NYSC"] == "Yes" for x in rows))
+check("export: consent column says Yes for all", all(x["Consent to share with NYSC AGROALLIED SAED"] == "Yes" for x in rows))
 x2 = next(x for x in rows if x["Name"] == f"Corper m2 {RUN}")
 check("export: values", x2["Paid"] == "Yes" and x2["Courses completed"] == "1 of 1" and x2["Gender"] == "Female" and x2["State of deployment"] == "Plateau" and x2["Certificate number"] == b[0] and x2["Completion date"], str(x2))
 check("export: phone keeps its leading zero", str(x2["Phone"]).startswith("0"), str(x2["Phone"]))
 r = call("GET", "/rtc/admin/corps/members/export?batch=B&stream=II&includeNoConsent=true", admin)
 rows = [dict(zip(hdr, [c.value for c in row])) for row in openpyxl.load_workbook(io.BytesIO(r.content)).active.iter_rows(min_row=2)]
 x3 = next((x for x in rows if x["Name"] == f"Corper m3 {RUN}"), None)
-check("export with includeNoConsent lists m3 with consent=No, blank certificate", x3 and x3["Consent to share with NYSC"] == "No" and not x3["Certificate number"] and x3["Courses completed"] == "0 of 1" and x3["Paid"] == "Yes", str(x3))
+check("export with includeNoConsent lists m3 with consent=No, blank certificate", x3 and x3["Consent to share with NYSC AGROALLIED SAED"] == "No" and not x3["Certificate number"] and x3["Courses completed"] == "0 of 1" and x3["Paid"] == "Yes", str(x3))
 check("export: non-admin 403", call("GET", "/rtc/admin/corps/members/export", m1).status_code == 403)
 sql(f"update corper_certificates set visible=false where user_id='{m2['user']['id']}'")
 rows = [dict(zip(hdr, [c.value for c in row])) for row in openpyxl.load_workbook(io.BytesIO(call("GET", "/rtc/admin/corps/members/export?batch=B&stream=II", admin).content)).active.iter_rows(min_row=2)]

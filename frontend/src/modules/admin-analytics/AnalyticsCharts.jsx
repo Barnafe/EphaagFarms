@@ -42,7 +42,7 @@ function truncate(label, max = 12) {
   return `${label.slice(0, max - 1)}…`;
 }
 
-// Small vertical bar chart — good default for a handful of categories.
+// Small vertical bar chart, good default for a handful of categories.
 export function BarChartCard({ title, subtitle, data, color = CHART_COLORS[0], valueFormatter, height = 220 }) {
   const rows = data || [];
   return (
@@ -71,7 +71,7 @@ export function BarChartCard({ title, subtitle, data, color = CHART_COLORS[0], v
   );
 }
 
-// Horizontal bars — for categories with many entries or long labels (e.g.
+// Horizontal bars, for categories with many entries or long labels (e.g.
 // all 36+ Nigerian states), where a vertical chart's x-axis labels would
 // collide. Height grows with the row count instead of squeezing bars.
 export function HorizontalBarChartCard({ title, subtitle, data, color = CHART_COLORS[0], valueFormatter }) {
@@ -103,7 +103,7 @@ export function HorizontalBarChartCard({ title, subtitle, data, color = CHART_CO
   );
 }
 
-// Donut chart — for a small number of categories where the proportion of
+// Donut chart, for a small number of categories where the proportion of
 // the whole (e.g. share of loans by status) matters more than raw counts.
 export function PieChartCard({ title, subtitle, data, valueFormatter, height = 240 }) {
   const rows = data || [];
@@ -128,7 +128,7 @@ export function PieChartCard({ title, subtitle, data, valueFormatter, height = 2
   );
 }
 
-// Line chart — for a value over time (e.g. deposits by month).
+// Line chart, for a value over time (e.g. deposits by month).
 export function LineChartCard({ title, subtitle, data, color = CHART_COLORS[0], valueFormatter, height = 220 }) {
   const rows = data || [];
   return (

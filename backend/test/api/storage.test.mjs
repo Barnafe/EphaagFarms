@@ -1,4 +1,4 @@
-// Phase 15 — permanent file storage (against a stand-in R2)
+// Phase 15, permanent file storage (against a stand-in R2)
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";

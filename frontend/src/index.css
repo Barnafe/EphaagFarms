@@ -4,7 +4,7 @@
 
 /* Mobile safety net (2026-09-04): nothing on any screen should ever be able
    to force the page wider than the device and reveal this cream background
-   behind the dashboard's dark shell — see the bg-canopy-950 fix below and
+   behind the dashboard's dark shell, see the bg-canopy-950 fix below and
    the [[ephaag-farms]] memory note for the bug this guards against. */
 html, body, #root {
   @apply w-full overflow-x-hidden;
@@ -47,11 +47,11 @@ h1, h2, h3 {
 /* -------------------------------------------------------------------
    Dashboard theme (logged-in area only, applied via .dash-scope in
    ProtectedRoute.jsx). Company brand: only green + deep red backgrounds
-   in the dashboard — no white/cream. Public marketing pages (Home,
+   in the dashboard, no white/cream. Public marketing pages (Home,
    About, etc.) are NOT wrapped in .dash-scope and keep their own look.
 
    Form inputs are a deliberate exception: they stay light so typed text
-   stays legible (a red-on-red input is unusable) — flagged, not an
+   stays legible (a red-on-red input is unusable), flagged, not an
    oversight.
    ------------------------------------------------------------------- */
 .dash-scope {
@@ -84,7 +84,7 @@ h1, h2, h3 {
 }
 
 /* Same idea as the text-ink-9/8/600 rules above, but for the generic
-   Tailwind gray scale — a handful of modules (e.g. the buyer room) use
+   Tailwind gray scale, a handful of modules (e.g. the buyer room) use
    text-gray-600/700/800/900 for body copy, which is just as unreadable
    as black on these dark backgrounds. Mirrored here rather than fixed
    at each call site, matching the existing pattern. */
@@ -128,24 +128,23 @@ h1, h2, h3 {
 }
 
 /* -------------------------------------------------------------------
-   ".on-light" — white/light "shopping surface" cards that deliberately
+   ".on-light", white/light "shopping surface" cards that deliberately
    keep a light background even while nested inside the otherwise-dark
    .dash-scope (buyer's product catalog + cart + checkout + payment +
    confirmation, the profile-menu dropdown in DashboardShell, the savings
    deposit consent modal). Before this block, the general ink- and gray-
    inversion rules above applied everywhere inside .dash-scope with no
-   way to tell a dark surface from a light one — so text on these white
+   way to tell a dark surface from a light one, so text on these white
    cards was being turned the same light cream/tan meant for dark
    backgrounds, which is nearly invisible on white (2026-09-04 bug
    report: "the write up aren't visible... the color used for the text
    aren't matching"). Every such surface must carry the `on-light` class
    on its outer container for this to take effect.
 
-   Per that request, text here isn't just restored to the original gray
-   — it's given real brand colors: near-black for primary text, and a
+   Per that request, text here isn't just restored to the original gray, it's given real brand colors: near-black for primary text, and a
    golden yellow (the same harvest gold already used for prices/accents
    elsewhere in the dashboard) for secondary/muted text. Plain yellow
-   (#ffeb3b-style) was avoided on purpose — it has very poor contrast on
+   (#ffeb3b-style) was avoided on purpose, it has very poor contrast on
    a white background and would just trade one invisible-text bug for
    another; this gold reads as yellow while staying readable.
    !important is deliberate here: the general rules above use several
@@ -169,15 +168,15 @@ h1, h2, h3 {
 }
 
 /* -------------------------------------------------------------------
-   Readability guard (v34) — light controls and light surfaces inside the
+   Readability guard (v34), light controls and light surfaces inside the
    dark .dash-scope. Two real causes of "white text on a white box":
 
    1. Form controls (select/input/textarea) outside a `.field` wrapper
       inherit the dashboard's light default text color (Tailwind preflight
       sets `color: inherit` on them) while the browser paints them with a
       white background. These defaults are ZERO-specificity (:where) so any
-      control that sets its own text/background classes — e.g. the dark
-      "Jump to" dropdown — still wins.
+      control that sets its own text/background classes, e.g. the dark
+      "Jump to" dropdown, still wins.
    2. Any white/very-light surface (bg-white etc.) that carries text-ink-* /
       text-gray-* classes was being run through the dark-background
       inversion rules above and turned cream. Those surfaces get dark text
@@ -227,14 +226,14 @@ h1, h2, h3 {
 }
 
 /* -------------------------------------------------------------------
-   Visibility guard (v36) — invisible text on the dark dashboard surfaces
+   Visibility guard (v36), invisible text on the dark dashboard surfaces
    Inside .dash-scope the cards are dark red (.card) and the page is dark
    green, but many components still carry text colours picked for a light
    page (text-red-700 error lines, text-canopy-700 links, text-harvest-600
    hints, text-ink-700/500 …). Dark-on-dark = invisible. These remaps are
    skipped on genuinely light surfaces (on-light, bg-white, bg-soil-50 …).
-   NOTE: a .card is ALWAYS dark here — `.dash-scope .card` overrides any
-   bg-* utility on it — so a card carrying bg-red-50 is NOT a light surface.
+   NOTE: a .card is ALWAYS dark here, `.dash-scope .card` overrides any
+   bg-* utility on it, so a card carrying bg-red-50 is NOT a light surface.
    ------------------------------------------------------------------- */
 .dash-scope :is([class~="text-red-700"],[class~="text-red-800"],[class~="text-clay-600"],[class~="text-clay-700"],[class~="text-clay-800"],[class~="text-clay-900"]):not(:is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card),.on-light) *):not(:is([class~="bg-white"]:not(.card),[class~="bg-white/90"]:not(.card),[class*="bg-soil-50"]:not(.card),[class*="bg-soil-100"]:not(.card),[class*="bg-soil-200"]:not(.card),[class~="bg-red-50"]:not(.card),[class~="bg-red-100"]:not(.card),[class~="bg-canopy-50"]:not(.card),[class~="bg-canopy-100"]:not(.card),[class~="bg-harvest-50"]:not(.card),[class~="bg-harvest-100"]:not(.card),[class~="bg-clay-50"]:not(.card),[class~="bg-clay-100"]:not(.card),[class~="bg-amber-50"]:not(.card),[class~="bg-amber-100"]:not(.card),[class~="bg-gray-50"]:not(.card),[class~="bg-gray-100"]:not(.card))) {
   color: #ffb4ac;

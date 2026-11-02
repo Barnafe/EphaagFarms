@@ -34,8 +34,14 @@ function ApplicantIndices({ loanId }) {
         </div>
       ))}
       <p className="pt-1 text-ink-600">
-        Subtotal: {indices.subtotal} / {indices.subtotalMax}
+        This quarter so far: {indices.subtotal} / {indices.subtotalMax}
       </p>
+      {indices.counting && (
+        <p className="text-ink-900">
+          Score that counts (last completed quarter): {indices.counting.total} / {indices.counting.totalMax}
+          {indices.counting.minimum > 0 ? ` · minimum ${indices.counting.minimum}` : " · no minimum set"}
+        </p>
+      )}
     </div>
   );
 }

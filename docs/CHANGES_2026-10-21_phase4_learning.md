@@ -1,4 +1,4 @@
-# v27 — Phase 4: learning, quizzes and progress
+# v27, Phase 4: learning, quizzes and progress
 
 Goal: a paid corps member opens their courses, works through the lessons, takes each course's quiz and watches
 their dashboard percentage rise.
@@ -7,8 +7,8 @@ their dashboard percentage rise.
 - All lessons must be finished before the quiz unlocks.
 - Retakes: unlimited.
 - After submitting, show the correct answers and explanations.
-- Live sessions can be marked complete only after they start. *(written as a question — built as yes)*
-- Shuffle question and answer order on every attempt. *(written as a question — built as yes)*
+- Live sessions can be marked complete only after they start. *(written as a question, built as yes)*
+- Shuffle question and answer order on every attempt. *(written as a question, built as yes)*
   Both are one-line switches in `RULES` (`backend/src/utils/corperLearning.js`).
 
 ## Rules
@@ -16,14 +16,14 @@ their dashboard percentage rise.
 - A course is complete when every lesson is done and the quiz was submitted at least once. Permanent once earned.
 - Unpaid or refunded: 402 `PAYMENT_REQUIRED` everywhere, progress doesn't count, comes back if they pay again.
 
-## Database (`001_init.sql` §24 — safe to re-run)
+## Database (`001_init.sql` §24, safe to re-run)
 `corper_lesson_progress`, `corper_course_progress`, `corper_quiz_attempts`, `corper_quiz_answers`.
 No foreign keys to lessons/questions/options so edits and deletes never touch history; every answer keeps a copy
 of the question text, the chosen answer, the correct answer and the explanation.
 
 ## Backend
-- `utils/corperLearning.js` — pure rules (percent, lock, live rule, grading, shuffle, progress summary).
-- `controllers/corperLearningController.js` — member endpoints, plus `loadProgressRows()` / `loadMemberProgress()`,
+- `utils/corperLearning.js`, pure rules (percent, lock, live rule, grading, shuffle, progress summary).
+- `controllers/corperLearningController.js`, member endpoints, plus `loadProgressRows()` / `loadMemberProgress()`,
   the one progress query used everywhere.
 - Member routes (all behind `requireCorperPaid`): `GET /corpers/courses`, `GET /corpers/progress`,
   `GET /corpers/courses/:id`, `POST .../lessons/:lessonId/complete`, `GET .../lessons/:lessonId/file`,

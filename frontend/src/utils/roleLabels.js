@@ -1,5 +1,5 @@
 // How each account type (the stored role_type value) is NAMED to people.
-// NAMING ONLY — stored values and routes are unchanged:
+// NAMING ONLY, stored values and routes are unchanged:
 //   buyer  -> "Buyers/Processor"   (the one profile for buying AND processing; there is no separate processor profile)
 //   corper -> "NYSC AGROALLIED SAED"
 // A leftover "processor" value (accounts from before the processor profile was retired) reads as Buyers/Processor too.

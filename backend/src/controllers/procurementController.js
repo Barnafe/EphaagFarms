@@ -49,8 +49,7 @@ export async function farmerDirectory(req, res) {
 }
 
 // A farmer's currently-available listings, for the sourcing picker (so
-// admin sources against a real listing + quantity rather than just a name —
-// 2026-08-29 spec, needed to make purchases deduct declared inventory).
+// admin sources against a real listing + quantity rather than just a name, // 2026-08-29 spec, needed to make purchases deduct declared inventory).
 export async function farmerAvailableProducts(req, res) {
   const { farmerId } = req.params;
   const { rows } = await pool.query(
@@ -121,7 +120,7 @@ export async function sourceOrder(req, res) {
         [id, farmerId, productId, product.crop, qty, notifiedRep || null]
       );
 
-      // Farmer payment — "when the company source goods, they pay directly
+      // Farmer payment, "when the company source goods, they pay directly
       // to the farmers" (2026-08-30 spec). This IS Settlement's farmer leg:
       // quantity sourced × the company's buy_price for that crop. Created
       // 'unpaid' here; Finance marks it paid via financeController.markPaymentPaid.

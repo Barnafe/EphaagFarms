@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PaymentPreview from "../../components/PaymentPreview.jsx";
 
 export default function RepaymentTracker({ loan, onPay }) {
   const [amount, setAmount] = useState("");
@@ -11,7 +12,7 @@ export default function RepaymentTracker({ loan, onPay }) {
   const isFree = pctRepaid >= 70;
 
   async function handleSubmit(e) {
-    e.preventDefault();
+    e?.preventDefault();
     const n = Number(amount);
     if (!Number.isFinite(n) || n < 100 || n > outstanding) return;
     setBusy(true);
@@ -29,8 +30,7 @@ export default function RepaymentTracker({ loan, onPay }) {
           />
         </div>
         <p className="mt-1 text-xs text-ink-600">
-          ₦{totalRepaid.toLocaleString()} of ₦{owed.toLocaleString()} repaid ({pctRepaid}%)
-          — {isFree ? "70% threshold met, free to sell" : "70% needed to sell freely"}
+          ₦{totalRepaid.toLocaleString()} of ₦{owed.toLocaleString()} repaid ({pctRepaid}%). {isFree ? "70% threshold met, free to sell" : "70% needed to sell freely"}
         </p>
       </div>
 
@@ -47,15 +47,14 @@ export default function RepaymentTracker({ loan, onPay }) {
       </div>
 
       {outstanding > 0 ? (
-        <form onSubmit={handleSubmit} className="field space-y-2">
+        <form onSubmit={(e) => e.preventDefault()} className="field space-y-2">
           <label>Pay towards your loan (₦). Any part, up to ₦{outstanding.toLocaleString()}.</label>
           <div className="flex flex-wrap items-end gap-3">
             <input type="number" min="100" max={outstanding} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 45000" className="flex-1" />
             <button type="button" className="btn-outline text-xs" onClick={() => setAmount(String(Math.round(outstanding / 2)))}>Half</button>
             <button type="button" className="btn-outline text-xs" onClick={() => setAmount(String(outstanding))}>All</button>
-            <button className="btn-primary" type="submit" disabled={busy}>{busy ? "Opening Paystack…" : "Pay with Paystack"}</button>
           </div>
-          <p className="text-xs text-ink-600">Paystack's small processing fee is added at checkout. Your repayment is recorded the moment it is confirmed.</p>
+          {Number(amount) >= 100 && Number(amount) <= outstanding && <PaymentPreview amount={Number(amount)} onProceed={handleSubmit} busy={busy} />}
         </form>
       ) : <p className="text-sm text-canopy-800">This loan is fully repaid.</p>}
     </div>

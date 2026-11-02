@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 
-// Reused for every level of card navigation across the service rooms —
-// top-level departments already have their own grid on Home.jsx; this is
+// Reused for every level of card navigation across the service rooms, // top-level departments already have their own grid on Home.jsx; this is
 // for everything one or two levels deeper (a room's own sub-cards).
 
 export default function ServiceCardGrid({ items, theme }) {

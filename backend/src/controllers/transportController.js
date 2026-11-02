@@ -120,7 +120,7 @@ export async function markPickedUp(req, res) {
   res.json({ shipment: rows[0] });
 }
 
-// Note: real file storage isn't built yet — proofOfDeliveryUrl is stored
+// Note: real file storage isn't built yet, proofOfDeliveryUrl is stored
 // as whatever string the client sends (currently just the filename).
 export async function markDelivered(req, res) {
   const { id } = req.params;

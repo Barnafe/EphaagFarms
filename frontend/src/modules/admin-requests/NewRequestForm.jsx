@@ -14,7 +14,7 @@ const DEPARTMENTS = [
 
 // lockDepartment: when this form is embedded inside a department's own
 // dashboard (see DepartmentRequestsPanel.jsx), the department raising the
-// request is already known from context — the field is shown read-only
+// request is already known from context, the field is shown read-only
 // instead of a picker, so it can't be misattributed to another department.
 export default function NewRequestForm({ adminUsers, onSubmit, defaultDepartment, lockDepartment = false }) {
   const [department, setDepartment] = useState(defaultDepartment || DEPARTMENTS[0]);
@@ -85,9 +85,7 @@ export default function NewRequestForm({ adminUsers, onSubmit, defaultDepartment
       <div>
         <p className="text-sm text-ink-600">Approval chain</p>
         <p className="mt-1 text-xs text-ink-600">
-          Add whoever needs to approve, in order — e.g. Finance Head, then Transport Head. Admin final
-          approval is always added automatically as the last step.
-        </p>
+          Add approvers in order. Admin final approval is always added last.</p>
         <div className="mt-3 space-y-2">
           {approvers.map((a, i) => (
             <div key={i} className="flex gap-2">

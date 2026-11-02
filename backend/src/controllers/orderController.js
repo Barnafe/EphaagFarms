@@ -37,7 +37,7 @@ export async function placeOrder(req, res) {
     return res.status(400).json({ error: "deliveryLocation is required" });
   }
   // 2026-09-01 checkout spec: two contact numbers + an email, same shape as
-  // a real shopping-site checkout menu — so whoever's coordinating delivery
+  // a real shopping-site checkout menu, so whoever's coordinating delivery
   // always has a backup contact.
   if (!contactPhone1 || !contactPhone2) {
     return res.status(400).json({ error: "Two contact phone numbers are required" });
@@ -88,7 +88,7 @@ export async function placeOrder(req, res) {
   try {
     await client.query("BEGIN");
 
-    // Price every line server-side from standard_prices — never trust a
+    // Price every line server-side from standard_prices, never trust a
     // client-supplied price.
     for (const item of items) {
       const { rows } = await client.query(
@@ -238,7 +238,7 @@ export async function orderReceipt(req, res) {
   res.json({ receipt: {
     orderReference: order.reference, paidAt: order.paid_at, deliveryLocation: order.delivery_location, items,
     goodsTotal: Number(order.goods_total ?? order.total), fee: Number(p?.fee_amount ?? 0), totalPaid: Number(p?.gross_amount ?? order.total),
-    paymentReference: p?.reference || null, method: p ? (p.channel || "Paystack") : "Standing commitment balance",
+    paymentReference: p?.reference || null, method: p ? (p.channel || "Online payment") : "Standing commitment balance",
   } });
 }
 
@@ -274,7 +274,7 @@ export async function setStandingCommitment(req, res) {
 }
 
 // --- Finance: payment confirmation --------------------------------------
-// Gates Procurement — an order can't be sourced until Finance confirms
+// Gates Procurement, an order can't be sourced until Finance confirms
 // the buyer's payment actually landed.
 
 export async function pendingConfirmation(req, res) {

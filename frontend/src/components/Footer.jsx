@@ -27,7 +27,7 @@ export default function Footer() {
               <span className="font-display text-base text-white">Ephaag Farms</span>
             </div>
             <p className="mt-3 max-w-xs text-sm text-canopy-100/80">
-              Feeding humanity with safe food — one platform connecting every
+              Feeding humanity with safe food, one platform connecting every
               actor in the agricultural value chain.
             </p>
           </div>

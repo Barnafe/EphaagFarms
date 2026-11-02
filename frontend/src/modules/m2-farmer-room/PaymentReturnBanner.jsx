@@ -30,7 +30,7 @@ export default function PaymentReturnBanner({ onSettled }) {
     <div className={`card mb-6 ${tone}`} role="status">
       <p className="text-sm text-ink-900">
         {state.outcome === "success" && `Your ${state.what} was received. Thank you.`}
-        {state.outcome === "pending" && `We are still waiting for Paystack to confirm your ${state.what}. This updates by itself.`}
+        {state.outcome === "pending" && `We are still waiting to confirm your ${state.what}. This updates by itself.`}
         {state.outcome === "failed" && `Your ${state.what} did not go through. Nothing was taken, so you can try again.`}
         {state.outcome === "refused" && `Your ${state.what} arrived but could not be used because ${state.refusalText || "it could not be applied"}. Our administrators have been told and will return the money to you.`}
         {state.outcome === "expired" && `That payment page has expired. Please start again.`}

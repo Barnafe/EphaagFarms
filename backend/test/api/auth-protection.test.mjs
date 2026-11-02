@@ -1,4 +1,4 @@
-// Phase 18 — login protection
+// Phase 18, login protection
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import bcrypt from "bcrypt";

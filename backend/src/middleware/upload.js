@@ -58,6 +58,12 @@ export const uploadSheet = uploader("attendance_sheet");
 export const uploadReportProof = uploader("report_proof");
 export const uploadRequestAttachment = uploader("request_attachment");
 export const uploadCourseMaterial = uploader("lesson_document");
+// Up to 60 slide images at once for a seminar slide deck.
+export const uploadSeminarSlides = multer({
+  storage: new StoredFileEngine("seminar_slide"),
+  limits: { fileSize: CATEGORIES.seminar_slide.maxBytes, files: 60 },
+}).array("slides", 60);
+export const uploadResearchPdf = uploader("research_pdf");
 export const uploadProductImage = uploader("product_image");
 // New in this foundation step, used by later phases.
 export const uploadPurchasingFile = uploader("purchasing");

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "../../api/client.js";
 
 // Everything with a scheduled_date, across every source (request-derived,
-// preventive-generated, or manually created) — the department's single
+// preventive-generated, or manually created), the department's single
 // calendar view. This is distinct from Preventive Maintenance's own
 // per-asset recurring schedule (see PreventiveMaintenance.jsx), which is
 // about setting up the recurrence, not viewing the calendar of dated work.

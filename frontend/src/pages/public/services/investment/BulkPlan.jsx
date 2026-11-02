@@ -19,7 +19,7 @@ export default function BulkPlan() {
         theme={themes.investment}
         eyebrow="Investment plans → Bulk"
         title="Bulk investment"
-        description="A single payment of ₦100,000 or above — higher returns from year one."
+        description="A single payment of ₦100,000 or above, higher returns from year one."
         badge="≈"
       />
       <RoomBackLink to="/services/investment" label="Investment plans" />
@@ -28,10 +28,7 @@ export default function BulkPlan() {
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-ink-900">How it works</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            Also known as a One-Time Payment (OTP) plan — you invest the full amount at once,
-            with a minimum of ₦100,000. Because your capital is committed upfront, the return
-            schedule starts higher than the monthly plan.
-          </p>
+            Invest the full amount at once, from ₦100,000. Returns start higher than the monthly plan.</p>
         </div>
 
         <div className="mt-8">
@@ -49,7 +46,7 @@ export default function BulkPlan() {
           <ul className="mt-3 space-y-2 text-sm text-ink-600">
             <li>• Your invested capital can't be refunded before your term ends.</li>
             <li>• EPHAAG Farms secures investor capital through a multi-sectoral, multi-commodity risk mitigation strategy.</li>
-            <li>• Reach ₦1,000,000 invested (or ₦250,000 + 25 referrals) to become a Partner Investor — see full terms.</li>
+            <li>• Reach ₦1,000,000 invested (or ₦250,000 + 25 referrals) to become a Partner Investor, see full terms.</li>
           </ul>
           <Link to="/services/investment/terms" className="mt-4 inline-block text-sm font-medium text-canopy-800 hover:text-clay-600">
             Read the full terms & conditions →

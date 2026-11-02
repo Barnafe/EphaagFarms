@@ -93,7 +93,7 @@ function Ring({ percent }) {
 }
 
 function YesNo({ value, onChange, label, id }) {
-  // Deliberately starts unselected (null) — unlike a pre-set "No", the
+  // Deliberately starts unselected (null), unlike a pre-set "No", the
   // person has to actually answer.
   return (
     <div role="group" aria-labelledby={id}>

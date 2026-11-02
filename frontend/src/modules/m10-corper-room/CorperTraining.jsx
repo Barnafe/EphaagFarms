@@ -16,7 +16,7 @@ function detail(c) {
   if (c.status === "completed") return `All ${c.lessonCount} lesson${c.lessonCount === 1 ? "" : "s"} done${c.bestScore !== null ? ` · best quiz score ${c.bestScore}%` : ""}`;
   if (c.status === "not_started") return `${c.lessonCount} lesson${c.lessonCount === 1 ? "" : "s"} · ${c.questionCount} quiz question${c.questionCount === 1 ? "" : "s"}`;
   if (c.lessonsDone < c.lessonCount) return `${c.lessonsDone} of ${c.lessonCount} lessons done`;
-  return "All lessons done — take the quiz to finish";
+  return "All lessons done, take the quiz to finish";
 }
 
 // My Training: course list -> course page -> quiz -> result. Unpaid members

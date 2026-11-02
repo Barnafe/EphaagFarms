@@ -9,9 +9,9 @@ import { NinVerifyBox, GpsPin } from "./IdentityParts.jsx";
 const OPTIONS = {
   maritalStatus: [["single", "Single"], ["married", "Married"], ["divorced", "Divorced"], ["widowed", "Widowed"]],
   farmType: [["livestock", "Livestock"], ["crop_production", "Crop production"], ["livestock_and_crops", "Livestock & crop production"]],
-  farmSize: [["0-1_hectares", "0 – 1 hectares"], ["2-4_hectares", "2 – 4 hectares"], ["5plus_hectares", "5 hectares and above"]],
-  yearsExperience: [["1-5", "1 – 5 years"], ["6-10", "6 – 10 years"], ["11plus", "11 years and above"]],
-  annualFarmIncome: [["50k-100k", "₦50,000 – ₦100,000"], ["100k-400k", "₦100,000 – ₦400,000"], ["500k-1m", "₦500,000 – ₦1,000,000"], ["1mplus", "₦1,000,000 and above"]],
+  farmSize: [["0-1_hectares", "0 to 1 hectares"], ["2-4_hectares", "2 to 4 hectares"], ["5plus_hectares", "5 hectares and above"]],
+  yearsExperience: [["1-5", "1 to 5 years"], ["6-10", "6 to 10 years"], ["11plus", "11 years and above"]],
+  annualFarmIncome: [["50k-100k", "₦50,000, ₦100,000"], ["100k-400k", "₦100,000, ₦400,000"], ["500k-1m", "₦500,000, ₦1,000,000"], ["1mplus", "₦1,000,000 and above"]],
   additionalIncomeType: [["work", "Work"], ["business", "Business"], ["both", "Both"]],
 };
 const CROPS = ["Poultry", "Fish / aquaculture", "Cattle", "Goat / sheep", "Maize", "Rice", "Sorghum", "Millet", "Cassava", "Yam", "Sweet potato", "Tomatoes", "Pepper", "Onions", "Leafy greens", "Groundnut", "Soybean", "Fruits (orchard)"];
@@ -32,7 +32,7 @@ function Locked({ label, value }) {
   return (
     <div>
       <label>{label} <span className="ml-1 rounded-full bg-canopy-50 px-2 py-0.5 text-[10px] text-canopy-800">from NIMC</span></label>
-      <input value={value || "—"} readOnly className="bg-soil-100" />
+      <input value={value || "N/A"} readOnly className="bg-soil-100" />
     </div>
   );
 }
@@ -56,7 +56,7 @@ function IdentitySection({ user, onChanged }) {
   return (
     <div className="card space-y-3">
       <p className="text-sm font-medium text-ink-900">Verify your identity</p>
-      <p className="text-xs text-ink-600">Loans, savings withdrawals and farm shares unlock once your NIN is verified. We fetch your name, date of birth, gender and permanent address from NIMC. Your NIN is not stored.</p>
+      <p className="text-xs text-ink-600">Loans, savings withdrawals and farm shares unlock once your NIN is verified. Your NIN is not stored.</p>
       <NinVerifyBox endpoint="/farmers/me/verify-nin" onVerified={async () => { setMsg("Your NIN is verified."); await onChanged(); }} />
       {msg && <p className="text-xs text-canopy-800" role="status">{msg}</p>}
     </div>

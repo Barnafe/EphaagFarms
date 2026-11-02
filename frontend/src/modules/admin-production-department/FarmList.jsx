@@ -5,7 +5,7 @@ const statusStyles = {
   fallow: "bg-soil-100 text-ink-600",
 };
 
-const emptyForm = { name: "", state: "", crop: "", sizeHectares: "", status: "active" };
+const emptyForm = { name: "", state: "", crop: "", sizeHectares: "", status: "active", kind: "crop" };
 
 export default function FarmList({ farms, onCreate, onUpdate, onDelete }) {
   const [showForm, setShowForm] = useState(false);
@@ -28,6 +28,7 @@ export default function FarmList({ farms, onCreate, onUpdate, onDelete }) {
       crop: farm.crop || "",
       sizeHectares: farm.size_hectares ?? "",
       status: farm.status,
+      kind: farm.kind || "crop",
     });
     setEditingId(farm.id);
     setShowForm(true);
@@ -46,6 +47,7 @@ export default function FarmList({ farms, onCreate, onUpdate, onDelete }) {
         crop: form.crop.trim() || null,
         sizeHectares: form.sizeHectares === "" ? null : Number(form.sizeHectares),
         status: form.status,
+        kind: form.kind,
       };
       if (editingId) await onUpdate(editingId, body);
       else await onCreate(body);
@@ -60,7 +62,7 @@ export default function FarmList({ farms, onCreate, onUpdate, onDelete }) {
   }
 
   async function handleDelete(farm) {
-    if (!confirm(`Delete "${farm.name}"? This only works if it has no harvest records.`)) return;
+    if (!confirm(`Delete "${farm.name}"? This only works if it has no harvest or cost records.`)) return;
     try {
       await onDelete(farm.id);
     } catch (err) {
@@ -84,7 +86,7 @@ export default function FarmList({ farms, onCreate, onUpdate, onDelete }) {
             <div>
               <p className="font-medium text-ink-900">{f.name}</p>
               <p className="text-xs text-ink-600">
-                {f.crop || "—"} · {f.size_hectares ? `${f.size_hectares} ha` : "—"} · {f.state || "—"}
+                {f.kind === "livestock" ? "Livestock" : "Crop"} · {f.crop || "N/A"} · {f.size_hectares ? `${f.size_hectares} ha` : "N/A"} · {f.state || "N/A"}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -101,12 +103,12 @@ export default function FarmList({ farms, onCreate, onUpdate, onDelete }) {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="field mt-4 grid gap-3 rounded-card border border-soil-200 p-3 sm:grid-cols-5">
+        <form onSubmit={handleSubmit} className="field mt-4 grid gap-3 rounded-card border border-soil-200 p-3 sm:grid-cols-6">
           <input
             className="sm:col-span-2"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Farm name, e.g. Ephaag Farm — Kaduna"
+            placeholder="Farm name, e.g. Ephaag Farm Kaduna"
             required
           />
           <input
@@ -114,10 +116,14 @@ export default function FarmList({ farms, onCreate, onUpdate, onDelete }) {
             onChange={(e) => setForm({ ...form, state: e.target.value })}
             placeholder="State"
           />
+          <select aria-label="Farm type" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
+            <option value="crop">Crop farm</option>
+            <option value="livestock">Livestock farm</option>
+          </select>
           <input
             value={form.crop}
             onChange={(e) => setForm({ ...form, crop: e.target.value })}
-            placeholder="Main crop"
+            placeholder={form.kind === "livestock" ? "What it raises, e.g. Layers" : "Main crop"}
           />
           <input
             type="number"

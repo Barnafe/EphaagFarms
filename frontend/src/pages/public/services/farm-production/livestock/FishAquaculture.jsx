@@ -19,11 +19,7 @@ export default function FishAquaculture() {
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-ink-900">What we raise</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            Our aquaculture operation runs earthen ponds and tank systems stocked with
-            catfish and tilapia. Fish move through clearly staged grow-out periods — from
-            fingerling to juvenile to table size — with water quality and feeding managed
-            at each stage.
-          </p>
+            Catfish and tilapia raised in earthen ponds and tanks, from fingerling to table size.</p>
         </div>
 
         <div className="mt-8 card">

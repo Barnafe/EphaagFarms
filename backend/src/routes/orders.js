@@ -15,7 +15,7 @@ router.post("/:id/cancel", requireRole("buyer"), orders.cancelOrder);
 router.get("/:id/receipt", requireRole("buyer"), orders.orderReceipt);
 router.post("/commitment", requireRole("buyer"), orders.setStandingCommitment);
 
-// Finance (admin) — payment confirmation gates Procurement
+// Finance (admin), payment confirmation gates Procurement
 router.get("/pending-confirmation", requireRole("admin"), orders.pendingConfirmation);
 router.post("/:id/confirm-payment", requireRole("admin"), orders.confirmPayment);
 

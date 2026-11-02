@@ -100,9 +100,9 @@ async function afterPaid(gp, app, { kind, dueDate, autoCharged = false, offline 
     const u = rows[0];
     if (u?.email) {
       sendMail({
-        to: u.email, subject: "Congratulations — you're now an EPHAAG Farms investor!",
+        to: u.email, subject: "Congratulations, you're now an EPHAAG Farms investor!",
         html: `<p>Hi ${u.name},</p><p>Congratulations! Your payment has been received and your investment (<strong>${app.reference}</strong>) is now active.</p>
-<p>You can track your ROI schedule and (on the monthly plan) your upcoming payments from your Investor Room.</p><p>Welcome aboard.</p><p>— EPHAAG Farms</p>`,
+<p>You can track your ROI schedule and (on the monthly plan) your upcoming payments from your Investor Room.</p><p>Welcome aboard.</p><p>,  EPHAAG Farms</p>`,
       });
     }
   }

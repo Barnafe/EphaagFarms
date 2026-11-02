@@ -19,10 +19,7 @@ export default function Tubers() {
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-ink-900">What we grow</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            Cassava, yam and sweet potato make up our tuber line — crops planted on
-            rotation so that fields feeding the supply pool are staggered across the
-            season rather than all maturing at once.
-          </p>
+            Cassava, yam and sweet potato, planted in stages so harvests are spread across the season.</p>
         </div>
 
         <div className="mt-8 card">

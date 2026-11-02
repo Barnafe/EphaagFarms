@@ -3,7 +3,7 @@ import { apiFetch } from "../../api/client.js";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
 
 // 2026-09-01 spec: registered buyers must be visible to admin the same
-// way farmers already are — a full directory of every buyer's
+// way farmers already are, a full directory of every buyer's
 // registration info, company-wide (not scoped), same visibility model as
 // the admin branch of farmers.jurisdictionOverview.
 export default function BuyersDirectory() {
@@ -47,7 +47,7 @@ export default function BuyersDirectory() {
           <p className="text-xs uppercase tracking-wide text-canopy-300">Admin</p>
           <h1 className="text-xl font-medium text-white">Buyers/Processor</h1>
           <p className="mt-1 text-sm text-canopy-100">
-            Every registered Buyers/Processor account — individuals and organizations — with their full registration
+            Every registered Buyers/Processor account, individuals and organizations, with their full registration
             details.
           </p>
         </div>
@@ -96,16 +96,16 @@ export default function BuyersDirectory() {
                   </div>
 
                   <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-ink-600 sm:grid-cols-3">
-                    <p>State: {b.state || "—"}</p>
-                    <p>LGA: {b.lga || "—"}</p>
-                    <p>Registered: {(b.createdAt || "").slice(0, 10) || "—"}</p>
+                    <p>State: {b.state || "N/A"}</p>
+                    <p>LGA: {b.lga || "N/A"}</p>
+                    <p>Registered: {(b.createdAt || "").slice(0, 10) || "N/A"}</p>
                     {b.buyerType === "organization" ? (
                       <>
-                        <p className="col-span-2">Contact person: {b.contactPersonName || "—"}</p>
-                        <p className="col-span-3">Registered address: {b.registeredAddress || "—"}</p>
+                        <p className="col-span-2">Contact person: {b.contactPersonName || "N/A"}</p>
+                        <p className="col-span-3">Registered address: {b.registeredAddress || "N/A"}</p>
                       </>
                     ) : (
-                      <p className="col-span-3">Delivery address: {b.address || "—"}</p>
+                      <p className="col-span-3">Delivery address: {b.address || "N/A"}</p>
                     )}
                   </div>
                 </div>

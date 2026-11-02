@@ -8,6 +8,15 @@ import { getSetting, setSetting } from "../utils/settings.js";
 import { logSecurityEvent } from "../utils/securityLog.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Any signed-in customer: what the gateway charge would be on an amount, so the
+// payment preview can show Amount, Paystack Charges and Total before paying.
+export async function feeQuote(req, res) {
+  const amount = Number(req.query.amount);
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: "Enter an amount greater than zero" });
+  const q = calculateFee(amount, await getFeeConfig());
+  res.json({ amount: q.net, fee: q.fee, total: q.gross, available: paystackConfigured() });
+}
+
 const httpErr = (m, s = 400) => Object.assign(new Error(m), { status: s });
 
 // ---------------------------------------------------------------------------
@@ -107,7 +116,7 @@ export async function ledger(req, res) {
 
 export async function ledgerCsv(req, res) {
   const rows = await loadLedger({ ...req.query, limit: 20000 });
-  const head = ["Paid at", "Type", "Reference", "Payer", "Net to EPHAAG (NGN)", "Processing fee (NGN)", "Total charged (NGN)", "Channel", "Recorded", "Review flag"];
+  const head = ["Paid at", "Type", "Reference", "Payer", "Net to EPHAAG (NGN)", "Paystack Charges (NGN)", "Total charged (NGN)", "Channel", "Recorded", "Review flag"];
   const lines = [head.join(",")].concat(rows.map((r) => [
     r.paid_at ? new Date(r.paid_at).toISOString() : "", TYPE_LABEL[r.type] || r.type, r.reference, r.payer_name || "",
     r.net_amount, r.fee_amount, r.gross_amount, r.channel || "", r.recorded ? "yes" : "no", r.review_reasons || "",

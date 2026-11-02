@@ -17,11 +17,19 @@ router.delete("/farms/:id", production.deleteFarm);
 // Harvest declarations
 router.get("/harvests", production.listHarvests);
 router.post("/harvests", production.declareHarvest);
+router.patch("/harvests/:id", production.updateHarvest);
+
+// Farm costs (inputs, labour, other) and profit per harvest
+router.get("/costs", production.listCosts);
+router.post("/costs", production.createCost);
+router.patch("/costs/:id", production.updateCost);
+router.delete("/costs/:id", production.deleteCost);
+router.get("/profit", production.profit);
 
 // Annual summary (computed from farm harvest logs)
 router.get("/summary", production.annualSummary);
 
-// Annual production declarations — the company's own official
+// Annual production declarations, the company's own official
 // company-wide figure per crop/year, separate from the per-farm harvest
 // logs above (see production_annual_declarations in 001_init.sql).
 router.get("/declarations", production.listAnnualDeclarations);

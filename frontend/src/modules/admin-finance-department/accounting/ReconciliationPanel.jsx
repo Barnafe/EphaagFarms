@@ -117,7 +117,7 @@ export default function ReconciliationPanel() {
               <div>
                 <p className="font-medium text-ink-900">{r.reference}</p>
                 <p className="text-xs text-ink-600">
-                  {r.recon_type} · {r.period_start?.slice(0, 10)} – {r.period_end?.slice(0, 10)}
+                  {r.recon_type} · {r.period_start?.slice(0, 10)} to {r.period_end?.slice(0, 10)}
                 </p>
                 {r.statement_balance != null && (
                   <p className="text-xs text-ink-600">

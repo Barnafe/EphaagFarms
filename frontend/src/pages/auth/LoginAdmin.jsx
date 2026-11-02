@@ -58,10 +58,6 @@ export default function LoginAdmin() {
           {submitting ? "Logging in..." : "Log in"}
         </button>
       </form>
-      <p className="mt-4 text-xs text-ink-600">
-        Admin accounts are not created on the Register page. The main admin is created with{" "}
-        <code>npm run seed:admin -w backend</code> and adds other admins from Admin → Positions.
-      </p>
     </div>
   );
 }

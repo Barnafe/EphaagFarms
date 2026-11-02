@@ -61,7 +61,7 @@ export default function AdminContactMessagesPage() {
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-canopy-800">
                       {m.name}
-                      {m.email ? ` — ${m.email}` : ""}
+                      {m.email ? `, ${m.email}` : ""}
                     </p>
                     <span
                       className={`rounded-full px-2 py-1 text-xs ${

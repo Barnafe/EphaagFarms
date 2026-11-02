@@ -5,12 +5,11 @@ import { computeAndStoreIndices } from "../utils/indicesEngine.js";
 
 // --- Farmer: view + deposit + withdraw --------------------------------
 // Two accounts: "main" and "insurance". Every deposit auto-splits ₦500 to
-// insurance, remainder to main. Insurance is never farmer-withdrawable —
-// only the company (admin) can move it, as emergency/bridge assistance.
+// insurance, remainder to main. Insurance is never farmer-withdrawable, // only the company (admin) can move it, as emergency/bridge assistance.
 // Main-account withdrawals are farmer-requested, then Finance-approved.
-// 2026-08-29: the "due date" rule is now pinned down — main savings can't
+// 2026-08-29: the "due date" rule is now pinned down, main savings can't
 // be withdrawn at all until a full year has passed since the farmer's
-// FIRST deposit (account-level maturity, not per-deposit) — see
+// FIRST deposit (account-level maturity, not per-deposit), see
 // [[ephaag-farms-farmer-room-specs]] memory.
 
 const DEPOSIT_WINDOW_START_DAY = 1;
@@ -18,7 +17,7 @@ const DEPOSIT_WINDOW_END_DAY = 5;
 const MAIN_WITHDRAWAL_LOCK_YEARS = 1;
 
 function isWithinDepositWindow() {
-  // Test/ops-only escape hatch, server-side env var only — never
+  // Test/ops-only escape hatch, server-side env var only, never
   // reachable via any client input, so farmers can't bypass the real
   // window. Lets the deposit flow be tested outside the 1st-5th without
   // weakening the actual business rule for real users.
@@ -28,7 +27,7 @@ function isWithinDepositWindow() {
 }
 
 // Main savings can't be withdrawn until 1 full year after the farmer's
-// FIRST-ever deposit — returns null (never unlocked) if they haven't saved
+// FIRST-ever deposit, returns null (never unlocked) if they haven't saved
 // anything yet.
 async function mainWithdrawalUnlocksAt(userId) {
   const { rows } = await pool.query(
@@ -119,7 +118,7 @@ export async function requestWithdrawal(req, res) {
   if (!unlocksAt || new Date() < unlocksAt) {
     return res.status(400).json({
       error: unlocksAt
-        ? `Your savings capital can't be withdrawn until ${unlocksAt.toISOString().slice(0, 10)} — a full year after your first deposit`
+        ? `Your savings capital can't be withdrawn until ${unlocksAt.toISOString().slice(0, 10)}, a full year after your first deposit`
         : "You don't have any savings deposits yet",
     });
   }
@@ -198,7 +197,7 @@ export async function adminDecideWithdrawal(req, res) {
   res.json({ withdrawal: rows[0] });
 }
 
-// Company applying insurance funds as emergency/bridge assistance — this
+// Company applying insurance funds as emergency/bridge assistance, this
 // is never farmer-initiated, so admin creates an already-'paid' row
 // directly rather than going through the request/approve flow.
 export async function adminApplyInsurance(req, res) {

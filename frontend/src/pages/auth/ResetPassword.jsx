@@ -52,7 +52,7 @@ export default function ResetPassword() {
   if (done) {
     return (
       <div className="mx-auto max-w-sm px-6 py-16 text-center">
-        <p className="text-sm text-canopy-800">Password updated — taking you to login...</p>
+        <p className="text-sm text-canopy-800">Password updated, taking you to login...</p>
       </div>
     );
   }

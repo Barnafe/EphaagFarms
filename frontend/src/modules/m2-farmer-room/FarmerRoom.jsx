@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { LayoutDashboard, User, PackagePlus, Receipt, GraduationCap, Landmark, PiggyBank, MessageSquareWarning, History, Users, Share2, CalendarCheck } from "lucide-react";
+import { LayoutDashboard, User, PackagePlus, Receipt, GraduationCap, Landmark, PiggyBank, MessageSquareWarning, History, Users, Share2, CalendarCheck, TrendingUp } from "lucide-react";
 import { apiFetch } from "../../api/client.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import DashboardShell from "../../components/DashboardShell.jsx";
@@ -18,8 +18,7 @@ import CoursesPanel from "./CoursesPanel.jsx";
 import AttendanceRoom from "./AttendanceRoom.jsx";
 import SavingsPanel from "./SavingsPanel.jsx";
 import FarmShareCard from "./FarmShareCard.jsx";
-import RankingCard from "./RankingCard.jsx";
-import CompanyGrowthChart from "./CompanyGrowthChart.jsx";
+import DashboardCards from "./DashboardCards.jsx";
 import FeedbackPanel from "./FeedbackPanel.jsx";
 import ReferralPanel from "./ReferralPanel.jsx";
 import CreateUnitPanel from "./CreateUnitPanel.jsx";
@@ -29,7 +28,7 @@ import LoanOffice from "../m3-loan-office/LoanOffice.jsx";
 import SectionStack from "../../components/SectionStack.jsx";
 
 import useUrlState from "../../hooks/useUrlState.js";
-import { TOP_RANK_VALUE, rankLabel } from "../../utils/governance.js";
+import { TOP_RANK_VALUE } from "../../utils/governance.js";
 function honorific(user) {
   if (user.sex === "male") return "Mr";
   if (user.sex === "female") return user.maritalStatus === "married" ? "Mrs" : "Miss";
@@ -61,7 +60,7 @@ export default function FarmerRoom() {
   const isLeader = RANKS_ABOVE_MEMBER.includes(rank);
 
   const [tab, setTab] = useUrlState("tab", () =>
-    new URLSearchParams(window.location.search).has("sharePayment") ? "savings" : "dashboard"
+    new URLSearchParams(window.location.search).has("sharePayment") ? "shares" : "dashboard"
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -109,6 +108,7 @@ export default function FarmerRoom() {
     { key: "attendance", label: "Attendance", icon: CalendarCheck },
     { key: "loans", label: "Loans", icon: Landmark },
     { key: "savings", label: "Savings", icon: PiggyBank },
+    { key: "shares", label: "Buy Share", icon: TrendingUp },
     { key: "feedback", label: "Feedback", icon: MessageSquareWarning },
     { key: "history", label: "History", icon: History },
     ...(isLeader ? [{ key: "rank", label: "Rank", icon: Users }] : []),
@@ -134,24 +134,7 @@ export default function FarmerRoom() {
             </h1>
           </div>
           {loading && <p className="text-sm text-canopy-100">Loading…</p>}
-          <SectionStack
-            label="Dashboard section"
-            sections={[
-              {
-                key: "rank",
-                label: "Your rank",
-                hidden: loading,
-                node: (
-                  <div className="card">
-                    <p className="text-sm text-ink-600">Your rank</p>
-                    <p className="text-lg font-medium text-canopy-800">{rankLabel(rank)}</p>
-                  </div>
-                ),
-              },
-              { key: "ranking", label: "Ranking", hidden: loading, node: <RankingCard /> },
-              { key: "growth", label: "Company growth", node: <CompanyGrowthChart /> },
-            ]}
-          />
+          <DashboardCards user={user} rank={rank} />
         </div>
       )}
 
@@ -176,17 +159,9 @@ export default function FarmerRoom() {
 
       {tab === "loans" && <LoanOffice />}
 
-      {tab === "savings" && (
-        <SectionStack
-          className="space-y-4"
-          label="Go to"
-          defaultKey={new URLSearchParams(window.location.search).has("sharePayment") ? "farm-share" : undefined}
-          sections={[
-            { key: "savings", label: "My savings", node: <SavingsPanel /> },
-            { key: "farm-share", label: "Farm shares", node: <FarmShareCard /> },
-          ]}
-        />
-      )}
+      {tab === "savings" && <SavingsPanel />}
+
+      {tab === "shares" && <FarmShareCard />}
 
       {tab === "feedback" && <FeedbackPanel />}
 

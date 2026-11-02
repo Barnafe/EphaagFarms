@@ -19,18 +19,14 @@ export default function Poultry() {
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-ink-900">What we raise</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            Our poultry operation covers two lines: broilers, raised for meat and taken to
-            market weight on a controlled feeding schedule, and layers, kept for consistent
-            egg production over a longer laying cycle. Both are housed separately to match
-            their different feeding, lighting and space needs.
-          </p>
+            Broilers for meat and layers for eggs, housed separately on company-owned farms.</p>
         </div>
 
         <div className="mt-8 card">
           <h2 className="font-display text-lg font-semibold text-ink-900">How it's managed</h2>
           <ul className="mt-3 space-y-2 text-sm text-ink-600">
             <li>• Vaccination and health checks on a fixed schedule, with a resident farm attendant per house.</li>
-            <li>• Feed formulated for growth stage — starter, grower and finisher for broilers; layer mash for egg birds.</li>
+            <li>• Feed formulated for growth stage, starter, grower and finisher for broilers; layer mash for egg birds.</li>
             <li>• Biosecurity controls at every house entry point to limit disease spread across flocks.</li>
             <li>• Output moves straight into the same supply pool as sourced produce, ready for processing and onward handling.</li>
           </ul>

@@ -1,4 +1,4 @@
-# v26 — Phase 3: corps access-fee payment gate
+# v26, Phase 3: corps access-fee payment gate
 
 Rule: a corps member must pay the one-time access fee before any corps
 course opens or anything counts toward their progress.
@@ -32,8 +32,8 @@ course opens or anything counts toward their progress.
 Set `PAYSTACK_SECRET_KEY` and `FRONTEND_ORIGIN` on Render, and add the webhook URL
 `https://<your-site>/api/corpers/paystack-webhook` in the Paystack dashboard. If the key is set but the webhook isn't,
 members are still unlocked when they return to the site after paying (and admin can confirm by hand).
-Refunds of Paystack payments must be returned from the Paystack dashboard — the admin action records it and closes access.
+Refunds of Paystack payments must be returned from the Paystack dashboard, the admin action records it and closes access.
 
 ## Known limits
-- Manual mode shows no bank details to the member (none exist in the system yet) — the admin tells them how to pay and they quote the reference.
+- Manual mode shows no bank details to the member (none exist in the system yet), the admin tells them how to pay and they quote the reference.
 - Quiz/lesson taking, progress and certificate are phase 4+.

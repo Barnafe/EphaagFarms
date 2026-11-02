@@ -42,7 +42,7 @@ export default function FeedbackPanel() {
     try {
       await apiFetch("/farmers/me/feedback", { method: "POST", body: { category, message } });
       setMessage("");
-      setSuccess("Sent — this goes directly to admin.");
+      setSuccess("Sent, this goes directly to admin.");
       await load();
     } catch (err) {
       setError(err.message);
@@ -56,7 +56,7 @@ export default function FeedbackPanel() {
       <div>
         <h2 className="text-lg font-medium text-white">Feedback</h2>
         <p className="mt-1 text-sm text-canopy-100">
-          A direct line to admin — challenges you're facing, concerns about leadership,
+          A direct line to admin, challenges you're facing, concerns about leadership,
           suspicious activity, or anything you'd recommend we do differently.
         </p>
       </div>

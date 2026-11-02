@@ -1,4 +1,6 @@
-export default function PublicContentBrowser({ seminars, courses, research, consultancy }) {
+import ConsultancyCard from "./public-services/ConsultancyCard.jsx";
+
+export default function PublicContentBrowser({ seminars, courses }) {
   return (
     <div className="space-y-6">
       <div className="card">
@@ -25,29 +27,7 @@ export default function PublicContentBrowser({ seminars, courses, research, cons
         </div>
       </div>
 
-      <div className="card">
-        <p className="text-sm text-ink-600">Research</p>
-        <div className="mt-3 space-y-2">
-          {research.map((r) => (
-            <div key={r.id} className="rounded-card border border-soil-200 px-3 py-2">
-              <p className="font-medium text-ink-900">{r.title}</p>
-              <p className="text-sm text-ink-600">{r.summary}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="card">
-        <p className="text-sm text-ink-600">Consultancy</p>
-        <div className="mt-3 space-y-2">
-          {consultancy.map((c) => (
-            <div key={c.id} className="rounded-card border border-soil-200 px-3 py-2">
-              <p className="font-medium text-ink-900">{c.title}</p>
-              <p className="text-sm text-ink-600">{c.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+      <ConsultancyCard />
     </div>
   );
 }

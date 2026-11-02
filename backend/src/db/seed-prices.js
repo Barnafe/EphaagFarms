@@ -1,15 +1,15 @@
 import "dotenv/config";
 import { pool } from "./pool.js";
 
-// Seeds the standardized prices — buy_price (paid to farmers, farmer-
+// Seeds the standardized prices, buy_price (paid to farmers, farmer-
 // visible) and sell_price (charged to buyers, buyer-visible/order-costing).
-// 2026-08-30 spec: these must differ — the company can't buy and sell at
+// 2026-08-30 spec: these must differ, the company can't buy and sell at
 // the same price and stay solvent. Claude's placeholder: sell_price =
 // buy_price × 1.15 (a flat 15% margin) purely so the system isn't zero-
-// margin out of the box — this number was never given by the user and
+// margin out of the box, this number was never given by the user and
 // should be reviewed/adjusted via the admin price editor
 // (financeController.js listPrices/updatePrice) before going live.
-// Safe to re-run — upserts by crop.
+// Safe to re-run, upserts by crop.
 const prices = [
   { crop: "Maize", unit: "bag", buyPrice: 38000 },
   { crop: "Rice (paddy)", unit: "bag", buyPrice: 52000 },
@@ -29,7 +29,7 @@ async function seedPrices() {
       [p.crop, p.unit, p.buyPrice, sellPrice]
     );
   }
-  console.log(`Seeded ${prices.length} standard prices (buy price + a placeholder 15% sell margin — review before going live).`);
+  console.log(`Seeded ${prices.length} standard prices (buy price + a placeholder 15% sell margin, review before going live).`);
   await pool.end();
 }
 

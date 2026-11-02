@@ -1,5 +1,8 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
+import ConsultancyCard from "../../components/public-services/ConsultancyCard.jsx";
 import HeroCarousel from "../../components/HeroCarousel.jsx";
+import { services } from "../../data/services.js";
 
 const stats = [
   { num: "5", label: "Roles on one platform" },
@@ -7,23 +10,16 @@ const stats = [
   { num: "Nationwide", label: "Open from day one" },
 ];
 
-const services = [
-  { icon: "$", color: "bg-canopy-600", title: "Produce sourcing", desc: "Standardized pricing, direct from farmers, coordinated through local reps in every region.", to: "/services/produce-sourcing" },
-  { icon: "🌾", color: "bg-canopy-900", title: "Farm production", desc: "We also grow — company-owned farms across multiple crops, adding directly to what we supply.", to: "/services/farm-production" },
-  { icon: "%", color: "bg-clay-600", title: "Farmer financing", desc: "Aid and interest loans to fund production, reviewed by farmers' own local leaders.", to: "/services/farmer-financing" },
-  { icon: "→", color: "bg-harvest-400", title: "Logistics & tracking", desc: "From processing to delivery, every shipment carries a reference you can trace.", to: "/services/logistics" },
-  { icon: "+", color: "bg-clay-600", title: "TRC", desc: "Training, Research & Consultancy — free courses, research, and consultancy for members.", to: "/services/trc" },
-  { icon: "≈", color: "bg-canopy-600", title: "Investment plans", desc: "Monthly or bulk investment plans with transparent, year-by-year returns.", to: "/services/investment" },
-];
-
 const whyPoints = [
-  "Standardized pricing, reviewed and set with both farmers and buyers in mind",
-  "Local accountability through our own 3EI Governance model",
-  "Transparent tracking from sourcing through to final delivery",
-  "Free ongoing education to help farmers raise their standards",
+  "Standard prices that are fair to farmers and buyers",
+  "Local accountability through 3EI Governance",
+  "Tracking from sourcing to delivery",
+  "Free training for farmers",
 ];
 
 export default function Home() {
+  const { hash } = useLocation();
+  useEffect(() => { if (hash) document.getElementById(hash.slice(1))?.scrollIntoView(); }, [hash]);
   return (
     <div>
       <HeroCarousel />
@@ -39,9 +35,7 @@ export default function Home() {
           Feeding humanity with safe food through sustainable agriculture
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-base text-ink-600">
-          Ephaag Farms connects farmers, buyers/processors, transporters, distributors,
-          and investors on one platform — sourcing and producing at a fair price, and
-          coordinating every step through to delivery.
+          Farmers, buyers, transporters, distributors and investors on one platform.
         </p>
         <div className="mt-7 flex flex-wrap justify-center gap-3">
           <Link to="/register" className="btn-primary px-6 py-3 text-sm">
@@ -67,10 +61,7 @@ export default function Home() {
       <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="mx-auto max-w-xl text-center">
           <h2 className="font-body text-2xl font-bold text-ink-900 sm:text-3xl">Our services</h2>
-          <p className="mt-3 text-sm text-ink-600">
-            Comprehensive coverage across the agricultural value chain, from sourcing and
-            production to delivery.
-          </p>
+          <p className="mt-3 text-sm text-ink-600">From sourcing and production to delivery.</p>
         </div>
 
         <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -99,8 +90,7 @@ export default function Home() {
           <div>
             <h2 className="font-body text-2xl font-bold sm:text-3xl">Why Ephaag Farms?</h2>
             <p className="mt-4 max-w-md text-sm text-canopy-100/90">
-              We sit at the center of the value chain so no single actor bears the risk
-              of price volatility, financing gaps, or delivery uncertainty alone.
+              One platform, so no one carries price, financing or delivery risk alone.
             </p>
             <ul className="mt-7 space-y-4">
               {whyPoints.map((point) => (
@@ -117,7 +107,7 @@ export default function Home() {
           <div className="rounded-xl bg-gradient-to-br from-clay-600 to-clay-800 p-8">
             <h3 className="font-body text-xl font-bold">Ready to grow with us?</h3>
             <p className="mt-3 text-sm text-clay-50/90">
-              Whether you're a farmer, buyer, or investor, there's a place for you on Ephaag Farms.
+              There is a place for farmers, buyers and investors.
             </p>
             <Link to="/register" className="mt-6 inline-block rounded-card bg-white px-6 py-3 text-sm font-semibold text-clay-600">
               Register today
@@ -125,6 +115,12 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      <section id="consultancy" className="bg-soil-50 py-14">
+        <div className="mx-auto max-w-2xl px-6">
+          <ConsultancyCard />
+        </div>
+      </section>
     </div>
   );
 }

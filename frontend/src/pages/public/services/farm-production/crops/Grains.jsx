@@ -19,10 +19,7 @@ export default function Grains() {
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-ink-900">What we grow</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            Our grain fields carry maize, rice, sorghum and millet — staple crops planted
-            in line with the rainy-season calendar and rotated across fields to keep soil
-            fertility up over successive seasons.
-          </p>
+            Maize, rice, sorghum and millet, planted with the rainy season and rotated to keep the soil healthy.</p>
         </div>
 
         <div className="mt-8 card">

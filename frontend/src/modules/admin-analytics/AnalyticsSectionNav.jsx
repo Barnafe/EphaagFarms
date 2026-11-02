@@ -2,7 +2,7 @@
 // arrow), the Analytics room keeps every section as a small pill, always
 // visible, pinned to the top of the scroll area via `sticky`. Scrolling
 // down through one section's content carries this strip up with the page
-// until it hits the top of the viewport, then it sticks there — so
+// until it hits the top of the viewport, then it sticks there, so
 // switching to another section (e.g. "Mark attendance") is always just a
 // scroll-up-and-click away, no back button needed.
 export default function AnalyticsSectionNav({ sections, activeKey, onSelect }) {

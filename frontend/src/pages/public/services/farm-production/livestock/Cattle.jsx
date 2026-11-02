@@ -19,11 +19,7 @@ export default function Cattle() {
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-ink-900">What we raise</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            Our cattle operation covers both beef and dairy lines. Beef cattle are raised
-            through to market weight on a managed feeding regime; dairy cattle are kept for
-            ongoing milk production. Select stock is also retained for breeding to grow the
-            herd over time.
-          </p>
+            Beef and dairy cattle, with select stock kept for breeding.</p>
         </div>
 
         <div className="mt-8 card">

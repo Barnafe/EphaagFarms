@@ -19,10 +19,7 @@ export default function Vegetables() {
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-ink-900">What we grow</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            Our vegetable beds carry tomatoes, peppers, onions and leafy greens — fast-cycle
-            crops planted in succession so fresh supply keeps coming through the season
-            rather than arriving all at once.
-          </p>
+            Tomatoes, peppers, onions and leafy greens, planted in succession for steady fresh supply.</p>
         </div>
 
         <div className="mt-8 card">

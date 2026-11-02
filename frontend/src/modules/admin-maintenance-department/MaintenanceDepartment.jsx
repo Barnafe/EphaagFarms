@@ -11,7 +11,7 @@ import MaintenanceWorkspace from "./MaintenanceWorkspace.jsx";
 import PreventiveMaintenance from "./PreventiveMaintenance.jsx";
 
 import useUrlState from "../../hooks/useUrlState.js";
-// The Maintenance HOD's own portal — deliberately its own DashboardShell
+// The Maintenance HOD's own portal, deliberately its own DashboardShell
 // (own hamburger, own constant menu) rather than nested inside
 // AdminDashboardShell's generic admin sidebar, same pattern every member
 // room uses (see FarmerRoom.jsx). Preventive Maintenance is kept as its

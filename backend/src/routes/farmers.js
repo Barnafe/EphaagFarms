@@ -38,7 +38,6 @@ router.post("/me/savings/withdraw", requireRole("farmer"), requireVerifiedFarmer
 
 router.get("/me/ranking", requireRole("farmer"), farmers.myRanking);
 router.get("/me/jurisdiction-report", requireRole("farmer", "admin"), farmers.myJurisdictionReport);
-router.get("/company-growth", farmers.companyGrowth);
 
 router.get("/shares/terms", requireRole("farmer"), shares.shareTerms);
 router.get("/me/shares", requireRole("farmer"), shares.myShares);

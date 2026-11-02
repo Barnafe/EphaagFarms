@@ -24,7 +24,7 @@ export default function ROIBreakdown({ records, latePenaltyOutstanding = 0 }) {
                 <td className="py-2 pr-4 text-ink-900">Year {r.year}</td>
                 <td className="py-2 pr-4 text-ink-600">{r.roiPercent}%</td>
                 <td className="py-2 pr-4 text-ink-600">
-                  {r.penaltyAmount > 0 ? `-₦${r.penaltyAmount.toLocaleString()} (${r.penaltyPercent}%)` : "—"}
+                  {r.penaltyAmount > 0 ? `-₦${r.penaltyAmount.toLocaleString()} (${r.penaltyPercent}%)` : "N/A"}
                 </td>
                 <td className="py-2 pr-4 text-ink-900">₦{r.netPayout.toLocaleString()}</td>
                 <td className="py-2">

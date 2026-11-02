@@ -31,12 +31,12 @@ export default function ReportsPanel() {
         <div className="card">
           <p className="text-sm text-ink-600">Average completion time</p>
           <p className="mt-1 text-2xl font-medium text-ink-900">
-            {data.avgCompletionDays != null ? `${data.avgCompletionDays.toFixed(1)} days` : "—"}
+            {data.avgCompletionDays != null ? `${data.avgCompletionDays.toFixed(1)} days` : "N/A"}
           </p>
         </div>
         <div className="card">
           <p className="text-sm text-ink-600">Assets with the most work orders</p>
-          <p className="mt-1 text-2xl font-medium text-ink-900">{data.workOrdersByAsset[0]?.asset_name || "—"}</p>
+          <p className="mt-1 text-2xl font-medium text-ink-900">{data.workOrdersByAsset[0]?.asset_name || "N/A"}</p>
         </div>
       </div>
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../../api/client.js";
 
 const naira = (n) => `₦${Number(n).toLocaleString("en-NG")}`;
-const when = (d) => (d ? new Date(d).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : "—");
+const when = (d) => (d ? new Date(d).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : "N/A");
 
 const STATUS_LABEL = { pending: "Pending", paid: "Paid", failed: "Rejected", cancelled: "Cancelled", refunded: "Refunded" };
 const STATUS_TONE = {
@@ -27,7 +27,7 @@ export default function CorpsPayments() {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
-  // { id, kind: "reject" | "refund", reason } — the inline reason form.
+  // { id, kind: "reject" | "refund", reason }, the inline reason form.
   const [reasonFor, setReasonFor] = useState(null);
 
   const loadSummary = useCallback(async () => {
@@ -90,7 +90,7 @@ export default function CorpsPayments() {
     setBusy(true); setError(null); setMessage(null);
     try {
       await apiFetch(`/rtc/admin/corps/payments/${p.id}/confirm`, { method: "POST", body: {} });
-      setMessage(`Payment ${p.reference} confirmed — training unlocked and the access fee posted to Finance.`);
+      setMessage(`Payment ${p.reference} confirmed, training unlocked and the access fee posted to Finance.`);
       await Promise.all([loadSummary(), loadPayments()]);
     } catch (err) {
       if (/could not be reached/i.test(err.message)) { setReasonFor({ id: p.id, kind: "confirm", reason: "" }); setError(err.message); }
@@ -110,18 +110,18 @@ export default function CorpsPayments() {
       await apiFetch(`/rtc/admin/corps/payments/${id}/${kind}`, { method: "POST", body: { reason } });
       setReasonFor(null);
       setError(null);
-    }, kind === "confirm" ? "Confirmed by hand and flagged for review. If Paystack later reports the same payment it will not be credited twice." : "Payment rejected — the member can try again.");
+    }, kind === "confirm" ? "Confirmed by hand and flagged for review. If Paystack later reports the same payment it will not be credited twice." : "Payment rejected, the member can try again.");
   };
 
   return (
     <div className="max-w-5xl space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-wide text-canopy-300">TRC — NYSC AGROALLIED SAED</p>
+        <p className="text-xs uppercase tracking-wide text-canopy-300">TRC: NYSC AGROALLIED SAED</p>
         <h1 className="text-xl font-medium text-white">NYSC AGROALLIED SAED access-fee payments</h1>
         <p className="mt-1 text-sm text-canopy-100">
           {summary?.mode === "paystack"
-            ? "Paystack is connected: payments are confirmed automatically and listed in Finance. If one is stuck, Re-check asks Paystack again. You can confirm by hand only if Paystack cannot be reached, with a reason. The access fee is non-refundable once paid, so there is no refund action."
-            : "Paystack isn’t connected yet — confirm each payment by hand once the money is received."}
+            ? "Payments are confirmed automatically and listed in Finance. Use Re-check if one is stuck. Confirm by hand only if the payment service cannot be reached."
+            : "Paystack isn’t connected yet, confirm each payment by hand once the money is received."}
         </p>
       </div>
 
@@ -195,7 +195,7 @@ export default function CorpsPayments() {
                   </div>
                   <div className="text-right">
                     <p className="font-medium text-ink-900">{naira(p.accessFee)} <span className="text-xs font-normal text-ink-600">access fee</span></p>
-                    {p.processingFee > 0 && <p className="text-xs text-ink-600">+ {naira(p.processingFee)} processing fee = {naira(p.totalCharged)} charged</p>}
+                    {p.processingFee > 0 && <p className="text-xs text-ink-600">+ {naira(p.processingFee)} Paystack Charges = {naira(p.totalCharged)} charged</p>}
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_TONE[p.status]}`}>{STATUS_LABEL[p.status]}</span>
                   </div>
                 </div>

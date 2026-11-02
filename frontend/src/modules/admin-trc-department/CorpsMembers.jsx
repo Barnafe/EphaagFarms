@@ -3,7 +3,7 @@ import { apiFetch, apiDownload } from "../../api/client.js";
 
 const YES_NO = [["", "Any"], ["yes", "Yes"], ["no", "No"]];
 const EMAIL_LABEL = { sent: "Emailed", pending: "Email waiting", failed: "Email failed", not_configured: "Not emailed (no SMTP)", no_email: "No email address" };
-const day = (d) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
+const day = (d) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "N/A");
 
 // TRC -> Corps -> Members: the NYSC AGROALLIED SAED table. Filters + a spreadsheet export.
 export default function CorpsMembers() {
@@ -141,7 +141,7 @@ export default function CorpsMembers() {
                     <td className="py-2 pr-3"><p>{m.stateOfDeployment}</p><p className="text-xs text-ink-600">{m.ppa}</p></td>
                     <td className="py-2 pr-3">{m.paid ? "Yes" : "No"}</td>
                     <td className="py-2 pr-3">{m.coursesCompleted} of {m.coursesTotal}</td>
-                    <td className="py-2 pr-3">{m.completed ? day(m.completionDate) : "—"}</td>
+                    <td className="py-2 pr-3">{m.completed ? day(m.completionDate) : "N/A"}</td>
                     <td className="py-2 pr-3">{m.consent ? "Yes" : <span className="text-red-700">No</span>}</td>
                     <td className="py-2 pr-3">
                       {m.certificateNumber ? (
@@ -149,7 +149,7 @@ export default function CorpsMembers() {
                           <p className="font-mono text-xs">{m.certificateNumber}</p>
                           <p className="text-xs text-ink-600">{m.certificateStatus === "released" ? `Released · ${EMAIL_LABEL[m.emailStatus] || ""}` : "Hidden"}</p>
                         </>
-                      ) : "—"}
+                      ) : "N/A"}
                     </td>
                     <td className="py-2">
                       {m.certificateNumber && (

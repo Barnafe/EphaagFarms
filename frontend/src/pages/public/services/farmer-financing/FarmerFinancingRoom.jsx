@@ -14,7 +14,7 @@ export default function FarmerFinancingRoom() {
         theme={themes.farmerFinancing}
         eyebrow="Farmer financing"
         title="Funding to grow, reviewed by your own local leaders"
-        description="Three loans and a shared-capital plan for registered farmers — every figure below is the official EPHAAG financing schedule, and every loan is reviewed by people in your own farming community, not a faceless office."
+        description="Three loans and a shared-capital plan for registered farmers."
         badge="%"
       />
       <RoomBackLink to="/" label="Back to home" />
@@ -24,8 +24,8 @@ export default function FarmerFinancingRoom() {
           <div className="card">
             <h2 className="font-display text-lg font-semibold text-ink-900">LT1 · Progressive Savings Loan</h2>
             <p className="mt-2 text-sm leading-relaxed text-ink-600">
-              0% interest. Save, borrow, repay — and move up a level each time. Loans are 2x your savings in
-              Levels 1–3 and 3x in Levels 4–6.
+              0% interest. Save, borrow, repay, and move up a level each time. Loans are 2x your savings in
+              Levels 1 to 3 and 3x in Levels 4 to 6.
             </p>
             <table className="mt-3 w-full text-left text-sm text-ink-900">
               <thead className="text-xs text-ink-600"><tr><th className="py-1 font-medium">Level</th><th className="font-medium">Savings</th><th className="font-medium">Loan</th><th className="font-medium">Repay in</th></tr></thead>
@@ -40,8 +40,7 @@ export default function FarmerFinancingRoom() {
           <div className="card">
             <h2 className="font-display text-lg font-semibold text-ink-900">LT2 · Business Boost</h2>
             <p className="mt-2 text-sm leading-relaxed text-ink-600">
-              Boost your business, increase your potential. Pay a 25% deposit (1–90 day maturity period), then repay over {BOOST_MONTHS} months.
-            </p>
+              Pay a 25% deposit (1 to 90 day maturity), then repay over {BOOST_MONTHS} months.</p>
             <table className="mt-3 w-full text-left text-sm text-ink-900">
               <thead className="text-xs text-ink-600"><tr><th className="py-1 font-medium">Deposit</th><th className="font-medium">Loan</th></tr></thead>
               <tbody>
@@ -70,9 +69,7 @@ export default function FarmerFinancingRoom() {
           <div className="card">
             <h2 className="font-display text-lg font-semibold text-ink-900">Shared Capital Investment and Rewards</h2>
             <p className="mt-2 text-sm leading-relaxed text-ink-600">
-              One share is {naira(SHARE_PRICE)} over {SHARE_LOCK_YEARS} years. You earn a yearly return on your
-              capital — {SHARE_YEAR_RATES.map((p, i) => `${p}% in year ${i + 1}`).join(", ")}. Every share you buy is
-              treated separately, with its own interest and withdrawals.
+              One share is {naira(SHARE_PRICE)} over {SHARE_LOCK_YEARS} years. Yearly returns: {SHARE_YEAR_RATES.map((p, i) => `${p}% in year ${i + 1}`).join(", ")}. Every share is tracked separately.
             </p>
             <div className="mt-3 overflow-x-auto">
               <table className="w-full min-w-[520px] text-left text-xs text-ink-900">
@@ -93,7 +90,7 @@ export default function FarmerFinancingRoom() {
         <div className="mt-8 card">
           <h2 className="font-display text-xl font-semibold text-ink-900">How the review works</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            An application isn't reviewed by a distant office — it moves up through your own
+            An application isn't reviewed by a distant office, it moves up through your own
             farming network. Your Unit Leader reviews it first and either recommends or
             rejects it, and a recommended application then goes to the 3EI Governance level for
             final approval before the funds are disbursed.
@@ -107,11 +104,7 @@ export default function FarmerFinancingRoom() {
         <div className="mt-8 card">
           <h2 className="font-display text-lg font-semibold text-ink-900">Repayment</h2>
           <p className="mt-3 text-sm leading-relaxed text-ink-600">
-            Repayment is manual — by bank transfer or another agreed method — rather than
-            deducted automatically from produce sales. While your loan is active, produce
-            must be sold through EPHAAG Farms until 70% of the loan has been repaid; once
-            you cross that threshold, you're free to sell independently again.
-          </p>
+            Repay any amount online, any time. Until 70% of the loan is repaid, produce is sold through EPHAAG Farms. After that you can sell freely.</p>
         </div>
 
         <div className="mt-10 rounded-card bg-gradient-to-br from-clay-800 to-clay-900 p-8 text-center text-white">

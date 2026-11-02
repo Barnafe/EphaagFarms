@@ -21,7 +21,7 @@ const statusLabel = {
   cancelled: "Cancelled",
   expired: "Expired (not paid in time)",
   refunded: "Refunded",
-  paid: "Paid — awaiting confirmation",
+  paid: "Paid, awaiting confirmation",
   payment_confirmed: "Payment confirmed",
   sourcing: "Sourcing from farmers",
   processing: "Processing",
@@ -88,8 +88,7 @@ export default function OrderHistory({ orders, onPay, onCancel, onReceipt }) {
             </ul>
             <div className="mt-3 space-y-1 border-t pt-2">
               <div className="flex justify-between"><span>Goods</span><span>{naira(receipt.goodsTotal)}</span></div>
-              {receipt.fee > 0 && <div className="flex justify-between"><span>Payment processing fee</span><span>{naira(receipt.fee)}</span></div>}
-              <div className="flex justify-between font-semibold"><span>Total paid</span><span>{naira(receipt.totalPaid)}</span></div>
+              <div className="flex justify-between font-semibold"><span>Total</span><span>{naira(receipt.goodsTotal)}</span></div>
             </div>
             <p className="mt-2 text-xs text-gray-500">{receipt.method}{receipt.paymentReference ? ` · ${receipt.paymentReference}` : ""}</p>
             <button className="btn-primary mt-4 w-full" onClick={() => setReceipt(null)}>Close</button>

@@ -1,5 +1,5 @@
 // Signature visual motif for every public "service room": a field of
-// diagonal furrow lines, evoking plowed rows — literal to the subject
+// diagonal furrow lines, evoking plowed rows, literal to the subject
 // (a working farm operation), not decorative for its own sake. Themed
 // per department via serviceThemes.js.
 

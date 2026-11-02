@@ -1,7 +1,7 @@
 export default function LoanEligibility({ indices, history, onLoadHistory, ticket }) {
   if (!indices) return null;
 
-  // Farmer-facing display shows percentage only — the underlying points
+  // Farmer-facing display shows percentage only, the underlying points
   // are how the company grades applicants internally and stay internal
   // (see admin/Finance's applicant-indices view for the raw points).
   const scored = indices.indices.filter((idx) => idx.maxPoints != null);
@@ -9,10 +9,32 @@ export default function LoanEligibility({ indices, history, onLoadHistory, ticke
 
   return (
     <div className="space-y-3">
+      {indices.counting && (
+        <div className="card">
+          <p className="text-sm text-ink-600">Your loan score</p>
+          <p className="mt-1 text-xs text-ink-600">
+            The score that counts is your last completed quarter ({indices.counting.quarterStart} to {indices.counting.quarterEnd}).
+          </p>
+          <p className="mt-2 text-2xl font-semibold text-canopy-800" data-testid="loan-score">{indices.counting.totalPercent}%</p>
+          <p className="text-sm text-ink-700" data-testid="loan-score-status">
+            {indices.counting.minimumPercent > 0
+              ? indices.counting.meetsMinimum
+                ? `You meet the minimum of ${indices.counting.minimumPercent}% and can apply.`
+                : indices.counting.newThisQuarter
+                  ? `The minimum is ${indices.counting.minimumPercent}%. You joined this quarter, so you can apply once this quarter ends.`
+                  : `The minimum to apply is ${indices.counting.minimumPercent}%. Raise your savings, repayments, training and produce declarations and listings.`
+              : "There is no minimum score right now."}
+          </p>
+          <p className="mt-1 text-xs text-ink-600">
+            Produce you declare and list counts toward "Productive funds utilization".
+          </p>
+        </div>
+      )}
+
       <div className="card">
-        <p className="text-sm text-ink-600">Your standing</p>
+        <p className="text-sm text-ink-600">Your standing this quarter</p>
         <p className="mt-1 text-xs text-ink-600">
-          Savings consistency, repayment history, and training attendance — updated automatically.
+          Savings, repayments, training attendance and produce activity, updated automatically.
         </p>
         <div className="mt-3 space-y-2">
           {scored.map((idx) => {
@@ -37,8 +59,7 @@ export default function LoanEligibility({ indices, history, onLoadHistory, ticke
         <div className="card">
           <p className="text-sm text-ink-600">Unit Leader support</p>
           <p className="mt-1 text-xs text-ink-600">
-            Separate from the above — your Unit Leader works closely with you and can vouch for you
-            even if you haven't fully met every condition yet.
+            A yes/no step with no points. It does not replace the minimum loan score.
           </p>
           <p className="mt-2 text-sm font-medium text-canopy-800">
             {leaderRec.recommended ? "Supported by your Unit Leader" : "No recommendation yet"}
@@ -53,8 +74,7 @@ export default function LoanEligibility({ indices, history, onLoadHistory, ticke
             Recommended by {ticket.issued_by_name}: "{ticket.reason}"
           </p>
           <p className="mt-1 text-xs text-ink-600">
-            Apply now — your application skips the usual review queue. This ticket is used up the
-            moment you submit.
+            Apply now. Your application skips the usual review queue. The ticket is used when you submit.
           </p>
         </div>
       )}

@@ -1,6 +1,6 @@
 // Settlement (2026-08-30 spec): the company pays farmers directly when
 // Procurement sources from their listing (see procurementController.
-// sourceOrder — this is where the `payments` rows this panel shows come
+// sourceOrder, this is where the `payments` rows this panel shows come
 // from). Transporters are staff (paid salary via HR, not per-order) and
 // are never part of this screen. Processor settlement wasn't part of this
 // spec and isn't built here.
@@ -10,7 +10,7 @@ export default function SettlementPanel({ payments, onPay }) {
 
   return (
     <div className="card">
-      <p className="text-sm text-ink-600">Settlements — farmer payments</p>
+      <p className="text-sm text-ink-600">Settlements, farmer payments</p>
       <p className="mt-1 text-xs text-ink-600">
         Created automatically when Procurement sources a listing. Pay the farmer, then mark it here.
       </p>
@@ -24,7 +24,7 @@ export default function SettlementPanel({ payments, onPay }) {
               <div>
                 <p className="text-xs font-medium text-canopy-800">{p.orderReference}</p>
                 <p className="text-ink-900">
-                  {p.farmerName} — ₦{p.amount.toLocaleString()}
+                  {p.farmerName}: ₦{p.amount.toLocaleString()}
                 </p>
               </div>
               <button className="btn-outline" type="button" onClick={() => onPay(p.id)}>
@@ -41,7 +41,7 @@ export default function SettlementPanel({ payments, onPay }) {
           {paid.map((p) => (
             <div key={p.id} className="flex items-center justify-between text-xs text-ink-600">
               <span>
-                {p.orderReference} — {p.farmerName}
+                {p.orderReference}, {p.farmerName}
               </span>
               <span>₦{p.amount.toLocaleString()} · Paid</span>
             </div>

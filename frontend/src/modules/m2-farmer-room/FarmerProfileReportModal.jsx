@@ -55,8 +55,8 @@ export default function FarmerProfileReportModal({ farmerId, onClose }) {
             <p><span className="text-ink-600">Name:</span> {profile.name}</p>
             <p><span className="text-ink-600">Unit:</span> {profile.unit}</p>
             <p><span className="text-ink-600">Rank:</span> {rankLabel(profile.rank)}</p>
-            <p><span className="text-ink-600">Farm type:</span> {profile.farm_type || "—"}</p>
-            <p><span className="text-ink-600">Crops:</span> {(profile.crops || []).join(", ") || "—"}</p>
+            <p><span className="text-ink-600">Farm type:</span> {profile.farm_type || "N/A"}</p>
+            <p><span className="text-ink-600">Crops:</span> {(profile.crops || []).join(", ") || "N/A"}</p>
             <p><span className="text-ink-600">Attendance:</span> {profile.attendance_pct ?? 0}%</p>
             <p><span className="text-ink-600">Course completion:</span> {profile.course_pct ?? 0}%</p>
             <button
@@ -103,7 +103,7 @@ export default function FarmerProfileReportModal({ farmerId, onClose }) {
 
         {submitted && (
           <p className="mt-3 text-sm text-canopy-800">
-            Report submitted — it's now pending admin review.
+            Report submitted, it's now pending admin review.
           </p>
         )}
       </div>

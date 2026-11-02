@@ -25,6 +25,7 @@ const OFFICE = [
 // One row per kind of file: where it lives, how big, which real types are allowed.
 export const CATEGORIES = {
   product_image:       { visibility: "public",  maxBytes: 5 * MB,  types: IMG },
+  seminar_slide:       { visibility: "public",  maxBytes: 5 * MB,  types: IMG },
   profile_photo:       { visibility: "public",  maxBytes: 5 * MB,  types: IMG },
   maintenance_photo:   { visibility: "public",  maxBytes: 5 * MB,  types: IMG },
   agreement:           { visibility: "private", maxBytes: 10 * MB, types: PDF },
@@ -32,6 +33,7 @@ export const CATEGORIES = {
   attendance_sheet:    { visibility: "private", maxBytes: 10 * MB, types: [...PDF, ...IMG] },
   report_proof:        { visibility: "private", maxBytes: 5 * MB,  types: IMG },
   request_attachment:  { visibility: "private", maxBytes: 10 * MB, types: [...PDF, ...IMG] },
+  research_pdf:        { visibility: "private", maxBytes: 25 * MB, types: PDF },
   lesson_document:     { visibility: "private", maxBytes: 20 * MB, types: [...PDF, ...OFFICE, ...IMG] },
   purchasing:          { visibility: "private", maxBytes: 10 * MB, types: [...PDF, "image/jpeg", "image/png"] },
   delivery_photo:      { visibility: "private", maxBytes: 10 * MB, types: IMG },

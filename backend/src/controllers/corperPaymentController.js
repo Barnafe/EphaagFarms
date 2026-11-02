@@ -82,7 +82,7 @@ function mapAdminPayment(p) {
   };
 }
 
-// A member's access summary — shared with GET /corpers/me so every screen
+// A member's access summary, shared with GET /corpers/me so every screen
 // agrees on whether they've paid. Only a 'paid' row opens the gate.
 export async function loadAccess(userId, runner = pool) {
   const { rows } = await runner.query(
@@ -134,7 +134,7 @@ export async function confirmPaymentInTx(client, paymentId, { via, confirmedBy =
   await client.query(
     `INSERT INTO finance_transactions (reference, txn_type, amount, department, description, related_table, related_id, recorded_by)
      VALUES ($1, 'income', $2, 'TRC', $3, 'corper_payments', $4, $5)`,
-    [generateReference(REF_PREFIX.financeTransaction), p.amount, `NYSC AGROALLIED SAED access fee ${p.reference} — ${p.member_name}`, p.id, confirmedBy]
+    [generateReference(REF_PREFIX.financeTransaction), p.amount, `NYSC AGROALLIED SAED access fee ${p.reference}, ${p.member_name}`, p.id, confirmedBy]
   );
   const { rows: updated } = await client.query(
     `UPDATE corper_payments
@@ -164,7 +164,7 @@ export async function confirmPayment(paymentId, opts) {
     await client.query("ROLLBACK").catch(() => {});
     if (err.code === "23505") {
       // The member already has a different paid payment (unique index).
-      console.error("Corps payment confirmation blocked — member already has a paid access fee", paymentId);
+      console.error("Corps payment confirmation blocked, member already has a paid access fee", paymentId);
       throw httpError("This member has already paid the access fee", 409);
     }
     throw err;
@@ -254,12 +254,12 @@ export async function myPayments(req, res) {
   });
 }
 
-// POST /api/corpers/payments/initiate — the amount ALWAYS comes from the
+// POST /api/corpers/payments/initiate, the amount ALWAYS comes from the
 // server's fee setting; anything the browser sends is ignored. The member must
 // tick "this fee is non-refundable once paid"; the time of the tick is stored.
 export async function initiatePayment(req, res) {
   const fee = await getFee();
-  if (!fee) throw httpError("The access fee hasn't been set yet — please check back soon", 409);
+  if (!fee) throw httpError("The access fee hasn't been set yet, please check back soon", 409);
   const accepted = req.body?.acceptNonRefundable === true;
 
   let access = await loadAccess(req.user.id);
@@ -275,7 +275,7 @@ export async function initiatePayment(req, res) {
         ORDER BY p.created_at DESC LIMIT 5`, [req.user.id]);
     for (const e of earlier) await verifyAndSettle(e.reference).catch(() => null);
     access = await loadAccess(req.user.id);
-    if (access.paid) throw httpError("We checked with Paystack and found your earlier payment. Your access fee is already paid and your training is unlocked.", 409);
+    if (access.paid) throw httpError("We found your earlier payment. Your access fee is already paid and your training is unlocked.", 409);
   }
   if (access.pending) {
     // If the Paystack attempt behind the waiting payment is spent (refused or failed), it cannot be paid
@@ -316,7 +316,7 @@ export async function initiatePayment(req, res) {
       if (now.pending) return res.json({ payment: now.pending, existing: true });
     }
   }
-  if (!row) throw httpError("Couldn't start the payment — please try again", 500);
+  if (!row) throw httpError("Couldn't start the payment, please try again", 500);
 
   if (mode === "paystack") {
     const { rows: u } = await pool.query(`SELECT email, phone FROM users WHERE id = $1`, [req.user.id]);
@@ -334,9 +334,9 @@ export async function initiatePayment(req, res) {
       row = rows[0];
     } catch (err) {
       console.error("Paystack initialize failed", err.message);
-      await pool.query(`UPDATE corper_payments SET status = 'failed', failed_reason = $2, updated_at = now() WHERE id = $1`, [row.id, "Couldn't reach the payment gateway"]);
+      await pool.query(`UPDATE corper_payments SET status = 'failed', failed_reason = $2, updated_at = now() WHERE id = $1`, [row.id, "Could not start the payment"]);
       await pool.query(`UPDATE gateway_payments SET status = 'failed', updated_at = now() WHERE reference = $1`, [row.reference]);
-      throw httpError("Couldn't start the payment — please try again", 502);
+      throw httpError("Couldn't start the payment, please try again", 502);
     }
   }
 
@@ -356,7 +356,7 @@ export async function cancelPayment(req, res) {
   res.json({ payment: mapPayment(rows[0]) });
 }
 
-// POST /api/corpers/payments/:reference/verify — after returning from
+// POST /api/corpers/payments/:reference/verify, after returning from
 // Paystack (or on refresh). The member's own word is never trusted: for
 // Paystack we ask Paystack. For manual payments this just reports status.
 // The answer is a plain outcome: success | pending | failed | refused.
@@ -404,7 +404,7 @@ export async function verifyPayment(req, res) {
 }
 
 // ---------------------------------------------------------------------
-// Paystack webhook (no login — authenticated by the HMAC signature)
+// Paystack webhook (no login, authenticated by the HMAC signature)
 // ---------------------------------------------------------------------
 export async function paystackWebhook(req, res) {
   if (!verifyPaystackSignature(req.rawBody, req.headers["x-paystack-signature"])) {
@@ -576,7 +576,7 @@ async function confirmManualFallback(p, admin, reason) {
   detached(() => notifyAttention("manual_confirmation_notice", { member: result.payment.member_name, reference: p.reference, reason }, null));
 }
 
-// POST /api/rtc/admin/corps/payments/:id/recheck — ask Paystack about a stuck pending payment.
+// POST /api/rtc/admin/corps/payments/:id/recheck, ask Paystack about a stuck pending payment.
 // (The scheduled re-check does the same automatically.)
 export async function adminRecheckPayment(req, res) {
   assertUuid(req.params.id);
@@ -604,7 +604,7 @@ function requireReason(raw, message = "Please give a reason (at least a few word
   return reason;
 }
 
-// POST /api/rtc/admin/corps/payments/:id/reject — a waiting payment that
+// POST /api/rtc/admin/corps/payments/:id/reject, a waiting payment that
 // wasn't actually received. The member sees the reason and can try again.
 export async function adminRejectPayment(req, res) {
   assertUuid(req.params.id);
@@ -627,7 +627,7 @@ export async function adminGetFee(req, res) {
   res.json({ fee: await getFee(), mode: corperPaymentMode() });
 }
 
-// PUT /api/rtc/admin/corps/fee — editable any time. Payments already
+// PUT /api/rtc/admin/corps/fee, editable any time. Payments already
 // created keep the amount they were created with.
 export async function adminSetFee(req, res) {
   const raw = req.body?.amount;

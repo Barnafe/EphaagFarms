@@ -1,9 +1,9 @@
 // In production this server is served from the same origin as the API
 // (see backend/src/server.js), so a relative /api path just works with
-// no configuration. VITE_API_URL can still override this — e.g. for a
+// no configuration. VITE_API_URL can still override this, e.g. for a
 // separately-hosted frontend pointed at a different backend origin.
 export const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "/api" : "http://localhost:4000/api");
-// Origin only (no /api suffix) — for building static asset URLs like
+// Origin only (no /api suffix), for building static asset URLs like
 // /uploads/photos/... that live outside the /api namespace.
 export const API_ORIGIN = BASE_URL.replace(/\/api$/, "");
 const TOKEN_KEY = "ephaag_token";
@@ -74,7 +74,7 @@ export async function apiFetch(path, { method = "GET", body, auth = true } = {})
   return data;
 }
 
-// For multipart file uploads — no Content-Type header, the browser sets
+// For multipart file uploads, no Content-Type header, the browser sets
 // the multipart boundary itself when the body is a FormData instance.
 export async function apiUpload(path, formData, { method = "POST" } = {}) {
   const headers = authHeaders();
@@ -96,8 +96,7 @@ export async function apiUpload(path, formData, { method = "POST" } = {}) {
   return data;
 }
 
-// For downloading an authenticated binary file (e.g. an uploaded PDF) —
-// fetches as a blob and triggers a browser download, since a plain <a
+// For downloading an authenticated binary file (e.g. an uploaded PDF), // fetches as a blob and triggers a browser download, since a plain <a
 // href> can't carry the Authorization header.
 export async function apiDownload(path, filename) {
   const headers = authHeaders();

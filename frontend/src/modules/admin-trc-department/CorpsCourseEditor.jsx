@@ -168,7 +168,7 @@ export default function CorpsCourseEditor({ course, onBack, onChanged }) {
       <div className="card flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink-600" data-testid="readiness">
           {approved
-            ? "Approved — live for NYSC AGROALLIED SAED members."
+            ? "Approved, live for NYSC AGROALLIED SAED members."
             : missing.length
               ? `Not ready to approve yet: add ${missing.join(" and ")}.`
               : "Ready to approve."}
@@ -275,7 +275,7 @@ export default function CorpsCourseEditor({ course, onBack, onChanged }) {
             <button type="button" className="btn-primary" onClick={() => setQuestionDraft(emptyQuestion())}>Add question</button>
           )}
         </div>
-        <p className="mt-1 text-xs text-ink-600">Multiple choice — exactly one correct answer per question.</p>
+        <p className="mt-1 text-xs text-ink-600">Multiple choice, exactly one correct answer per question.</p>
 
         {questions.length === 0 && !questionDraft && <p className="mt-2 text-sm text-ink-600">No questions yet.</p>}
 
@@ -308,7 +308,7 @@ export default function CorpsCourseEditor({ course, onBack, onChanged }) {
               <textarea id="q-prompt" rows={2} value={questionDraft.prompt} onChange={(e) => setQuestionDraft({ ...questionDraft, prompt: e.target.value })} />
             </div>
             <fieldset className="space-y-2">
-              <legend className="text-xs text-ink-600">Answer options — select the correct one</legend>
+              <legend className="text-xs text-ink-600">Answer options, select the correct one</legend>
               {questionDraft.options.map((o, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <input type="radio" name="correct" className="!w-auto" aria-label={`Option ${i + 1} is correct`} checked={o.isCorrect} onChange={() => chooseCorrect(i)} />

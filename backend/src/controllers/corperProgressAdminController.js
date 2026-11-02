@@ -3,7 +3,7 @@ import { loadProgressRows } from "./corperLearningController.js";
 import { summariseProgress } from "../utils/corperLearning.js";
 
 // ---------------------------------------------------------------------
-// Admin (TRC department, Corps tab) — NYSC AGROALLIED SAED member progress.
+// Admin (TRC department, Corps tab), NYSC AGROALLIED SAED member progress.
 // Reads progress through the SAME loadProgressRows() + summariseProgress()
 // the members' own dashboards use, so the two can never disagree.
 // Spreadsheet export arrives in phase 5.

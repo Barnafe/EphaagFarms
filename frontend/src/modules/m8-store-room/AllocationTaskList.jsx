@@ -21,7 +21,7 @@ export default function AllocationTaskList({ tasks, onConfirm }) {
                 Confirm ready for pickup
               </button>
             ) : (
-              <p className="mt-2 text-xs text-canopy-800">Confirmed — handed to Transport</p>
+              <p className="mt-2 text-xs text-canopy-800">Confirmed, handed to Transport</p>
             )}
           </div>
         ))}

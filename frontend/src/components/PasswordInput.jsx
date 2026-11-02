@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
-// Drop-in replacement for <input type="password" ... /> — same props,
+// Drop-in replacement for <input type="password" ... />, same props,
 // same global `.field input` styling (border/rounded/padding come from
 // index.css, which targets `input` regardless of nesting depth, so
 // wrapping it here doesn't break that). Adds a click-to-reveal eye icon
 // so people can check what they typed before submitting. Only the
 // padding-right is overridden inline (so the icon never sits on top of
-// typed text) — inline style is used specifically because `.field input`
+// typed text), inline style is used specifically because `.field input`
 // has higher CSS specificity than a plain utility class and would
 // otherwise win over it.
 export default function PasswordInput({ className = "", style, ...props }) {

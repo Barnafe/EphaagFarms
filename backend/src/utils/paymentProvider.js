@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 // Paystack (NGN) when PAYSTACK_SECRET_KEY is set. Without it the provider is
 // "manual": the member's payment stays pending until an admin confirms it by
 // hand (TRC -> Corps -> Payments). Unlike farmer shares there is NO simulated
-// "auto-paid" mode — a missing key never gives anyone free access.
+// "auto-paid" mode, a missing key never gives anyone free access.
 
 export function corperPaymentMode() {
   return process.env.PAYSTACK_SECRET_KEY ? "paystack" : "manual";
@@ -33,12 +33,12 @@ export function toKobo(naira) {
 // Returns { ok: true } or { ok: false, code, message }. Never accepts a
 // payment for the wrong amount or currency, or one that isn't "success".
 export function checkPaystackTransaction(data, payment) {
-  if (!data) return { ok: false, code: "no_data", message: "Couldn't confirm the payment yet — please try again in a moment" };
+  if (!data) return { ok: false, code: "no_data", message: "Couldn't confirm the payment yet, please try again in a moment" };
   if (data.status !== "success") {
     return { ok: false, code: "not_success", message: `Payment not completed (status: ${data.status})` };
   }
   if (Number(data.amount) !== toKobo(payment.amount) || data.currency !== "NGN") {
-    return { ok: false, code: "mismatch", message: "The amount paid doesn't match this payment — please contact support" };
+    return { ok: false, code: "mismatch", message: "The amount paid doesn't match this payment, please contact support" };
   }
   if (data.reference && data.reference !== payment.reference) {
     return { ok: false, code: "reference", message: "This payment reference doesn't match" };

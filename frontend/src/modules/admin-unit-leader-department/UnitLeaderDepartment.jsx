@@ -41,11 +41,10 @@ const items = [
 ];
 
 // Everything a real Unit Leader can do, reached via "Login As" instead of
-// their own account — same components, same endpoints. Every one of these
+// their own account, same components, same endpoints. Every one of these
 // endpoints is already gated by requireFarmerRankOrAdmin("Unit Leader"),
 // which treats role_type='admin' as a company-wide bypass (see
-// farmerRank.js), so there's no separate admin-only backend path here —
-// this page just gives that existing bypass a real screen to sit behind,
+// farmerRank.js), so there's no separate admin-only backend path here, // this page just gives that existing bypass a real screen to sit behind,
 // same pattern as every other "Login As" department (2026-09-06 spec).
 export default function UnitLeaderDepartment() {
   const [tab, setTab] = useUrlState("tab", "dashboard");
@@ -99,7 +98,7 @@ export default function UnitLeaderDepartment() {
         <div className="space-y-6">
           <h1 className="text-xl font-medium text-white">Unit Leader</h1>
           <p className="text-sm text-canopy-100">
-            Acting company-wide here — every unit's farmers and pending applications show up, not just one unit's.
+            Acting company-wide here, every unit's farmers and pending applications show up, not just one unit's.
           </p>
           {loading && <p className="text-sm text-canopy-100">Loading…</p>}
         </div>

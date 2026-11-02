@@ -8,7 +8,7 @@ import * as certs from "../controllers/corperCertificateController.js";
 
 const router = Router();
 
-// Paystack calls this itself (no login) — it is authenticated by the HMAC
+// Paystack calls this itself (no login), it is authenticated by the HMAC
 // signature over the raw body, so it must be registered BEFORE requireAuth.
 router.post("/paystack-webhook", payments.paystackWebhook);
 
@@ -17,7 +17,7 @@ router.use(requireAuth, requireRole("corper"));
 router.get("/me", corpers.getMyProfile);
 router.put("/me/profile/:section", corpers.updateMySection);
 
-// Phase 3 — access-fee payments (always open to a signed-in NYSC AGROALLIED SAED member).
+// Phase 3, access-fee payments (always open to a signed-in NYSC AGROALLIED SAED member).
 router.get("/payments", payments.myPayments);
 router.post("/payments/initiate", payments.initiatePayment);
 router.post("/payments/:id/cancel", payments.cancelPayment);
@@ -32,7 +32,7 @@ router.get("/certificate/download", certs.downloadMyCertificate);
 // Everything below opens training content, so it sits behind the payment
 // gate: an unpaid or refunded member gets 402 PAYMENT_REQUIRED from every
 // one of these (their saved progress comes back if they pay again).
-// Phase 4 — learning, quizzes and progress.
+// Phase 4, learning, quizzes and progress.
 router.get("/courses", requireCorperPaid, learning.listMyCourses);
 router.get("/progress", requireCorperPaid, learning.getMyProgress);
 router.get("/courses/:id", requireCorperPaid, learning.getCourse);

@@ -53,7 +53,7 @@ export default function CorperCertificate({ onGo }) {
               <dl className="mt-3 grid gap-x-8 gap-y-1 text-sm text-ink-800 sm:grid-cols-2">
                 <div><dt className="inline text-ink-600">Certificate number: </dt><dd className="inline font-medium" data-testid="cert-number">{c.number}</dd></div>
                 <div><dt className="inline text-ink-600">Issued: </dt><dd className="inline font-medium">{longDate(c.issueDate)}</dd></div>
-                <div><dt className="inline text-ink-600">State code: </dt><dd className="inline font-medium">{c.stateCode || "—"}</dd></div>
+                <div><dt className="inline text-ink-600">State code: </dt><dd className="inline font-medium">{c.stateCode || "N/A"}</dd></div>
                 <div><dt className="inline text-ink-600">Batch: </dt><dd className="inline font-medium">{c.serviceYear} Batch {c.batch}</dd></div>
               </dl>
             </div>
@@ -74,7 +74,7 @@ export default function CorperCertificate({ onGo }) {
   if (status === "awaiting_batch") {
     return (
       <LockedPanel
-        title="Training complete — certificate on its way"
+        title="Training complete, certificate on its way"
         body={`You have finished every course. Your certificate is released when your batch is marked complete${batch?.dueDate ? ` (due ${longDate(batch.dueDate)})` : ""}. You will be emailed as soon as it is ready.`}
       />
     );

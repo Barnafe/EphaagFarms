@@ -1,29 +1,34 @@
 import { useState } from "react";
 
 const UNIT_OPTIONS = ["kg", "tons", "bags", "tubers", "crates", "baskets"];
+const LIVESTOCK_UNITS = ["crates", "trays", "birds", "heads", "kg", "litres"];
+const naira = (v) => `₦${Number(v).toLocaleString()}`;
 
-// "Admin declares" a harvest, same idea as a farmer declaring produce —
-// this is Production's own annual record. It is NOT stock yet: Store
+// "Admin declares" a harvest, same idea as a farmer declaring produce, // this is Production's own annual record. It is NOT stock yet: Store
 // separately confirms/receives each declaration before it enters the
 // real inventory pool (see the Production Receiving panel on the Store
 // Department page).
-export default function HarvestLog({ farms, harvests, onDeclare }) {
+export default function HarvestLog({ farms, harvests, onDeclare, onSetRevenue }) {
   const [farmId, setFarmId] = useState(farms[0]?.id ?? "");
   const [crop, setCrop] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState(UNIT_OPTIONS[0]);
   const [harvestedAt, setHarvestedAt] = useState("");
   const [note, setNote] = useState("");
+  const [revenue, setRevenue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const selectedFarm = farms.find((f) => f.id === farmId);
+  const livestock = selectedFarm?.kind === "livestock";
+  const units = livestock ? LIVESTOCK_UNITS : UNIT_OPTIONS;
 
   function handleFarmChange(id) {
     setFarmId(id);
     const farm = farms.find((f) => f.id === id);
     if (farm?.crop && !crop) setCrop(farm.crop);
+    setUnit((farm?.kind === "livestock" ? LIVESTOCK_UNITS : UNIT_OPTIONS)[0]);
   }
 
   async function handleSubmit(e) {
@@ -40,10 +45,12 @@ export default function HarvestLog({ farms, harvests, onDeclare }) {
         unit,
         harvestedAt: harvestedAt || undefined,
         note: note || undefined,
+        revenue: revenue === "" ? undefined : Number(revenue),
       });
-      setSuccess("Harvest declared — Store will confirm and add it to inventory.");
+      setSuccess("Harvest declared. Store will confirm and add it to inventory.");
       setQuantity("");
       setNote("");
+      setRevenue("");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -56,7 +63,7 @@ export default function HarvestLog({ farms, harvests, onDeclare }) {
       <p className="text-sm text-ink-600">Declare a harvest</p>
       <p className="mt-1 text-xs text-ink-600">
         This records what Ephaag's own farms produced. Store separately confirms each declaration
-        before it becomes real, sellable stock — same as a farmer's own declaration.
+        before it becomes real, sellable stock, same as a farmer's own declaration.
       </p>
 
       <form onSubmit={handleSubmit} className="field mt-4 grid gap-3 sm:grid-cols-3">
@@ -67,7 +74,7 @@ export default function HarvestLog({ farms, harvests, onDeclare }) {
             </option>
           ))}
         </select>
-        <input value={crop} onChange={(e) => setCrop(e.target.value)} placeholder="Crop, e.g. Yam" required />
+        <input value={crop} onChange={(e) => setCrop(e.target.value)} placeholder={livestock ? "Product, e.g. Eggs, Broilers" : "Crop, e.g. Yam"} required />
         <div className="flex gap-2">
           <input
             type="number"
@@ -78,7 +85,7 @@ export default function HarvestLog({ farms, harvests, onDeclare }) {
             required
           />
           <select value={unit} onChange={(e) => setUnit(e.target.value)}>
-            {UNIT_OPTIONS.map((u) => (
+            {units.map((u) => (
               <option key={u} value={u}>
                 {u}
               </option>
@@ -92,7 +99,15 @@ export default function HarvestLog({ farms, harvests, onDeclare }) {
           title="Harvest date (defaults to today)"
         />
         <input
-          className="sm:col-span-2"
+          type="number"
+          min="0"
+          value={revenue}
+          onChange={(e) => setRevenue(e.target.value)}
+          placeholder="What it was worth ₦ (optional)"
+          title="What this harvest was worth or sold for. You can add it later."
+        />
+        <input
+          className="sm:col-span-3"
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Note (optional)"
@@ -115,6 +130,7 @@ export default function HarvestLog({ farms, harvests, onDeclare }) {
             <span className="text-ink-900">
               {h.quantity} {h.unit} {h.crop}
             </span>
+            <RevenueCell h={h} onSet={onSetRevenue} />
             <span
               className={`rounded-full px-2 py-0.5 text-xs ${
                 h.status === "received" ? "bg-canopy-50 text-canopy-800" : "bg-harvest-50 text-harvest-600"
@@ -126,5 +142,30 @@ export default function HarvestLog({ farms, harvests, onDeclare }) {
         ))}
       </div>
     </div>
+  );
+}
+
+// What a harvest was worth: shown when known, and can be filled in or corrected here.
+function RevenueCell({ h, onSet }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(h.revenue ?? "");
+  const [err, setErr] = useState("");
+  async function save() {
+    setErr("");
+    try { await onSet(h.id, value === "" ? null : Number(value)); setEditing(false); } catch (e) { setErr(e.message); }
+  }
+  if (editing) {
+    return (
+      <span className="flex items-center gap-1">
+        <input aria-label="Harvest value" type="number" min="0" className="w-28 rounded-card border border-soil-200 px-2 py-0.5 text-xs" value={value} onChange={(e) => setValue(e.target.value)} />
+        <button type="button" className="text-xs text-canopy-800 underline" onClick={save}>Save</button>
+        {err && <span className="text-xs text-red-700">{err}</span>}
+      </span>
+    );
+  }
+  return (
+    <button type="button" className="text-xs text-ink-600 underline" onClick={() => setEditing(true)} data-testid={`harvest-value-${h.id}`}>
+      {h.revenue === null || h.revenue === undefined ? "Add its value" : `Worth ${naira(h.revenue)}`}
+    </button>
   );
 }

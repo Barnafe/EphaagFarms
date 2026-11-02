@@ -7,6 +7,9 @@ const router = Router();
 router.use(requireAuth, requireRole("admin"));
 
 router.get("/overview", analytics.overview);
+router.get("/geo-options", analytics.geoOptions);
+router.get("/summary", analytics.summary);
+router.get("/export.xlsx", analytics.exportXlsx);
 router.get("/farmers", analytics.farmerDemographics);
 router.get("/produce", analytics.produceDeclarations);
 router.get("/produce/capacity", analytics.produceCapacityQuery);

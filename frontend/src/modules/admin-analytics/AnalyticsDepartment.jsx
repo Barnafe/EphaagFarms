@@ -8,14 +8,19 @@ import {
   GraduationCap,
   Trophy,
   ClipboardCheck,
+  BarChart3,
+  Download,
+  Printer,
 } from "lucide-react";
-import { apiFetch } from "../../api/client.js";
+import { Link } from "react-router-dom";
+import { apiFetch, BASE_URL, authHeaders } from "../../api/client.js";
 import SectionStack from "../../components/SectionStack.jsx";
 import AdminDashboardShell from "../../components/AdminDashboardShell.jsx";
-import { NIGERIA_STATE_NAMES } from "../../data/nigeriaStatesLgas.js";
 import AttendanceMarker from "../m2-farmer-room/AttendanceMarker.jsx";
 import JurisdictionOverview from "../m2-farmer-room/JurisdictionOverview.jsx";
 import AnalyticsSectionNav from "./AnalyticsSectionNav.jsx";
+import GeoFilters, { useGeoFilter } from "./GeoFilters.jsx";
+import KeyCharts from "./KeyCharts.jsx";
 import { BarChartCard, HorizontalBarChartCard, PieChartCard, LineChartCard, CHART_COLORS } from "./AnalyticsCharts.jsx";
 
 import useUrlState from "../../hooks/useUrlState.js";
@@ -25,7 +30,7 @@ const nairaFormatter = (v) => `₦${Number(v).toLocaleString()}`;
 const countFormatter = (v) => Number(v).toLocaleString();
 
 // Farmer ranking is a named leaderboard (a list of people, not an
-// aggregate breakdown) — it stays a table; everything else in this room
+// aggregate breakdown), it stays a table; everything else in this room
 // is aggregate counts/totals, which charts read far faster than a table
 // once volume grows.
 function RankingTable({ rows }) {
@@ -48,7 +53,7 @@ function RankingTable({ rows }) {
               <tr key={f.userId} className="border-t border-soil-100">
                 <td className="py-1 text-ink-900">{f.name}</td>
                 <td className="py-1 text-ink-600">{[f.unit, f.ward, f.lga, f.state].filter(Boolean).join(", ")}</td>
-                <td className="py-1 text-ink-600">{f.leadershipRank ? rankLabel(f.leadershipRank) : "—"}</td>
+                <td className="py-1 text-ink-600">{f.leadershipRank ? rankLabel(f.leadershipRank) : "N/A"}</td>
                 <td className="py-1 text-right text-canopy-800">{f.quartersEngaged}</td>
                 <td className="py-1 text-right text-canopy-800">{f.trainingRankLabel}</td>
               </tr>
@@ -62,12 +67,13 @@ function RankingTable({ rows }) {
 }
 
 const SECTIONS = [
+  { key: "keycharts", label: "Key charts", icon: BarChart3, description: "The main numbers and charts for the chosen location." },
   { key: "overview", label: "Overview", icon: LayoutGrid, description: "Company-wide numbers at a glance." },
   {
     key: "farmers",
     label: "Farmer survey",
     icon: Users,
-    description: "Demographics — filterable by state — for the national survey mandate.",
+    description: "Demographics, filterable by state, for the national survey mandate.",
   },
   {
     key: "produce",
@@ -79,7 +85,7 @@ const SECTIONS = [
     key: "loans",
     label: "Loans",
     icon: Landmark,
-    description: "Loan pipeline stats — aggregate, read-only.",
+    description: "Loan pipeline stats, aggregate, read-only.",
   },
   { key: "savings", label: "Savings", icon: PiggyBank, description: "Farmer savings totals, aggregate." },
   { key: "training", label: "Training", icon: GraduationCap, description: "Seminar and course participation." },
@@ -93,13 +99,13 @@ const SECTIONS = [
 ];
 
 export default function AnalyticsDepartment() {
-  const [section, setSection] = useUrlState("section", "overview");
+  const [section, setSection] = useUrlState("section", "keycharts");
   const [error, setError] = useState(null);
 
   const [overview, setOverview] = useState(null);
-  const [farmerState, setFarmerState] = useState("");
+  const { geo, setLevel, clear, qs } = useGeoFilter();
+  const withGeo = (extra = {}) => { const p = new URLSearchParams(qs); Object.entries(extra).forEach(([k, v]) => v && p.set(k, v)); const t = p.toString(); return t ? `?${t}` : ""; };
   const [farmers, setFarmers] = useState(null);
-  const [produceState, setProduceState] = useState("");
   const [produceCrop, setProduceCrop] = useState("");
   const [produce, setProduce] = useState(null);
   const [loans, setLoans] = useState(null);
@@ -110,67 +116,61 @@ export default function AnalyticsDepartment() {
 
   const [capacityCrop, setCapacityCrop] = useState("");
   const [capacityMin, setCapacityMin] = useState("");
-  const [capacityState, setCapacityState] = useState("");
   const [capacityResult, setCapacityResult] = useState(null);
 
   const loadOverview = useCallback(async () => {
     try {
-      setOverview(await apiFetch("/analytics/overview"));
+      setOverview(await apiFetch(`/analytics/overview${withGeo()}`));
       setError(null);
     } catch (err) {
       setError(err.message);
     }
-  }, []);
+  }, [qs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadFarmers = useCallback(async () => {
     try {
-      const qs = farmerState ? `?state=${encodeURIComponent(farmerState)}` : "";
-      setFarmers(await apiFetch(`/analytics/farmers${qs}`));
+      setFarmers(await apiFetch(`/analytics/farmers${withGeo()}`));
       setError(null);
     } catch (err) {
       setError(err.message);
     }
-  }, [farmerState]);
+  }, [qs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadProduce = useCallback(async () => {
     try {
-      const params = new URLSearchParams();
-      if (produceState) params.set("state", produceState);
-      if (produceCrop) params.set("crop", produceCrop);
-      const qs = params.toString() ? `?${params.toString()}` : "";
-      setProduce(await apiFetch(`/analytics/produce${qs}`));
+      setProduce(await apiFetch(`/analytics/produce${withGeo({ crop: produceCrop })}`));
       setError(null);
     } catch (err) {
       setError(err.message);
     }
-  }, [produceState, produceCrop]);
+  }, [qs, produceCrop]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadLoans = useCallback(async () => {
     try {
-      setLoans(await apiFetch("/analytics/loans"));
+      setLoans(await apiFetch(`/analytics/loans${withGeo()}`));
       setError(null);
     } catch (err) {
       setError(err.message);
     }
-  }, []);
+  }, [qs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadSavings = useCallback(async () => {
     try {
-      setSavings(await apiFetch("/analytics/savings"));
+      setSavings(await apiFetch(`/analytics/savings${withGeo()}`));
       setError(null);
     } catch (err) {
       setError(err.message);
     }
-  }, []);
+  }, [qs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadTraining = useCallback(async () => {
     try {
-      setTraining(await apiFetch("/analytics/training"));
+      setTraining(await apiFetch(`/analytics/training${withGeo()}`));
       setError(null);
     } catch (err) {
       setError(err.message);
     }
-  }, []);
+  }, [qs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadRanking = useCallback(async () => {
     try {
@@ -204,13 +204,28 @@ export default function AnalyticsDepartment() {
     if (section === "attendance") loadAttendanceFarmers();
   }, [section, loadOverview, loadFarmers, loadProduce, loadLoans, loadSavings, loadTraining, loadRanking, loadAttendanceFarmers]);
 
+  async function downloadExcel() {
+    try {
+      const res = await fetch(`${BASE_URL}/analytics/export.xlsx${qs ? `?${qs}` : ""}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "The export could not be made.");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (res.headers.get("content-disposition") || "").match(/filename="([^"]+)"/)?.[1] || "ephaag-analytics.xlsx";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   async function handleCapacityQuery(e) {
     e.preventDefault();
     if (!capacityCrop || !capacityMin) return;
     try {
-      const params = new URLSearchParams({ crop: capacityCrop, minQuantity: capacityMin });
-      if (capacityState) params.set("state", capacityState);
-      setCapacityResult(await apiFetch(`/analytics/produce/capacity?${params.toString()}`));
+      setCapacityResult(await apiFetch(`/analytics/produce/capacity${withGeo({ crop: capacityCrop, minQuantity: capacityMin })}`));
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -224,18 +239,30 @@ export default function AnalyticsDepartment() {
           <p className="text-xs uppercase tracking-wide text-canopy-300">Reports</p>
           <h1 className="text-xl font-medium text-white">Analytics</h1>
           <p className="mt-1 text-sm text-canopy-100">
-            Survey demographics, produce declarations, loans, savings, and training — all in one
+            Survey demographics, produce declarations, loans, savings, and training, all in one
             place, computed automatically.
           </p>
         </div>
 
         <AnalyticsSectionNav sections={SECTIONS} activeKey={section} onSelect={setSection} />
 
+        <GeoFilters geo={geo} setLevel={setLevel} clear={clear} />
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-primary flex items-center gap-2" onClick={downloadExcel} data-testid="export-excel">
+            <Download size={16} /> Download Excel
+          </button>
+          <Link to={`/admin/analytics/report${qs ? `?${qs}` : ""}`} className="btn-outline flex items-center gap-2" data-testid="open-report">
+            <Printer size={16} /> Printable report
+          </Link>
+        </div>
+
         {error && (
           <div className="card border-red-200 bg-red-50">
             <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
+
+        {section === "keycharts" && <KeyCharts qs={qs} onError={setError} />}
 
         {section === "overview" && overview && (
           <SectionStack
@@ -304,21 +331,6 @@ export default function AnalyticsDepartment() {
 
         {section === "farmers" && (
           <div className="space-y-4">
-            <div className="card flex items-end gap-3">
-              <div className="flex-1">
-                <label className="text-sm text-ink-600">Filter by state</label>
-                <select
-                  className="mt-1 w-full rounded-card border border-soil-200 px-3 py-2"
-                  value={farmerState}
-                  onChange={(e) => setFarmerState(e.target.value)}
-                >
-                  <option value="">All states</option>
-                  {NIGERIA_STATE_NAMES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
             {farmers && (
           <SectionStack
             className="space-y-4"
@@ -393,20 +405,7 @@ export default function AnalyticsDepartment() {
 
         {section === "produce" && (
           <div className="space-y-4">
-            <div className="card grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="text-sm text-ink-600">Filter by state</label>
-                <select
-                  className="mt-1 w-full rounded-card border border-soil-200 px-3 py-2"
-                  value={produceState}
-                  onChange={(e) => setProduceState(e.target.value)}
-                >
-                  <option value="">All states</option>
-                  {NIGERIA_STATE_NAMES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
+            <div className="card grid gap-3">
               <div>
                 <label className="text-sm text-ink-600">Filter by crop</label>
                 <input
@@ -429,7 +428,7 @@ export default function AnalyticsDepartment() {
                 node: produce && (
                 <HorizontalBarChartCard
                   title="Total declared production by crop"
-                  subtitle="Quantities are in each crop's own unit — hover a bar for detail."
+                  subtitle="Quantities are in each crop's own unit, hover a bar for detail."
                   data={produce.byCrop.map((r) => ({ key: r.crop, value: r.total, unit: r.unit, farmerCount: r.farmerCount }))}
                   color={CHART_COLORS[1]}
                   valueFormatter={(v, _n, item) =>
@@ -445,7 +444,7 @@ export default function AnalyticsDepartment() {
                 node: produce && (
                 <HorizontalBarChartCard
                   title="Total declared production by state"
-                  subtitle="Totals mix units across crops — hover a bar for farmer count."
+                  subtitle="Totals mix units across crops, hover a bar for farmer count."
                   data={produce.byState.map((r) => ({ key: r.state, value: r.total, farmerCount: r.farmerCount }))}
                   valueFormatter={(v, _n, item) =>
                     item?.payload ? `${Number(v).toLocaleString()} (${item.payload.farmerCount} farmers)` : v
@@ -460,10 +459,10 @@ export default function AnalyticsDepartment() {
             <div className="card">
               <p className="text-sm text-ink-600">Capacity query</p>
               <p className="mt-1 text-xs text-ink-600">
-                e.g. "how many farmers can produce at least 100 bags of rice" — enter the crop and
+                e.g. "how many farmers can produce at least 100 bags of rice", enter the crop and
                 minimum quantity below.
               </p>
-              <form onSubmit={handleCapacityQuery} className="mt-3 grid gap-3 sm:grid-cols-4">
+              <form onSubmit={handleCapacityQuery} className="mt-3 grid gap-3 sm:grid-cols-3">
                 <input
                   className="rounded-card border border-soil-200 px-3 py-2"
                   value={capacityCrop}
@@ -479,16 +478,6 @@ export default function AnalyticsDepartment() {
                   placeholder="Minimum quantity"
                   required
                 />
-                <select
-                  className="rounded-card border border-soil-200 px-3 py-2"
-                  value={capacityState}
-                  onChange={(e) => setCapacityState(e.target.value)}
-                >
-                  <option value="">Any state</option>
-                  {NIGERIA_STATE_NAMES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
                 <button className="btn-primary" type="submit">Run query</button>
               </form>
               {capacityResult && (
@@ -499,7 +488,7 @@ export default function AnalyticsDepartment() {
                   <div className="mt-2 max-h-64 overflow-y-auto space-y-1">
                     {capacityResult.farmers.map((f) => (
                       <div key={f.userId} className="rounded-card border border-soil-200 px-3 py-1.5 text-xs">
-                        {f.name} — {f.state}, {f.lga} — {f.declaredQuantity.toLocaleString()} {f.unitOfMeasure}
+                        {f.name}, {f.state}, {f.lga}: {f.declaredQuantity.toLocaleString()} {f.unitOfMeasure}
                       </div>
                     ))}
                   </div>
@@ -545,10 +534,10 @@ export default function AnalyticsDepartment() {
               },
               {
                 key: "l2",
-                label: "Loans by type — count",
+                label: "Loans by type, count",
                 node: (
             <BarChartCard
-              title="Loans by type — count"
+              title="Loans by type, count"
               data={loans.byType.map((r) => ({ key: r.loanType, value: r.count }))}
               color={CHART_COLORS[1]}
               valueFormatter={countFormatter}
@@ -557,10 +546,10 @@ export default function AnalyticsDepartment() {
               },
               {
                 key: "l3",
-                label: "Loans by type — total amount",
+                label: "Loans by type, total amount",
                 node: (
             <BarChartCard
-              title="Loans by type — total amount"
+              title="Loans by type, total amount"
               data={loans.byType.map((r) => ({ key: r.loanType, value: r.totalAmount }))}
               color={CHART_COLORS[3]}
               valueFormatter={nairaFormatter}
@@ -662,8 +651,7 @@ export default function AnalyticsDepartment() {
         {section === "attendance" && (
           <div className="space-y-4">
             <p className="text-xs text-ink-600">
-              Normally a Unit Leader (and above)'s own rank-gated action, scoped to their jurisdiction —
-              admin can mark attendance for any farmer, company-wide, for now until those roles are staffed.
+              Normally a Unit Leader (and above)'s own rank-gated action, scoped to their jurisdiction, admin can mark attendance for any farmer, company-wide, for now until those roles are staffed.
             </p>
             <AttendanceMarker farmers={attendanceFarmers} onRecorded={loadAttendanceFarmers} />
             <JurisdictionOverview farmers={attendanceFarmers} rank="Admin (company-wide)" />

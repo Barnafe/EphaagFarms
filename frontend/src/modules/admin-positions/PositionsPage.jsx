@@ -176,8 +176,7 @@ export default function PositionsPage() {
           <p className="text-xs uppercase tracking-wide text-canopy-300">3EI Governance model</p>
           <h1 className="text-xl font-medium text-white">Positions</h1>
           <p className="mt-1 text-sm text-canopy-100">
-            Promote or remove leadership ranks and department heads. Only agreed-upon appointments —
-            nobody can promote themselves.
+            Promote or remove leadership ranks and department heads. Only agreed appointments, and nobody can promote themselves.
           </p>
         </div>
 
@@ -249,7 +248,7 @@ export default function PositionsPage() {
                     <p className="font-medium text-ink-900">{a.name}</p>
                     <p className="text-xs text-ink-600">{a.email}</p>
                     <p className="mt-1 text-sm text-canopy-800">
-                      {a.department_head_of ? `HOD of ${a.department_head_of}` : "Not a department head"}
+                      {a.department_head_of ? (a.department_head_of === "CEO" ? "CEO (approves purchase orders)" : `HOD of ${a.department_head_of}`) : "Not a department head"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -314,7 +313,7 @@ export default function PositionsPage() {
                       {a.name} {a.is_main_admin && <span className="ml-2 rounded-full bg-canopy-100 px-2 py-0.5 text-xs text-canopy-800">Main admin</span>}
                     </p>
                     <p className="text-xs text-ink-600">{a.email}</p>
-                    {a.department_head_of && <p className="mt-1 text-sm text-canopy-800">HOD of {a.department_head_of}</p>}
+                    {a.department_head_of && <p className="mt-1 text-sm text-canopy-800">{a.department_head_of === "CEO" ? "CEO" : `HOD of ${a.department_head_of}`}</p>}
                   </div>
                   {canManageAdmins && !a.is_main_admin && (
                     <button className="btn-outline" type="button" onClick={() => handleRemoveAdmin(a)}>Remove admin</button>

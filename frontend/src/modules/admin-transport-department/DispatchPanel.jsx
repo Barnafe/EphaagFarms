@@ -43,7 +43,7 @@ export default function DispatchPanel({ jobs, drivers, onAssign }) {
                   <option value="">Choose a driver</option>
                   {drivers.map((d) => (
                     <option key={d.id} value={d.id}>
-                      {d.name} — {d.fleetType}
+                      {d.name}, {d.fleetType}
                     </option>
                   ))}
                 </select>

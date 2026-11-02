@@ -8,7 +8,7 @@ const statusStyles = {
   late: "bg-harvest-50 text-harvest-600",
   missed: "bg-red-50 text-red-700",
 };
-const viaLabel = { paystack: "Paystack", auto_charge: "saved card", offline: "recorded by Finance" };
+const viaLabel = { paystack: "online", auto_charge: "saved card", offline: "recorded by Finance" };
 
 function daysUntil(dateStr) {
   if (!dateStr) return null;
@@ -45,7 +45,7 @@ export default function PaymentLog({ application, payments, onChanged, onError }
               {application.nextDueDate}
               {days !== null && (
                 <span className="ml-2 text-sm font-normal text-ink-600">
-                  {days > 0 ? `— ${days} day${days === 1 ? "" : "s"} away` : days === 0 ? "— due today" : `— ${Math.abs(days)} day(s) overdue`}
+                  {days > 0 ? `${days} day${days === 1 ? "" : "s"} away` : days === 0 ? "due today" : `${Math.abs(days)} day(s) overdue`}
                 </span>
               )}
             </p>

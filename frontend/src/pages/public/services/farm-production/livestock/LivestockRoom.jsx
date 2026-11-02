@@ -37,7 +37,7 @@ export default function LivestockRoom() {
         theme={themes.farmProduction}
         eyebrow="Farm production → Livestock farming"
         title="Livestock farming"
-        description="Company-owned livestock operations across poultry, fish, cattle and small ruminants — each run to its own husbandry standard, feeding directly into what we supply to buyers."
+        description="Company-owned poultry, fish, cattle and small ruminants."
         badge="🐄"
       />
       <RoomBackLink to="/services/farm-production" label="Farm production" />

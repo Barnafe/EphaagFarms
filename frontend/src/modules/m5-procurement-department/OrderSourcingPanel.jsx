@@ -75,7 +75,7 @@ export default function OrderSourcingPanel({ order, farmers, onNotify }) {
 
       {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
 
-      <p className="mt-4 text-sm text-ink-600">Matching registered farmers — pick a listing + quantity per farmer</p>
+      <p className="mt-4 text-sm text-ink-600">Matching registered farmers, pick a listing + quantity per farmer</p>
       <div className="mt-2 space-y-2">
         {matches.length === 0 && (
           <p className="text-sm text-ink-600">No registered farmers grow this crop yet.</p>
@@ -94,7 +94,7 @@ export default function OrderSourcingPanel({ order, farmers, onNotify }) {
                 <span>
                   <span className="font-medium text-ink-900">{f.name}</span>{" "}
                   <span className="text-ink-600">
-                    — {f.crops.join(", ")} · {f.state}, {f.lga}
+                    {f.crops.join(", ")} · {f.state}, {f.lga}
                   </span>
                 </span>
                 {pick?.productId && (
@@ -119,7 +119,7 @@ export default function OrderSourcingPanel({ order, farmers, onNotify }) {
                           <option value="">Select a listing…</option>
                           {products.map((p) => (
                             <option key={p.id} value={p.id}>
-                              {p.crop} — {p.quantity} {p.unit} available
+                              {p.crop}: {p.quantity} {p.unit} available
                             </option>
                           ))}
                         </select>

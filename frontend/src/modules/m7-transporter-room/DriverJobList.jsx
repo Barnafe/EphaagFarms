@@ -7,7 +7,7 @@ const statusStyles = {
 };
 
 const statusLabel = {
-  assigned: "Assigned — not yet picked up",
+  assigned: "Assigned, not yet picked up",
   en_route: "En route",
   delivered: "Delivered",
 };

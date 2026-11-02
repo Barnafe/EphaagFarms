@@ -81,7 +81,7 @@ export default function ContractorsPanel() {
             <div>
               <p className="font-medium text-ink-900">{c.company_name}</p>
               <p className="text-xs text-ink-600">
-                {c.service_type || "General"} · {c.contact_person || "—"} · {c.phone || "—"}
+                {c.service_type || "General"} · {c.contact_person || "N/A"} · {c.phone || "N/A"}
               </p>
             </div>
             <button

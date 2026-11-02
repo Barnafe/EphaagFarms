@@ -1,6 +1,6 @@
 import { pool } from "../db/pool.js";
 
-// Universal referral summary — every registered member gets this, not
+// Universal referral summary, every registered member gets this, not
 // just investors (see 001_init.sql section 18 for why this is a separate
 // system from the investor-only referrals/partner-bonus tables).
 

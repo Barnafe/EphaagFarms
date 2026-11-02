@@ -1,4 +1,4 @@
-# v28 — Batches, certificates, emails and the NYSC export (the "Phase 4" spec)
+# v28, Batches, certificates, emails and the NYSC export (the "Phase 4" spec)
 
 Built on v27. **Numbering note:** v27's own "Phase 4" was the learning/quiz/progress work; this is the batches +
 certificates + NYSC export phase (v27 called it phase 5). Nothing from v27 was changed except the small hooks below.
@@ -7,7 +7,7 @@ certificates + NYSC export phase (v27 called it phase 5). Nothing from v27 was c
 1. Members who didn't finish: **no certificate, no "ready" email**; they see "Not completed yet" with x of y courses.
 2. NYSC data consent: **required for every corps member** (registration, wizard checkbox, profile). The export includes a
    consent column and, by default, **leaves out members who haven't consented** (an admin tick-box can include them).
-3. Certificate design: placeholders until you supply the real thing — see "What I still need".
+3. Certificate design: placeholders until you supply the real thing, see "What I still need".
 
 ## How it works
 - **Eligible** = fee paid now + every live corps course completed (same progress code as the dashboard, v27 `loadMemberProgress`).
@@ -15,7 +15,7 @@ certificates + NYSC export phase (v27 called it phase 5). Nothing from v27 was c
   `EPH-NYSC-<year>-<6 digits>` (database sequence, so simultaneous completions can't collide) and a 24-character
   verification code (~119 bits).
 - **Batches** (`corp_batches`): one per service year + batch letter + stream, created automatically for every batch that has
-  members. Admin sets the due date and presses **Mark batch complete** — refused before the due date or without one.
+  members. Admin sets the due date and presses **Mark batch complete**, refused before the due date or without one.
   Marking releases that batch's hidden certificates and starts the emails. **Un-mark** hides them again (with an optional reason).
   Every due-date change, close, un-mark, resend and reissue is logged with who and when (`corp_batch_events`).
 - **Late finisher** (batch already closed): certificate is visible immediately and emailed straight away.

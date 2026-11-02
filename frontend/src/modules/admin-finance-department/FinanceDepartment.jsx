@@ -66,7 +66,7 @@ const items = [
     key: "loans",
     label: "Loans",
     icon: Landmark,
-    description: "Recommend, verify, approve, disburse, and reconcile repayments — the full pipeline.",
+    description: "Recommend, verify, approve, disburse, and reconcile repayments, the full pipeline.",
   },
   {
     key: "settlements",
@@ -96,7 +96,7 @@ const items = [
     key: "requests",
     label: "Requests",
     icon: FileCheck2,
-    description: "The general cross-department request/approval workflow — raise a request from Finance and route it to whoever needs to sign off, in order.",
+    description: "The general cross-department request/approval workflow, raise a request from Finance and route it to whoever needs to sign off, in order.",
   },
   { key: "profile", label: "Profile", icon: User },
 ];
@@ -460,8 +460,7 @@ export default function FinanceDepartment() {
             </div>
           )}
           <p className="text-xs text-ink-600">
-            Recommend and final-approval are normally a Unit Leader's and 3EI Governance's own rank-gated steps —
-            admin can perform them too for now, company-wide, until those roles are staffed.
+            Recommend and final-approval are normally a Unit Leader's and 3EI Governance's own rank-gated steps, admin can perform them too for now, company-wide, until those roles are staffed.
           </p>
           <SectionStack
             label="Loan stage"
@@ -473,7 +472,7 @@ export default function FinanceDepartment() {
                 node: (
                   <LoanPipelinePanel
                     title="Recommend (Unit Leader step)"
-                    blurb="Pending applications, company-wide — normally scoped to one unit leader's own jurisdiction."
+                    blurb="Pending applications, company-wide, normally scoped to one unit leader's own jurisdiction."
                     loans={pendingRecommendLoans}
                     primaryLabel="Recommend"
                     onPrimary={handleRecommendLoan}
@@ -506,7 +505,7 @@ export default function FinanceDepartment() {
                 key: "payouts",
                 label: "Payouts & repayments",
                 node: (
-                  <PayoutsNotice text="Loans are paid out automatically by Paystack transfer as soon as the final approval is given, and repayments and Boost Cash deposits are confirmed by Paystack, so there is nothing to verify or disburse by hand. Follow every payout under Payouts." />
+                  <PayoutsNotice text="Loans, repayments and Boost Cash deposits are handled automatically. Follow every payout under Payouts." />
                 ),
               },
             ]}
@@ -565,8 +564,7 @@ export default function FinanceDepartment() {
                 <div className="card">
                   <p className="text-sm text-ink-600">Payment due-date reminders</p>
                   <p className="mt-1 text-xs text-ink-600">
-                    Runs automatically every day at 8am, emailing any investor whose next payment is due tomorrow.
-                    Trigger it manually here if you need to check right now.
+                    Runs every day at 8am. You can also run it now.
                   </p>
                   <button type="button" className="btn-outline mt-3 text-xs" disabled={reminderRunning} onClick={handleRunReminderCheck}>
                     {reminderRunning ? "Checking…" : "Run reminder check now"}

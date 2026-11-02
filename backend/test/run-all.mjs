@@ -94,7 +94,7 @@ async function main() {
     FARMER_GATE_DEFAULT: "off", DOJAH_BASE_URL: paystack.url, DOJAH_APP_ID: "test-app", DOJAH_SECRET_KEY: "test-secret",
     R2_ENDPOINT: s3.url, R2_ACCESS_KEY_ID: "test", R2_SECRET_ACCESS_KEY: "test",
     R2_PUBLIC_BUCKET: "pub", R2_PRIVATE_BUCKET: "priv", R2_PUBLIC_BASE_URL: `${s3.url}/pub`,
-    EMAIL_DRIVER: "ses", SES_REGION: "us-east-1", SES_ENDPOINT: mail.url, AWS_ACCESS_KEY_ID: "test", AWS_SECRET_ACCESS_KEY: "test",
+    SEND_TIMEOUT_MS: "3000", EMAIL_DRIVER: "ses", SES_REGION: "us-east-1", SES_ENDPOINT: mail.url, AWS_ACCESS_KEY_ID: "test", AWS_SECRET_ACCESS_KEY: "test",
     SMS_DRIVER: "termii", SMS_API_URL: `${mail.url}/sms/send`, SMS_API_KEY: "test", SMS_SENDER_ID: "EPHAAG",
     SNS_TEST_CERT_PEM: snsPublic, ALERT_SMS_PHONE: "08031234567",
   };

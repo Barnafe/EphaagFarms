@@ -1,6 +1,6 @@
 import { ShoppingCart } from "lucide-react";
 
-// Persistent floating bar while browsing the catalog — shows a running
+// Persistent floating bar while browsing the catalog, shows a running
 // item count + total and a way into the cart, same pattern as any
 // shopping site's mini-cart bar.
 export default function CartBar({ cart, onReview }) {

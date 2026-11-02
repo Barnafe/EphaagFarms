@@ -5,9 +5,9 @@ const statusStyles = {
 };
 
 const statusLabel = {
-  assigned: "Assigned — not started",
+  assigned: "Assigned, not started",
   processing: "Processing",
-  complete: "Complete — ready for transport",
+  complete: "Complete, ready for transport",
 };
 
 const nextAction = {

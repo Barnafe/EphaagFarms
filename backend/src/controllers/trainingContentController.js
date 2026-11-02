@@ -5,7 +5,7 @@ import { MATERIALS_DIR } from "../middleware/upload.js";
 import { sendFileRef, discardFileRef } from "../utils/fileRefs.js";
 
 // ---------------------------------------------------------------------
-// NYSC AGROALLIED SAED training content (admin side) — lessons + one quiz per course.
+// NYSC AGROALLIED SAED training content (admin side), lessons + one quiz per course.
 // Only courses with audience = 'corps' carry lessons/quiz questions; the
 // general (farmer "Seminar") courses keep their single-material model.
 // Everything here is admin-only (see routes/rtc.js). The corps-member
@@ -108,7 +108,7 @@ async function withCourseLock(courseId, fn) {
 }
 
 // ---------------------------------------------------------------------
-// GET /rtc/admin/courses/:id/content — everything the editor needs.
+// GET /rtc/admin/courses/:id/content, everything the editor needs.
 // ---------------------------------------------------------------------
 export async function adminGetCourseContent(req, res) {
   const course = await requireCorpsCourse(pool, req.params.id, res);
@@ -299,7 +299,7 @@ export async function adminDownloadLessonFile(req, res) {
 }
 
 // ---------------------------------------------------------------------
-// Quiz questions — multiple choice, exactly one correct option.
+// Quiz questions, multiple choice, exactly one correct option.
 // ---------------------------------------------------------------------
 function parseQuestion(body) {
   const prompt = String(body.prompt ?? "").trim();

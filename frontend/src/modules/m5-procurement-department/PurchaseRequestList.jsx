@@ -1,14 +1,15 @@
 export const STATUS_LABEL = {
   pending_approval: "Awaiting need verification",
   rejected: "Rejected",
-  approved: "Approved — awaiting sourcing",
+  approved: "Approved, awaiting sourcing",
   sourcing: "Sourcing / RFQ",
+  budget_approval_pending: "On hold: over budget",
   po_pending_approval: "PO awaiting approval",
-  po_approved: "PO approved — awaiting payment",
+  po_approved: "PO approved, awaiting payment",
   awaiting_delivery: "Awaiting delivery",
-  delivered: "Delivered — verify goods",
-  goods_disputed: "Disputed — return/issue",
-  goods_received: "Goods received — awaiting invoice",
+  delivered: "Delivered, verify goods",
+  goods_disputed: "Disputed, return/issue",
+  goods_received: "Goods received, awaiting invoice",
   invoice_verification: "Invoice awaiting verification",
   final_payment_pending: "Awaiting final payment",
   completed: "Completed",
@@ -20,6 +21,7 @@ const STATUS_TONE = {
   rejected: "bg-clay-50 text-clay-700",
   approved: "bg-soil-100 text-ink-600",
   sourcing: "bg-harvest-50 text-harvest-600",
+  budget_approval_pending: "bg-clay-50 text-clay-700",
   po_pending_approval: "bg-harvest-50 text-harvest-600",
   po_approved: "bg-soil-100 text-ink-600",
   awaiting_delivery: "bg-soil-100 text-ink-600",
@@ -56,6 +58,7 @@ export default function PurchaseRequestList({ requests, selectedId, onSelect }) 
             <p className="mt-1 text-sm text-ink-900">{r.title}</p>
             <p className="text-xs text-ink-600">
               {r.department} · {r.requester_name}
+              {r.waitingFor ? ` · waiting for ${r.waitingFor}` : ""}
             </p>
           </button>
         ))}

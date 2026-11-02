@@ -1,6 +1,6 @@
 import { Minus, Plus, Trash2 } from "lucide-react";
 
-// Shopping-cart page — list items with inline quantity adjustment and
+// Shopping-cart page, list items with inline quantity adjustment and
 // removal, then hand off to checkout. Delivery details, contacts, and
 // payment live in the separate checkout step (CheckoutForm), matching a
 // real shopping site's cart → checkout → payment flow.

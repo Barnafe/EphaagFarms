@@ -69,12 +69,12 @@ export default function NewPurchaseRequestForm({ onSubmit }) {
       <div>
         <p className="text-sm font-medium text-ink-900">Raise a purchase request</p>
         <p className="text-xs text-ink-600">
-          "We need something" — describe what's needed and why. This goes to need verification next.
+          "We need something", describe what's needed and why. This goes to need verification next.
         </p>
       </div>
 
       {error && <p className="text-sm text-clay-100">{error}</p>}
-      {done && <p className="text-sm text-canopy-200">Submitted as {done} — awaiting need verification.</p>}
+      {done && <p className="text-sm text-canopy-200">Submitted as {done}. Awaiting need verification.</p>}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-xs text-ink-600">

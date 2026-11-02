@@ -6,7 +6,7 @@ import { wardsForLga } from "../../data/nigeriaWards.js";
 
 const STATUS_LABEL = {
   pending: "Pending admin review",
-  approved: "Approved — now a company unit",
+  approved: "Approved, now a company unit",
   rejected: "Rejected",
 };
 

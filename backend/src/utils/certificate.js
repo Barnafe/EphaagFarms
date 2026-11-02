@@ -107,8 +107,8 @@ export async function renderCertificatePdf(cert) {
   // Details row
   const detailsY = 330;
   const cols = [
-    ["STATE CODE", cert.state_code || "—"],
-    ["BATCH", [cert.service_year, cert.batch ? `Batch ${cert.batch}` : null].filter(Boolean).join(" · ") || "—"],
+    ["STATE CODE", cert.state_code || "N/A"],
+    ["BATCH", [cert.service_year, cert.batch ? `Batch ${cert.batch}` : null].filter(Boolean).join(" · ") || "N/A"],
     ["ISSUE DATE", formatLongDate(cert.visible_at || cert.issued_at)],
   ];
   const colW = (W - 200) / cols.length;

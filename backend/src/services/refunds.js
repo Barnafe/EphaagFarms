@@ -1,6 +1,6 @@
 import { pool } from "../db/pool.js";
 import { requestRefund } from "./paystack.js";
-import { notifyUser } from "./messaging.js";
+import { notifyUser, notifyAddress } from "./messaging.js";
 import { TYPE_LABEL, refusalText } from "./payments.js";
 import { orderEvent } from "./orderPayments.js";
 
@@ -15,7 +15,7 @@ const httpErr = (message, status = 400) => Object.assign(new Error(message), { s
 export async function listAttention() {
   const { rows } = await pool.query(
     `SELECT p.id, p.reference, p.type, p.refusal_reason, p.refund_status, p.refund_note, p.paid_amount, p.gross_amount, p.paid_at, p.channel,
-            u.name AS payer_name, u.email AS payer_email, u.phone AS payer_phone
+            COALESCE(u.name, p.meta->>'contactName') AS payer_name, COALESCE(u.email, p.meta->>'contactEmail') AS payer_email, COALESCE(u.phone, p.meta->>'contactPhone') AS payer_phone
        FROM gateway_payments p LEFT JOIN users u ON u.id = p.user_id
       WHERE p.status = 'refused' AND p.refund_status IN ('due','failed') ORDER BY p.paid_at DESC NULLS LAST LIMIT 300`);
   return rows.map((r) => ({ ...r, typeLabel: TYPE_LABEL[r.type] || r.type, reasonText: r.refusal_reason ? refusalText(r.refusal_reason) : null }));
@@ -24,7 +24,7 @@ export async function listAttention() {
 export async function listHistory() {
   const { rows } = await pool.query(
     `SELECT p.id, p.reference, p.type, p.refusal_reason, p.refund_note AS reason, p.refund_at, p.paid_amount, p.gross_amount, p.status,
-            u.name AS payer_name, u.email AS payer_email
+            COALESCE(u.name, p.meta->>'contactName') AS payer_name, COALESCE(u.email, p.meta->>'contactEmail') AS payer_email
        FROM gateway_payments p LEFT JOIN users u ON u.id = p.user_id
       WHERE p.refund_status = 'refunded' ORDER BY p.refund_at DESC NULLS LAST LIMIT 300`);
   return rows.map((r) => ({ ...r, typeLabel: TYPE_LABEL[r.type] || r.type }));
@@ -37,7 +37,7 @@ export async function searchRefundable(q) {
   const like = `%${term}%`;
   const { rows } = await pool.query(
     `SELECT p.id, p.reference, p.type, p.status, p.refund_status, p.gross_amount, p.net_amount, p.paid_amount, p.paid_at, p.meta,
-            u.name AS payer_name, u.email AS payer_email
+            COALESCE(u.name, p.meta->>'contactName') AS payer_name, COALESCE(u.email, p.meta->>'contactEmail') AS payer_email
        FROM gateway_payments p LEFT JOIN users u ON u.id = p.user_id
       WHERE p.status IN ('success','refused')
         AND (p.reference ILIKE $1 OR p.meta::text ILIKE $1 OR u.name ILIKE $1 OR u.email ILIKE $1)
@@ -81,8 +81,17 @@ export async function refundPayment(paymentId, { reason, userId = null }) {
       try { await orderEvent(client, payment.subject_id, "refunded", userId ? { id: userId, role_type: "admin" } : null, { reason: why, reference: payment.reference }); } finally { client.release(); }
     }
   }
+  if (payment.type === "consultancy" && payment.subject_id && payment.status === "success") {
+    // The money went back, so the session no longer stands (unless it already took place).
+    await pool.query(
+      `UPDATE consultancy_requests SET status = 'cancelled', decision_reason = $2, updated_at = now()
+        WHERE id = $1 AND status IN ('ready','scheduled','awaiting_payment')`, [payment.subject_id, `Refunded: ${why}`]);
+  }
+  const refundData = { amount: Number(payment.paid_amount ?? payment.gross_amount), reference: payment.reference, reason: why };
   if (payment.user_id) {
-    await notifyUser(payment.user_id, "refund_sent", { amount: Number(payment.paid_amount ?? payment.gross_amount), reference: payment.reference, reason: why }, { allChannels: true }).catch(() => {});
+    await notifyUser(payment.user_id, "refund_sent", refundData, { allChannels: true }).catch(() => {});
+  } else if (payment.meta?.contactEmail || payment.meta?.contactPhone) {
+    await notifyAddress({ email: payment.meta.contactEmail, phone: payment.meta.contactPhone, name: payment.meta.contactName || "" }, "refund_sent", refundData, { allChannels: true }).catch(() => {});
   }
   return { ok: true };
 }

@@ -3,7 +3,7 @@ import "dotenv/config";
 import { pool } from "./pool.js";
 
 // Usage: npm run seed:admin -- --email admin@ephaagfarms.com --password somepassword --name "Admin"
-// (or just run with no args to get the defaults below — change the password after logging in)
+// (or just run with no args to get the defaults below, change the password after logging in)
 
 function getArg(flag, fallback) {
   const i = process.argv.indexOf(flag);

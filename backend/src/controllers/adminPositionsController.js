@@ -1,7 +1,7 @@
 import { rankLabel } from "../utils/governance.js";
 import { pool } from "../db/pool.js";
 
-// Promotion/appointment tool (2026-08-13 spec) — "someone isn't supposed
+// Promotion/appointment tool (2026-08-13 spec), "someone isn't supposed
 // to register or make himself HOD... when it is agreed by the company for
 // a specific person, admin will have the tools to promote someone."
 // Covers two independent position systems:
@@ -13,7 +13,7 @@ import { pool } from "../db/pool.js";
 // 2026-09-05: RESTORED "TRC" (Training, Research & Consultancy) as the
 // department name here. A 2026-09-02 round had renamed it to "Seminal"
 // and narrowed it system-wide, but that was only ever meant to apply to
-// the farmer-facing course tab inside Farmer's Room — TRC remains a
+// the farmer-facing course tab inside Farmer's Room, TRC remains a
 // full admin department (Training/Research/Consultancy) everywhere else,
 // see rtcController.js. Any pre-existing user row with
 // department_head_of = 'Seminal' (the interim name) keeps that exact
@@ -21,7 +21,7 @@ import { pool } from "../db/pool.js";
 // values, so nothing breaks, but it's now a stale label worth
 // re-appointing via this same tool.
 // Every change is logged to coordinator_appointments (existing table,
-// previously unused) as a durable, auditable history — never just an
+// previously unused) as a durable, auditable history, never just an
 // in-place update with no trace.
 
 // --- Admin accounts -----------------------------------------------------
@@ -123,7 +123,7 @@ export async function removeAdmin(req, res) {
 }
 
 const FARMER_RANKS = ["Member", "Unit Leader", "Ward Leader", "LGA Coordinator", "State Coordinator", "Federal"];
-const DEPARTMENTS = ["Production", "Procurement", "Transport", "Store", "Finance", "Maintenance", "TRC"];
+const DEPARTMENTS = ["Production", "Procurement", "Transport", "Store", "Finance", "Maintenance", "TRC", "CEO"]; // CEO approves purchase orders (Phase 10)
 
 export async function searchFarmers(req, res) {
   const { q, state, lga } = req.query;
@@ -191,7 +191,7 @@ export async function promoteHod(req, res) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    // Only one HOD per department at a time — auto-clear whoever held it.
+    // Only one HOD per department at a time, auto-clear whoever held it.
     await client.query(`UPDATE users SET department_head_of = NULL WHERE department_head_of = $1`, [department]);
     const { rows } = await client.query(
       `UPDATE users SET department_head_of = $1 WHERE id = $2 RETURNING id, name, department_head_of`,

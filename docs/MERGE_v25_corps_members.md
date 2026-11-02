@@ -1,4 +1,4 @@
-# v25 — Corps members (NYSC) account merged into the v24 build
+# v25, Corps members (NYSC) account merged into the v24 build
 
 v25 = v24 (financing-banner alignment + payment audit, see
 `CHANGES_2026-10-20_banner_and_payment_audit.md`) + the corps member account
@@ -11,7 +11,7 @@ built separately.
 
 ## Merge notes
 - Only `backend/src/db/migrations/001_init.sql` was edited by both sides (both appended new tables at the end); both blocks are kept. The migration is re-runnable and upgrades a v24 database in place (existing courses become `general`).
-- Fixed along the way: `GET /api/maintenance/history` always returned a 500 (grouped by a non-existent column) — an old v23 bug, not part of the corps work.
+- Fixed along the way: `GET /api/maintenance/history` always returned a 500 (grouped by a non-existent column), an old v23 bug, not part of the corps work.
 - `backend/store_test.py` updated for the order form's required contact fields (old script drift).
 
 ## Verified

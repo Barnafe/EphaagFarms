@@ -24,8 +24,8 @@ export default function FarmProductionRoom() {
       <RoomHero
         theme={themes.farmProduction}
         eyebrow="Farm production"
-        title="We don't just source — we grow"
-        description="Alongside sourcing from our farmer network, EPHAAG Farms runs its own company-owned farms across livestock and crops. What we grow feeds directly into the same supply pool we sell from — so output is never dependent on one side alone."
+        title="We don't just source, we grow"
+        description="Company-owned farms add to the supply we sell from."
         badge="🌾"
       />
       <RoomBackLink to="/" label="Back to home" />

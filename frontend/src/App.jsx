@@ -26,6 +26,7 @@ const FruitsCashCrops = lazy(() => import("./pages/public/services/farm-producti
 const ProduceSourcingRoom = lazy(() => import("./pages/public/services/produce-sourcing/ProduceSourcingRoom.jsx"));
 const FarmerFinancingRoom = lazy(() => import("./pages/public/services/farmer-financing/FarmerFinancingRoom.jsx"));
 const LogisticsRoom = lazy(() => import("./pages/public/services/logistics/LogisticsRoom.jsx"));
+const ConsultancyRequest = lazy(() => import("./pages/public/ConsultancyRequest.jsx"));
 const Trc = lazy(() => import("./pages/public/services/trc/Trc.jsx"));
 const LoginAdmin = lazy(() => import("./pages/auth/LoginAdmin.jsx"));
 const LoginMember = lazy(() => import("./pages/auth/LoginMember.jsx"));
@@ -44,6 +45,7 @@ const AdminProfilePage = lazy(() => import("./modules/admin-hub/AdminProfilePage
 const AdminFeedbackPage = lazy(() => import("./modules/admin-hub/AdminFeedbackPage.jsx"));
 const AdminContactMessagesPage = lazy(() => import("./modules/admin-hub/AdminContactMessagesPage.jsx"));
 const PayoutsPage = lazy(() => import("./modules/admin-hub/PayoutsPage.jsx"));
+const LoanScoringPage = lazy(() => import("./modules/admin-hub/LoanScoringPage.jsx"));
 const UnitLocationsPage = lazy(() => import("./modules/admin-hub/UnitLocationsPage.jsx"));
 const RefundRoomPage = lazy(() => import("./modules/admin-hub/RefundRoomPage.jsx"));
 const AddCatalogPage = lazy(() => import("./modules/admin-hub/AddCatalogPage.jsx"));
@@ -60,6 +62,7 @@ const StoreDepartment = lazy(() => import("./modules/admin-store-department/Stor
 const ProductionDepartment = lazy(() => import("./modules/admin-production-department/ProductionDepartment.jsx"));
 const TrcDepartment = lazy(() => import("./modules/admin-trc-department/TrcDepartment.jsx"));
 const AnalyticsDepartment = lazy(() => import("./modules/admin-analytics/AnalyticsDepartment.jsx"));
+const AnalyticsReport = lazy(() => import("./modules/admin-analytics/AnalyticsReport.jsx"));
 const RequestsApp = lazy(() => import("./modules/admin-requests/RequestsApp.jsx"));
 const AdminDashboardShell = lazy(() => import("./components/AdminDashboardShell.jsx"));
 const CommunityPage = lazy(() => import("./modules/admin-community/CommunityPage.jsx"));
@@ -74,6 +77,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/products-services" element={<ProductsServices />} />
         <Route path="/research-education" element={<ResearchEducation />} />
+        <Route path="/consultancy/request/:token" element={<ConsultancyRequest />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/verify-certificate" element={<VerifyCertificate />} />
@@ -206,6 +210,14 @@ export default function App() {
           }
         />
         <Route
+          path="/admin/loan-scoring"
+          element={
+            <ProtectedRoute allow={["admin"]}>
+              <LoanScoringPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/units"
           element={
             <ProtectedRoute allow={["admin"]}>
@@ -250,6 +262,14 @@ export default function App() {
           element={
             <ProtectedRoute allow={["admin"]}>
               <LoginAsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/analytics/report"
+          element={
+            <ProtectedRoute allow={["admin"]}>
+              <AnalyticsReport />
             </ProtectedRoute>
           }
         />

@@ -2,13 +2,13 @@ import { pool } from "../db/pool.js";
 
 // --- Price management (2026-08-30 spec) ------------------------------------
 // admin-only editor for the two prices split above: buy_price (paid to
-// farmers) and sell_price (charged to buyers) — deliberately different so
+// farmers) and sell_price (charged to buyers), deliberately different so
 // the company isn't buying and selling at the same number. See
 // [[ephaag-farms]] memory for the seeded-15%-placeholder note; this is
 // where that placeholder actually gets corrected.
 
 // --- Dashboard (2026-09-05 spec) ---------------------------------------
-// Top-level "Dashboard" tab summary — distinct from the "Accounting"
+// Top-level "Dashboard" tab summary, distinct from the "Accounting"
 // sub-workspace's own AccountingDashboardPanel (internal budgets/bank/
 // reconciliation), this one covers the marketplace-facing side of the
 // department: payment confirmations, loans, settlements, investments.
@@ -44,7 +44,7 @@ export async function listPrices(req, res) {
 }
 
 // --- Add Catalog (2026-09-03 spec; unit changed to a fixed dropdown 2026-09-04) ---
-// Creates a brand-new crop/product entry — distinct from updatePrice below,
+// Creates a brand-new crop/product entry, distinct from updatePrice below,
 // which only edits a crop that already exists. This is the single place a
 // new product enters the system: once inserted here it automatically shows
 // up in the buyer's Product Catalog (ProductCatalog.jsx merges every row
@@ -54,18 +54,18 @@ export async function listPrices(req, res) {
 // prices, procurement's price list, order costing). No separate "publish"
 // step needed.
 //
-// Unit is a fixed pick-list, not free text — reuses the exact same
+// Unit is a fixed pick-list, not free text, reuses the exact same
 // vocabulary as farmer_products/farmer_declarations' `unit` CHECK
 // constraint (see migration 001_init.sql), so the whole app speaks one
 // consistent unit vocabulary whether a farmer is listing or an admin is
 // cataloging. standard_prices itself has no DB-level CHECK on unit, so this
-// list is enforced here in the controller instead. Crops only — livestock
+// list is enforced here in the controller instead. Crops only, livestock
 // doesn't use this vocabulary at all (see below).
 export const CATALOG_UNITS = ["kg", "tons", "bags", "tubers", "crates", "baskets"];
 
 // 2026-09-05 spec: crops vs livestock. Livestock is priced per animal, and
 // what varies the price is the animal's age/description, not a measured
-// unit — so livestock rows skip CATALOG_UNITS entirely and get a fixed
+// unit, so livestock rows skip CATALOG_UNITS entirely and get a fixed
 // placeholder unit instead (never shown to anyone), with age_description
 // carrying the buyer-facing detail ("1 year old goat", "3 months broiler").
 export const ITEM_TYPES = ["crop", "livestock"];
@@ -74,7 +74,7 @@ export const CROP_CATEGORIES = ["Grains", "Tubers", "Vegetables", "Other"];
 export const LIVESTOCK_CATEGORIES = ["Goat", "Chicken", "Cattle", "Sheep", "Pig", "Turkey", "Other Livestock"];
 
 // req.body fields arrive as strings here when the request is multipart
-// (an image file was attached) — same as adminCreateCourse in
+// (an image file was attached), same as adminCreateCourse in
 // rtcController.js. req.file is only present when a photo was uploaded;
 // items created with no photo just fall back to the emoji-icon tile.
 export async function createPrice(req, res) {
@@ -109,7 +109,7 @@ export async function createPrice(req, res) {
 
   const existing = await pool.query(`SELECT id FROM standard_prices WHERE crop ILIKE $1`, [crop.trim()]);
   if (existing.rows[0]) {
-    return res.status(409).json({ error: "That product is already in the catalog — edit it instead" });
+    return res.status(409).json({ error: "That product is already in the catalog, edit it instead" });
   }
 
   const imageUrl = req.file ? req.file.publicUrl : null;
@@ -137,7 +137,7 @@ export async function createPrice(req, res) {
   res.status(201).json({ price: rows[0] });
 }
 
-// Attach/replace the photo on a catalog item that already exists — lets
+// Attach/replace the photo on a catalog item that already exists, lets
 // admin fix or add a photo after the fact from the "Already in the
 // catalog" table, without having to touch price/unit/category again.
 export async function uploadPriceImage(req, res) {
@@ -154,10 +154,10 @@ export async function uploadPriceImage(req, res) {
   res.json({ price: rows[0] });
 }
 
-// PATCH /finance/prices/:id — deliberately handles two different callers
+// PATCH /finance/prices/:id, deliberately handles two different callers
 // with two different shapes of edit: Add Price (PriceEditorPanel) only ever
 // sends { buyPrice, sellPrice }; Add Catalog's own edit form (2026-09-05
-// spec, item #4 — every catalog row now has an edit/delete action) can also
+// spec, item #4, every catalog row now has an edit/delete action) can also
 // send crop/unit-or-ageDescription/category/description/itemType. Any field
 // left out keeps its current value (COALESCE), same as before.
 export async function updatePrice(req, res) {
@@ -241,7 +241,7 @@ export async function updatePrice(req, res) {
   res.json({ price: rows[0] });
 }
 
-// DELETE /finance/prices/:id (2026-09-05 spec, item #4) — order_items/
+// DELETE /finance/prices/:id (2026-09-05 spec, item #4), order_items/
 // harvest_logs/farmer_products all snapshot crop name+unit as plain text
 // rather than FK-ing to standard_prices, so removing a catalog row is safe
 // and never cascades into past orders or other departments' records; it
@@ -254,12 +254,12 @@ export async function deletePrice(req, res) {
 }
 
 // --- Settlements (2026-08-30 spec) -----------------------------------------
-// Transporters are staff (Transport dept, paid salary) — never settled per-
+// Transporters are staff (Transport dept, paid salary), never settled per-
 // order, so payee_type is always 'farmer' here. A `payments` row is created
 // automatically at the moment Procurement sources a listing (see
-// procurementController.sourceOrder) — this is just the view + "mark paid"
+// procurementController.sourceOrder), this is just the view + "mark paid"
 // action over those rows. Processor settlement was not part of this spec
-// and isn't built here — flagged as still-open in [[ephaag-farms]] memory.
+// and isn't built here, flagged as still-open in [[ephaag-farms]] memory.
 
 export async function listFarmerPayments(req, res) {
   const { rows } = await pool.query(

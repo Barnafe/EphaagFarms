@@ -1,11 +1,12 @@
 import { useState } from "react";
+import PaymentPreview from "../../components/PaymentPreview.jsx";
 
 export default function StandingCommitmentCard({ commitment, onCommit }) {
   const [amount, setAmount] = useState("");
   const [years, setYears] = useState(1);
 
   function handleSubmit(e) {
-    e.preventDefault();
+    e?.preventDefault();
     if (!amount) return;
     onCommit({
       active: true,
@@ -31,20 +32,15 @@ export default function StandingCommitmentCard({ commitment, onCommit }) {
         </div>
         <p className="mt-1 text-xs text-ink-600">
           ₦{commitment.totalCommitted.toLocaleString()} committed over {commitment.durationYears}{" "}
-          year(s) — orders draw down from this balance instead of paying per order.
+          year(s)
         </p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card field space-y-3">
-      <p className="text-sm text-ink-600">Set up a standing commitment (1–2 years)</p>
-      <p className="text-xs text-ink-600">
-        Prepay a lump sum through Paystack, then place orders against it over the committed period
-        instead of paying per order. A payment processing fee is added to what you pay at Paystack;
-        only the amount you commit is credited to your balance, and orders paid from it carry no fee.
-      </p>
+    <form onSubmit={(e) => e.preventDefault()} className="card field space-y-3">
+      <p className="text-sm text-ink-600">Set up a standing commitment (1 to 2 years)</p>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label>Amount to commit (₦)</label>
@@ -64,9 +60,7 @@ export default function StandingCommitmentCard({ commitment, onCommit }) {
           </select>
         </div>
       </div>
-      <button className="btn-primary" type="submit">
-        Pay with Paystack
-      </button>
+      {Number(amount) > 0 && <PaymentPreview amount={Number(amount)} onProceed={handleSubmit} />}
     </form>
   );
 }

@@ -58,7 +58,7 @@ export async function apply(req, res) {
   }
 
   // A bad/unknown paymentMode used to reach the database CHECK constraint
-  // and come back as a generic 500 ("Something went wrong") — reject it
+  // and come back as a generic 500 ("Something went wrong"), reject it
   // up front with a clear message instead. A bulk plan is a single
   // payment with no monthly schedule, so a payment mode means nothing
   // there: it's always stored as the default, whatever the client sent
@@ -152,14 +152,14 @@ export async function logPayment(req, res) {
   res.status(410).json({ error: "Payments are now made online. Use Pay now in your Investor Room." });
 }
 
-// POST /api/investments/me/pay — start paying what is owed right now (to activate, or the month due).
+// POST /api/investments/me/pay, start paying what is owed right now (to activate, or the month due).
 export async function payNow(req, res) {
   const r = await startInvestmentPayment(req.user);
   if (r.alreadyPaid) return res.json({ alreadyPaid: true });
   res.json({ payment: { reference: r.payment.reference, authorizationUrl: r.payment.authorization_url, amount: Number(r.payment.net_amount), fee: Number(r.payment.fee_amount), total: Number(r.payment.gross_amount) } });
 }
 
-// PATCH /api/investments/me/payment-mode { paymentMode: "auto" | "manual" } — monthly plans only.
+// PATCH /api/investments/me/payment-mode { paymentMode: "auto" | "manual" }, monthly plans only.
 export async function setPaymentMode(req, res) {
   const mode = req.body?.paymentMode;
   if (!PAYMENT_MODES.includes(mode)) return res.status(400).json({ error: "paymentMode must be 'auto' or 'manual'" });
@@ -173,7 +173,7 @@ export async function setPaymentMode(req, res) {
   res.json({ application: mapApplication(u[0]), needsCard: mode === "auto" && !u[0].card_auth_code });
 }
 
-// DELETE /api/investments/me/card — forget the saved card; the plan goes back to Pay now.
+// DELETE /api/investments/me/card, forget the saved card; the plan goes back to Pay now.
 export async function removeCard(req, res) {
   const { rows } = await pool.query(
     `UPDATE investment_applications SET card_auth_code = NULL, card_last4 = NULL, card_brand = NULL, card_email = NULL, card_saved_at = NULL, payment_mode = 'manual'
@@ -182,7 +182,7 @@ export async function removeCard(req, res) {
   res.json({ application: mapApplication(rows[0]) });
 }
 
-// POST /api/investments/applications/:id/record-offline { reason } — admin exception (money received outside Paystack).
+// POST /api/investments/applications/:id/record-offline { reason }, admin exception (money received outside Paystack).
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function recordOffline(req, res) {
   if (!UUID_RE.test(String(req.params.id))) return res.status(404).json({ error: "Application not found" });
@@ -300,9 +300,9 @@ export async function downloadAgreement(req, res) {
 
 // --- Admin (Finance): application review --------------------------------
 // Lists everything mid-flow (plus active monthly plans, so a payment received outside Paystack can be recorded): 'submitted' (Finance's first look),
-// 'agreement_pending' (waiting on the investor — shown read-only so
+// 'agreement_pending' (waiting on the investor, shown read-only so
 // Finance can see who's outstanding), and 'agreement_review' (investor
-// uploaded their signed copy — needs Finance's final decision).
+// uploaded their signed copy, needs Finance's final decision).
 
 export async function listApplications(req, res) {
   const { rows } = await pool.query(
@@ -324,8 +324,8 @@ export async function listApplications(req, res) {
 // From 'agreement_review': approve -> awaiting_payment (the investor then pays online; the verified
 //   payment activates the investment, generates the ROI schedule and the monthly due dates).
 //   reject -> rejected.
-// 'agreement_pending' has no Finance decision to make — it's waiting on
-//   the investor to upload — but Finance can still reject a stale one.
+// 'agreement_pending' has no Finance decision to make, it's waiting on
+//   the investor to upload, but Finance can still reject a stale one.
 export async function decideApplication(req, res) {
   const { id } = req.params;
   const { decision } = req.body;
@@ -376,7 +376,7 @@ export async function decideApplication(req, res) {
     client.release(); // hand the connection back before the notices use the pool
     released = true;
 
-    // Email is intentionally NOT awaited here — sendMail() never throws
+    // Email is intentionally NOT awaited here, sendMail() never throws
     // (it catches its own errors internally), so firing it without
     // blocking the response means a slow or unreachable mail server never
     // delays this admin action. The status change is already committed.
@@ -384,10 +384,10 @@ export async function decideApplication(req, res) {
     if (nextStatus === "agreement_pending" && investor?.email) {
       sendMail({
         to: investor.email,
-        subject: `Your EPHAAG Farms investment agreement — ${application.reference}`,
+        subject: `Your EPHAAG Farms investment agreement ${application.reference}`,
         html: `
           <p>Hi ${investor.name},</p>
-          <p>Good news — Finance has reviewed and approved your investment application
+          <p>Good news. Finance has reviewed and approved your investment application
           (<strong>${application.reference}</strong>). The next step is the physical
           agreement.</p>
           <p>Attached is your agreement form. Please:</p>
@@ -398,7 +398,7 @@ export async function decideApplication(req, res) {
             application reference above</li>
           </ol>
           <p>Once uploaded, Finance will do a final review and confirm your investment.</p>
-          <p>— EPHAAG Farms</p>
+          <p>,  EPHAAG Farms</p>
         `,
         attachments: [{ filename: "investment-agreement.pdf", path: AGREEMENT_TEMPLATE_PATH }],
       });
@@ -527,7 +527,7 @@ export async function runDueDateReminders() {
   return { ...notices, penaltiesCharged: penalties.charged };
 }
 
-// Admin-only manual trigger, for testing/ops use — same logic the daily
+// Admin-only manual trigger, for testing/ops use, same logic the daily
 // cron job runs automatically.
 export async function runReminderCheckNow(req, res) {
   const result = await runDueDateReminders();
