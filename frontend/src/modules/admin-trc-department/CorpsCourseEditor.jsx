@@ -7,7 +7,7 @@ import { apiFetch, apiUpload, apiDownload } from "../../api/client.js";
 // lesson and one quiz question (enforced by the server too).
 
 const KIND_LABEL = { video: "Video", document: "Document", live: "Live session" };
-const emptyLesson = () => ({ id: null, title: "", kind: "video", url: "", scheduledAt: "", notes: "", file: null, existingFileName: null });
+const emptyLesson = () => ({ id: null, title: "", kind: "video", url: "", scheduledAt: "", notes: "", file: null, existingFileName: null, durationMin: "", durationSec: "", minSeconds: "" });
 const emptyQuestion = () => ({
   id: null,
   prompt: "",
@@ -72,6 +72,9 @@ export default function CorpsCourseEditor({ course, onBack, onChanged }) {
       notes: l.notes || "",
       file: null,
       existingFileName: l.hasFile ? l.fileName : null,
+      durationMin: l.durationSeconds ? String(Math.floor(l.durationSeconds / 60)) : "",
+      durationSec: l.durationSeconds ? String(l.durationSeconds % 60) : "",
+      minSeconds: l.minSeconds ? String(l.minSeconds) : "",
     });
   }
 
@@ -84,6 +87,11 @@ export default function CorpsCourseEditor({ course, onBack, onChanged }) {
     fd.append("notes", d.notes);
     if (d.kind !== "document") fd.append("url", d.url);
     if (d.kind === "live") fd.append("scheduledAt", d.scheduledAt);
+    if (d.kind === "video") {
+      const secs = (Number(d.durationMin) || 0) * 60 + (Number(d.durationSec) || 0);
+      if (secs > 0) fd.append("durationSeconds", String(secs));
+    }
+    if (d.kind === "document" && d.minSeconds !== "") fd.append("minSeconds", d.minSeconds);
     if (d.kind === "document" && d.file) fd.append("material", d.file);
     const ok = await run(() =>
       d.id ? apiUpload(`${base}/lessons/${d.id}`, fd, { method: "PUT" }) : apiUpload(`${base}/lessons`, fd)
@@ -201,6 +209,8 @@ export default function CorpsCourseEditor({ course, onBack, onChanged }) {
                     <span className="ml-1 rounded-full bg-canopy-50 px-2 py-0.5 text-xs font-medium text-canopy-800">{KIND_LABEL[l.kind]}</span>
                   </p>
                   {l.url && <p className="break-all text-xs text-ink-600">{l.url}</p>}
+                  {l.kind === "video" && <p className="text-xs text-ink-600">{l.durationSeconds ? `Length ${Math.floor(l.durationSeconds / 60)}:${String(l.durationSeconds % 60).padStart(2, "0")}, members must watch 80%` : "Length not set. Edit this lesson and enter it."}</p>}
+                  {l.kind === "document" && <p className="text-xs text-ink-600">Members must keep it open for {l.minSeconds || 60} seconds</p>}
                   {l.scheduledAt && <p className="text-xs text-ink-600">Scheduled {new Date(l.scheduledAt).toLocaleString()}</p>}
                   {l.hasFile && (
                     <button type="button" className="text-xs text-canopy-800 underline" onClick={() => apiDownload(`/rtc/admin/lessons/${l.id}/file`, l.fileName || l.title).catch((e) => setError(e.message))}>
@@ -238,6 +248,22 @@ export default function CorpsCourseEditor({ course, onBack, onChanged }) {
               <div>
                 <label htmlFor="lesson-url">{lessonDraft.kind === "video" ? "Video link" : "Meeting link"}</label>
                 <input id="lesson-url" value={lessonDraft.url} onChange={(e) => setLessonDraft({ ...lessonDraft, url: e.target.value })} placeholder="https://" />
+              </div>
+            )}
+            {lessonDraft.kind === "video" && (
+              <div>
+                <p className="text-sm font-medium text-ink-900">How long is the video?</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <input aria-label="Video length, minutes" type="number" min="0" max="360" className="w-24" value={lessonDraft.durationMin} onChange={(e) => setLessonDraft({ ...lessonDraft, durationMin: e.target.value })} placeholder="Minutes" />
+                  <input aria-label="Video length, seconds" type="number" min="0" max="59" className="w-24" value={lessonDraft.durationSec} onChange={(e) => setLessonDraft({ ...lessonDraft, durationSec: e.target.value })} placeholder="Seconds" />
+                </div>
+                <p className="mt-1 text-xs text-ink-600">The member must really watch 80% of it. Use a YouTube or Vimeo link so the watch time can be counted while the video plays on our page.</p>
+              </div>
+            )}
+            {lessonDraft.kind === "document" && (
+              <div>
+                <label htmlFor="lesson-min">Minimum time open (seconds, optional)</label>
+                <input id="lesson-min" type="number" min="5" max="3600" value={lessonDraft.minSeconds} onChange={(e) => setLessonDraft({ ...lessonDraft, minSeconds: e.target.value })} placeholder="60 if left empty" />
               </div>
             )}
             {lessonDraft.kind === "live" && (

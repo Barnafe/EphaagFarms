@@ -39,7 +39,7 @@ export default function CorperHome({ user, bundle, onCourses, onGo, onOpenCourse
     return () => {
       alive = false;
     };
-  }, []);
+  }, [bundle?.profile?.consentData]);
 
   const next = progress?.next;
   const nextNote = !next
@@ -60,6 +60,8 @@ export default function CorperHome({ user, bundle, onCourses, onGo, onOpenCourse
       : { n: 3, title: "Train", note: "Locked until paid", state: "locked" },
     cert?.status === "ready"
       ? { n: 4, title: "Certificate", note: "Ready, download it", state: "done" }
+      : cert?.status === "awaiting_consent"
+        ? { n: 4, title: "Certificate", note: "Waiting for your consent", state: "next" }
       : cert?.status === "awaiting_batch"
         ? { n: 4, title: "Certificate", note: "Awaiting batch completion", state: "next" }
         : { n: 4, title: "Certificate", note: "Locked until you finish every course", state: "locked" },

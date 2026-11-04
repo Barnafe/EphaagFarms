@@ -14,6 +14,37 @@ import {
   validateAnswers,
   publicQuiz,
 } from "../utils/corperLearning.js";
+import { TIME_RULES, parseVideoEmbed, requiredSeconds, timeMet } from "../utils/lessonTime.js";
+
+// Phase 13: videos and documents need real time. Tests that are not about this can switch the check off, but never in production.
+const timeCheckOn = () => !(process.env.CORPS_LESSON_TIME_CHECK === "off" && process.env.NODE_ENV !== "production");
+
+async function loadActivity(runner, userId, courseId) {
+  const { rows } = await runner.query(
+    `SELECT lesson_id, seconds_counted, reported_duration FROM corper_lesson_activity WHERE user_id = $1 AND course_id = $2`,
+    [userId, courseId]
+  );
+  return new Map(rows.map((r) => [r.lesson_id, r]));
+}
+
+// What a lesson asks of the member, and how far along they are.
+function trackingOf(lesson, activity) {
+  if (lesson.kind !== "video" && lesson.kind !== "document") return null;
+  const required = requiredSeconds(lesson, activity?.reported_duration);
+  const spent = Math.floor(Number(activity?.seconds_counted || 0));
+  const embed = lesson.kind === "video" ? parseVideoEmbed(lesson.url) : null;
+  return {
+    mode: embed ? "player" : "timer",
+    provider: embed?.provider || null,
+    embedId: embed?.id || null,
+    embedHash: embed?.hash || null,
+    requiredSeconds: required,
+    secondsSpent: Math.min(spent, required),
+    met: timeMet(spent, required),
+    durationSeconds: lesson.duration_seconds ?? null,
+    beatSeconds: TIME_RULES.beatSeconds,
+  };
+}
 
 // ---------------------------------------------------------------------
 // NYSC AGROALLIED SAED member learning (phase 4). Every route here sits behind
@@ -176,7 +207,7 @@ export async function getMyProgress(req, res) {
 export async function getCourse(req, res) {
   const course = await loadLiveCourse(req.params.id);
   const userId = req.user.id;
-  const [{ rows: lessons }, { rows: done }, { rows: nowRows }, summary] = await Promise.all([
+  const [{ rows: lessons }, { rows: done }, { rows: nowRows }, summary, activity] = await Promise.all([
     pool.query(`SELECT * FROM course_lessons WHERE course_id = $1 ORDER BY position, created_at`, [course.id]),
     pool.query(`SELECT lesson_id, completed_at FROM corper_lesson_progress WHERE user_id = $1 AND course_id = $2`, [
       userId,
@@ -184,6 +215,7 @@ export async function getCourse(req, res) {
     ]),
     pool.query(`SELECT now() AS now`),
     loadMemberProgress(userId),
+    loadActivity(pool, userId, course.id),
   ]);
   const dbNow = nowRows[0].now;
   const doneAt = new Map(done.map((d) => [d.lesson_id, d.completed_at]));
@@ -195,6 +227,7 @@ export async function getCourse(req, res) {
     lessons: lessons.map((l) => {
       const completedAt = doneAt.get(l.id) || null;
       const started = l.kind !== "live" || liveHasStarted(l.scheduled_at, dbNow);
+      const tracking = trackingOf(l, activity.get(l.id));
       return {
         id: l.id,
         position: l.position,
@@ -207,7 +240,8 @@ export async function getCourse(req, res) {
         notes: l.notes,
         completed: !!completedAt,
         completedAt,
-        canComplete: started,
+        tracking,
+        canComplete: started && (!tracking || !timeCheckOn() || tracking.met || !!completedAt),
         availableAt: started ? null : l.scheduled_at,
       };
     }),
@@ -235,7 +269,7 @@ export async function completeLesson(req, res) {
   const userId = req.user.id;
 
   const { rows } = await pool.query(
-    `SELECT l.id, l.title, l.kind, l.scheduled_at, now() AS db_now FROM course_lessons l WHERE l.id = $1 AND l.course_id = $2`,
+    `SELECT l.id, l.title, l.kind, l.url, l.scheduled_at, l.duration_seconds, l.min_seconds, now() AS db_now FROM course_lessons l WHERE l.id = $1 AND l.course_id = $2`,
     [req.params.lessonId, course.id]
   );
   const lesson = rows[0];
@@ -244,6 +278,20 @@ export async function completeLesson(req, res) {
     throw httpError("This live session hasn't started yet, you can mark it complete once it begins.", 400, "LIVE_NOT_STARTED", {
       scheduledAt: lesson.scheduled_at,
     });
+  }
+
+  if (timeCheckOn() && (lesson.kind === "video" || lesson.kind === "document")) {
+    const already = await pool.query(`SELECT 1 FROM corper_lesson_progress WHERE user_id = $1 AND lesson_id = $2`, [userId, lesson.id]);
+    if (!already.rows[0]) {
+      const act = (await loadActivity(pool, userId, course.id)).get(lesson.id);
+      const t = trackingOf(lesson, act);
+      if (!t.met) {
+        throw httpError(
+          lesson.kind === "video" ? "Keep watching: this video counts once most of it has really been watched." : "Keep the document open a little longer before you mark it complete.",
+          400, "LESSON_TIME_NOT_MET", { requiredSeconds: t.requiredSeconds, secondsSpent: t.secondsSpent, remainingSeconds: t.requiredSeconds - t.secondsSpent }
+        );
+      }
+    }
   }
 
   const justCompletedCourse = await withTx(async (client) => {
@@ -265,6 +313,46 @@ export async function completeLesson(req, res) {
     overall: overallOf(summary),
     courseJustCompleted: justCompletedCourse,
   });
+}
+
+// ---------------------------------------------------------------------
+// POST /api/corpers/courses/:id/lessons/:lessonId/activity
+// The lesson screen reports "still here" every few seconds while the video is
+// really playing, or while the document is open on a visible screen. The server
+// counts only the time that really passed between two reports (never more than
+// the clock allows), so the number cannot be pushed ahead by sending reports faster.
+// ---------------------------------------------------------------------
+export async function recordLessonActivity(req, res) {
+  const course = await loadLiveCourse(req.params.id);
+  assertUuid(req.params.lessonId, "Lesson not found");
+  const active = req.body?.active === true;
+  let reported = req.body?.duration;
+  reported = reported === undefined || reported === null || reported === "" ? null : Math.round(Number(reported));
+  if (reported !== null && (!Number.isFinite(reported) || reported < 1 || reported > TIME_RULES.maxSeconds)) reported = null;
+
+  const { rows } = await pool.query(
+    `SELECT id, title, kind, url, duration_seconds, min_seconds FROM course_lessons WHERE id = $1 AND course_id = $2`,
+    [req.params.lessonId, course.id]
+  );
+  const lesson = rows[0];
+  if (!lesson) throw httpError("Lesson not found", 404);
+  if (lesson.kind !== "video" && lesson.kind !== "document") throw httpError("This lesson has no time to track", 400, "NOT_TRACKED");
+
+  const { rows: up } = await pool.query(
+    `INSERT INTO corper_lesson_activity (user_id, lesson_id, course_id, seconds_counted, reported_duration, last_beat_at)
+     VALUES ($1, $2, $3, 0, $4, CASE WHEN $5::boolean THEN now() ELSE NULL END)
+     ON CONFLICT (user_id, lesson_id) DO UPDATE SET
+       seconds_counted = corper_lesson_activity.seconds_counted + CASE
+         WHEN $5::boolean AND corper_lesson_activity.last_beat_at IS NOT NULL
+              AND EXTRACT(EPOCH FROM (now() - corper_lesson_activity.last_beat_at)) <= $6
+         THEN LEAST($7::numeric, EXTRACT(EPOCH FROM (now() - corper_lesson_activity.last_beat_at))) ELSE 0 END,
+       reported_duration = COALESCE($4, corper_lesson_activity.reported_duration),
+       last_beat_at = CASE WHEN $5::boolean THEN now() ELSE corper_lesson_activity.last_beat_at END
+     RETURNING seconds_counted, reported_duration`,
+    [req.user.id, lesson.id, course.id, reported, active, TIME_RULES.maxGapSeconds, TIME_RULES.maxCreditPerBeat]
+  );
+  const t = trackingOf(lesson, up[0]);
+  res.json({ secondsSpent: t.secondsSpent, requiredSeconds: t.requiredSeconds, met: t.met });
 }
 
 // ---------------------------------------------------------------------

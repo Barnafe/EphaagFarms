@@ -87,7 +87,7 @@ def pay(c):
 def make_course(title):
     r = call("POST", "/rtc/admin/courses", admin, json={"title": f"{title} {RUN}", "description": "t", "audience": "corps"})
     cid = r.json()["course"]["id"]
-    lid = call("POST", f"/rtc/admin/courses/{cid}/lessons", admin, json={"title": "L1", "kind": "video", "url": "https://example.com/v"}).json()["lesson"]["id"]
+    lid = call("POST", f"/rtc/admin/courses/{cid}/lessons", admin, json={"title": "L1", "kind": "video", "url": "https://example.com/v", "durationSeconds": 600}).json()["lesson"]["id"]
     call("POST", f"/rtc/admin/courses/{cid}/questions", admin, json={"prompt": "Q?", "explanation": "E",
          "options": [{"text": "RIGHT", "isCorrect": True}, {"text": "WRONG"}]})
     r = call("POST", f"/rtc/admin/courses/{cid}/approve", admin, json={})
@@ -98,6 +98,9 @@ def make_course(title):
 
 
 def finish(c, course):
+    sql("INSERT INTO corper_lesson_activity (user_id, lesson_id, course_id, seconds_counted) "
+        f"SELECT u.id, l.id, l.course_id, 99999 FROM users u CROSS JOIN course_lessons l WHERE l.course_id = '{course['id']}' "
+        "ON CONFLICT (user_id, lesson_id) DO UPDATE SET seconds_counted = 99999")
     r = call("POST", f"/corpers/courses/{course['id']}/lessons/{course['lesson']}/complete", c, json={})
     assert r.status_code == 200, r.text[:200]
     q = call("GET", f"/corpers/courses/{course['id']}/quiz", c).json()
@@ -166,7 +169,7 @@ batches = bl.json()["batches"]
 bB = next(b for b in batches if b["batch"] == "B" and b["stream"] == "II" and b["serviceYear"] == 2026)
 bC = next(b for b in batches if b["batch"] == "C" and b["stream"] == "I" and b["serviceYear"] == 2026)
 check("batch shows members/finished counts", bB["members"] == 3 and bB["finished"] == 2 and bB["paid"] == 3, str(bB))
-check("batch shows hidden certificates", bB["certificates"] == {"total": 2, "released": 0}, str(bB["certificates"]))
+check("batch shows hidden certificates", bB["certificates"]["total"] == 2 and bB["certificates"]["released"] == 0 and isinstance(bB["certificates"]["waitingForConsent"], int), str(bB["certificates"]))
 check("non-admin cannot list batches", call("GET", "/rtc/admin/corps/batches", m1).status_code == 403)
 check("no auth -> 401", requests.get(f"{BASE}/rtc/admin/corps/batches").status_code == 401)
 r = call("POST", f"/rtc/admin/corps/batches/{bB['id']}/complete", admin, json={})

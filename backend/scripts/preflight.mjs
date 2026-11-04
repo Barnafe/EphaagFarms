@@ -9,6 +9,14 @@ console.log(formatReport(results));
 const s = summarise(results);
 console.log(`\n${s.ok} passed, ${s.warn} warnings, ${s.fail} must be fixed.`);
 
+// The nightly backup needs pg_dump on this machine.
+if (process.env.NODE_ENV === "production" || process.env.BACKUP_ENCRYPTION_KEY) {
+  const { pgDumpVersion } = await import("../src/services/backup.js");
+  const v = await pgDumpVersion();
+  if (v) console.log(`PASS  Backup tool found (${v}).`);
+  else { console.log("FAIL  pg_dump is not installed on this machine, so nightly backups cannot run. Use the Dockerfile or install the PostgreSQL client tools."); s.fail++; }
+}
+
 // Also try the database, because a wrong connection string is the most common first-deploy problem.
 if (process.env.DATABASE_URL) {
   try {

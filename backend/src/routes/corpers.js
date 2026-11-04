@@ -16,6 +16,7 @@ router.use(requireAuth, requireRole("corper"));
 
 router.get("/me", corpers.getMyProfile);
 router.put("/me/profile/:section", corpers.updateMySection);
+router.post("/consent", corpers.giveConsent);
 
 // Phase 3, access-fee payments (always open to a signed-in NYSC AGROALLIED SAED member).
 router.get("/payments", payments.myPayments);
@@ -37,6 +38,7 @@ router.get("/courses", requireCorperPaid, learning.listMyCourses);
 router.get("/progress", requireCorperPaid, learning.getMyProgress);
 router.get("/courses/:id", requireCorperPaid, learning.getCourse);
 router.post("/courses/:id/lessons/:lessonId/complete", requireCorperPaid, learning.completeLesson);
+router.post("/courses/:id/lessons/:lessonId/activity", requireCorperPaid, learning.recordLessonActivity);
 router.get("/courses/:id/lessons/:lessonId/file", requireCorperPaid, learning.downloadLessonFile);
 router.get("/courses/:id/quiz", requireCorperPaid, learning.getQuiz);
 router.post("/courses/:id/quiz/attempts", requireCorperPaid, learning.submitQuiz);

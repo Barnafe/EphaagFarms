@@ -162,7 +162,8 @@ test("only admins decide; approval needs a fee and payment terms; the applicant 
   const m = await waitForMessage("template = 'consultancy_approved' AND to_address = $1", [r.applicant_email]);
   assert.ok(m, "the approval email is sent");
   assert.ok(m.body_html.includes("Pay within 7 days of approval."));
-  assert.ok(m.body_html.includes(Number(q.gross).toLocaleString("en-NG", { maximumFractionDigits: 2 })), "it shows the total including Paystack's fee");
+  assert.ok(m.body_html.includes("20,000"), "it shows the consultancy fee");
+  assert.ok(!m.body_html.includes("Paystack"), "the email does not name the gateway (owner's correction rule)");
   const t = await track(a.data.trackToken);
   assert.equal(t.data.request.quote.totalToPay, q.gross);
   assert.equal((await approve(r.id, { amount: 5000, paymentTerms: "again" })).status, 409, "it cannot be approved twice");

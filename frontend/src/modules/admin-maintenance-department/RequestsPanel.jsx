@@ -171,7 +171,7 @@ export default function RequestsPanel() {
                   />
                 )}
                 <div>
-                  <p className="font-medium text-ink-900">{r.title}</p>
+                  <p className="font-medium text-ink-900">{r.title}{r.source === "breakdown" && <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-700">Vehicle breakdown on a trip</span>}</p>
                   <p className="text-xs text-ink-600">
                     {r.reference} · {r.asset_name || "No asset"} · {r.priority} · reported by {r.reported_by_name || "N/A"}
                   </p>

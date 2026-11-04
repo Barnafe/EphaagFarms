@@ -15,7 +15,7 @@ import {
   ArrowUpCircle,
   CreditCard,
   ArrowLeftRight,
-  Undo2, MapPin, Send, Gauge,
+  Undo2, MapPin, Send, Gauge, DatabaseBackup,
   Scale,
   Building2,
   BarChart3,
@@ -411,6 +411,10 @@ export default function AdminHub() {
                 <Link to="/admin/payouts" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
                   <Send size={20} className="text-canopy-300" />
                   <span className="text-xs text-white">Payouts</span>
+                </Link>
+                <Link to="/admin/backups" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
+                  <DatabaseBackup size={20} className="text-canopy-300" />
+                  <span className="text-xs text-white">Backups</span>
                 </Link>
                 <Link to="/admin/loan-scoring" className="flex flex-col items-center gap-2 rounded-card border border-white/10 p-4 text-center transition hover:border-canopy-400">
                   <Gauge size={20} className="text-canopy-300" />

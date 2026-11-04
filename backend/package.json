@@ -14,7 +14,9 @@
     "seed:prices": "node src/db/seed-prices.js",
     "test:unit": "node --test test/corperLearning.test.mjs test/preflight.test.mjs",
     "test": "node test/run-all.mjs",
-    "preflight": "node scripts/preflight.mjs"
+    "preflight": "node scripts/preflight.mjs",
+    "backup:list": "node scripts/restore-backup.mjs list",
+    "backup:restore": "node scripts/restore-backup.mjs restore"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1156.0",

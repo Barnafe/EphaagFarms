@@ -47,6 +47,14 @@ export function checkEnvironment(env = process.env) {
   if (!has("ALERT_SMS_PHONE")) add("warn", "ALERT_SMS_PHONE", "No named person for failure alerts (you can also set it in Admin > System).");
   else add("ok", "ALERT_SMS_PHONE", "Set.");
 
+  // --- backups (Phase 20) ---
+  const bkMissing = [!has("BACKUP_ENCRYPTION_KEY") ? "BACKUP_ENCRYPTION_KEY" : null, !has("R2_BACKUP_BUCKET") ? "R2_BACKUP_BUCKET" : null,
+    ...["BACKUP2_ENDPOINT", "BACKUP2_BUCKET", "BACKUP2_ACCESS_KEY_ID", "BACKUP2_SECRET_ACCESS_KEY"].filter((k) => !has(k))].filter(Boolean);
+  if (has("BACKUP_ENCRYPTION_KEY") && String(env.BACKUP_ENCRYPTION_KEY).length < 32) add("fail", "BACKUP_ENCRYPTION_KEY", "The backup encryption key is shorter than 32 characters.", "Use a long random value and keep a copy somewhere safe: without it a backup cannot be opened.");
+  else if (bkMissing.length) add(prod ? "fail" : "warn", "BACKUPS", `Nightly backups are not fully set up (missing: ${bkMissing.join(", ")}). Without two good copies a lost database is lost for good.`, "See docs/BACKUP-AND-RESTORE.md, section 'Set it up'.");
+  else add("ok", "BACKUPS", "Backup bucket, second provider and encryption key are set.");
+  if (has("DATABASE_URL") && /-pooler\./.test(env.DATABASE_URL) && !has("BACKUP_DATABASE_URL")) add("warn", "BACKUP_DATABASE_URL", "DATABASE_URL looks like a pooled address. pg_dump needs the DIRECT address of the database.", "Set BACKUP_DATABASE_URL to the direct (non-pooled) connection string.");
+
   // --- payments ---
   if (!has("PAYSTACK_SECRET_KEY")) add(prod ? "fail" : "warn", "PAYSTACK_SECRET_KEY", "No Paystack key: buyers will see 'Online payment unavailable'.", "Set your Paystack secret key (sk_test_... first, sk_live_... to go live).");
   else if (/^sk_test_/.test(env.PAYSTACK_SECRET_KEY)) add("warn", "PAYSTACK_SECRET_KEY", "This is a TEST key: no real money moves. Fine for rehearsal, switch to the live key to go live.");
@@ -61,6 +69,7 @@ export function checkEnvironment(env = process.env) {
   // --- security posture ---
   if ((env.CSP_MODE || "report-only") !== "enforce") add("warn", "CSP_MODE", "Content-security policy is in report-only mode. Once Admin > System > Security log shows no csp_violation entries after a week of normal use, set CSP_MODE=enforce.");
   if (env.RATE_LIMIT_MULTIPLIER && Number(env.RATE_LIMIT_MULTIPLIER) > 1 && prod) add("fail", "RATE_LIMIT_MULTIPLIER", "Rate limits are loosened (for load tests only).", "Remove RATE_LIMIT_MULTIPLIER from the live environment.");
+  if (env.CORPS_LESSON_TIME_CHECK === "off") add(prod ? "warn" : "ok", "CORPS_LESSON_TIME_CHECK", prod ? "Set to off, but it is ignored in production. Remove it." : "Corps lesson time checks are off (tests only).");
   if (env.POOL_GUARD === "1" && prod) add("warn", "POOL_GUARD", "The connection guard is for tests; remove it from the live environment.");
 
   return out;

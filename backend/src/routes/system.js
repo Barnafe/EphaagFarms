@@ -6,6 +6,7 @@ import { getSetting, setSetting } from "../utils/settings.js";
 import { normalizeNgPhone } from "../utils/phone.js";
 import { logSecurityEvent } from "../utils/securityLog.js";
 import { recordWebhookEvent } from "../jobs/alerts.js";
+import { backupStatus } from "../services/backup.js";
 
 const router = Router();
 
@@ -30,6 +31,12 @@ router.post("/tick", tickHandler);
 
 router.use(requireAuth, requireRole("admin"));
 router.get("/status", async (req, res) => res.json(await systemStatus()));
+router.get("/backups", async (req, res) => res.json(await backupStatus()));
+router.post("/backups/run", async (req, res) => {
+  const out = await runJob("database-backup", { trigger: "manual" });
+  await logSecurityEvent("backup_run_now", { userId: req.user.id, req, detail: { status: out.status } });
+  res.json({ ...out, backups: await backupStatus() });
+});
 router.post("/jobs/:name/run", async (req, res) => {
   const out = await runJob(req.params.name, { trigger: "manual" });
   await logSecurityEvent("job_run_now", { userId: req.user.id, req, detail: { job: req.params.name } });

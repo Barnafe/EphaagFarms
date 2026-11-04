@@ -1,5 +1,6 @@
 import { Router } from "../utils/asyncRouter.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireStage } from "../middleware/purchasingRoles.js";
 import { uploadMaintenancePhoto } from "../middleware/upload.js";
 import * as m from "../controllers/maintenanceController.js";
 
@@ -52,6 +53,7 @@ router.post("/work-orders/:id/complete", m.completeWorkOrder);
 // Expenses
 router.get("/expenses", m.listExpenses);
 router.post("/expenses", m.createExpense);
+router.post("/expenses/:id/budget-decision", requireStage("finance"), m.expenseBudgetDecision);
 
 // Inspections (standalone, routine/safety checks)
 router.get("/inspections", m.listInspections);

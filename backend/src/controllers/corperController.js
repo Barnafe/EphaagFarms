@@ -7,6 +7,7 @@ import {
   computeCompletion,
 } from "../utils/corperProfile.js";
 import { loadAccess } from "./corperPaymentController.js";
+import { releaseCertificateIfReady } from "./corperCertificateController.js";
 
 async function loadProfileBundle(userId) {
   const { rows } = await pool.query(
@@ -62,6 +63,9 @@ export async function updateMySection(req, res) {
   if (section === "documents" && cols.consent_terms === true) {
     cols.consent_terms_at = new Date().toISOString();
   }
+  // Phase 14: remember when consent was first given, and release a certificate that was waiting for it.
+  const givingConsent = cols.consent_data === true;
+  if (givingConsent) cols.consent_data_at = new Date().toISOString();
 
   try {
     const names = Object.keys(cols);
@@ -73,6 +77,7 @@ export async function updateMySection(req, res) {
       values
     );
     if (!rowCount) return res.status(404).json({ error: "NYSC AGROALLIED SAED member profile not found" });
+    if (givingConsent) await releaseCertificateIfReady(req.user.id).catch((e) => console.error("[consent release]", e.message));
     res.json(await loadProfileBundle(req.user.id));
   } catch (err) {
     if (err.code === "23505") {
@@ -81,6 +86,21 @@ export async function updateMySection(req, res) {
     console.error(err);
     res.status(500).json({ error: "Could not save profile" });
   }
+}
+
+// POST /api/corpers/consent  body { consentData: true }
+// The one-tick answer to the banner shown to members who registered before consent was required. Consent can only be
+// given here, never withdrawn (it is required while a member of the programme). Giving it twice is harmless.
+export async function giveConsent(req, res) {
+  if (req.body?.consentData !== true) {
+    return res.status(400).json({ error: "Consent to share your details with NYSC AGROALLIED SAED is required for NYSC AGROALLIED SAED members", code: "CONSENT_REQUIRED" });
+  }
+  const { rowCount } = await pool.query(
+    `UPDATE corper_profiles SET consent_data = TRUE, consent_data_at = COALESCE(consent_data_at, now()), updated_at = now() WHERE user_id = $1`,
+    [req.user.id]);
+  if (!rowCount) return res.status(404).json({ error: "NYSC AGROALLIED SAED member profile not found" });
+  const { released } = await releaseCertificateIfReady(req.user.id);
+  res.json({ ok: true, certificateReleased: released, profile: await loadProfileBundle(req.user.id) });
 }
 
 export const _sections = SECTIONS;

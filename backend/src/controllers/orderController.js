@@ -314,6 +314,13 @@ export async function myOrders(req, res) {
     [orders.map((o) => o.id)]
   );
   const payBy = Object.fromEntries(pays.map((p) => [p.subject_id, p]));
+  // Phase 12: where the goods are. The delivery code is shown only until the goods are delivered.
+  const { rows: ships } = await pool.query(
+    `SELECT s.order_id, s.status, s.delivery_code, s.picked_up_at, s.delivered_at, s.recipient_name, s.delivery_photo_id,
+            u.name AS driver_name, v.plate_number
+       FROM shipments s JOIN users u ON u.id = s.driver_id LEFT JOIN trips t ON t.id = s.trip_id LEFT JOIN vehicles v ON v.id = t.vehicle_id
+      WHERE s.order_id = ANY($1::uuid[])`, [orders.map((o) => o.id)]);
+  const shipBy = Object.fromEntries(ships.map((s) => [s.order_id, s]));
   const byOrder = orders.map((o) => {
     const p = payBy[o.id];
     const unpaid = ["awaiting_payment", "payment_failed"].includes(o.status);
@@ -324,6 +331,13 @@ export async function myOrders(req, res) {
       can_cancel: unpaid,
       has_receipt: !!o.paid_at,
       waiting_for_transfer: !!p && p.status === "pending" && p.channel === "bank_transfer",
+      delivery: shipBy[o.id] ? {
+        status: shipBy[o.id].status,
+        code: shipBy[o.id].status === "delivered" ? null : shipBy[o.id].delivery_code,
+        driverName: shipBy[o.id].driver_name, vehicle: shipBy[o.id].plate_number,
+        pickedUpAt: shipBy[o.id].picked_up_at, deliveredAt: shipBy[o.id].delivered_at,
+        recipientName: shipBy[o.id].recipient_name, photoFileId: shipBy[o.id].delivery_photo_id,
+      } : null,
     };
   });
   res.json({ orders: byOrder });

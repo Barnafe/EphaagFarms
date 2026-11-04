@@ -147,7 +147,7 @@ export default function CorpsMembers() {
                       {m.certificateNumber ? (
                         <>
                           <p className="font-mono text-xs">{m.certificateNumber}</p>
-                          <p className="text-xs text-ink-600">{m.certificateStatus === "released" ? `Released · ${EMAIL_LABEL[m.emailStatus] || ""}` : "Hidden"}</p>
+                          <p className="text-xs text-ink-600">{m.certificateStatus === "released" ? `Released · ${EMAIL_LABEL[m.emailStatus] || ""}` : m.certificateStatus === "waiting_for_consent" ? "Held: waiting for the member's consent" : "Hidden"}</p>
                         </>
                       ) : "N/A"}
                     </td>

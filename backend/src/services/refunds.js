@@ -10,6 +10,9 @@ import { orderEvent } from "./orderPayments.js";
 // applied ("needs attention"), and (2) anything that went wrong afterwards (for example goods
 // delivered wrongly and returned). Full refunds only, always with a written reason; Paystack
 // credits the payer and keeps its own fee.
+// Phase 14: a corps fee is not refundable once agreed and paid. Nothing in the system returns it, the Refund room included.
+export const NO_REFUND_TYPES = new Set(["corps_fee"]);
+const NO_REFUND_NOTE = "NYSC AGROALLIED SAED fees are not refundable once paid.";
 const httpErr = (message, status = 400) => Object.assign(new Error(message), { status, expose: status >= 500 });
 
 export async function listAttention() {
@@ -18,7 +21,8 @@ export async function listAttention() {
             COALESCE(u.name, p.meta->>'contactName') AS payer_name, COALESCE(u.email, p.meta->>'contactEmail') AS payer_email, COALESCE(u.phone, p.meta->>'contactPhone') AS payer_phone
        FROM gateway_payments p LEFT JOIN users u ON u.id = p.user_id
       WHERE p.status = 'refused' AND p.refund_status IN ('due','failed') ORDER BY p.paid_at DESC NULLS LAST LIMIT 300`);
-  return rows.map((r) => ({ ...r, typeLabel: TYPE_LABEL[r.type] || r.type, reasonText: r.refusal_reason ? refusalText(r.refusal_reason) : null }));
+  return rows.map((r) => ({ ...r, typeLabel: TYPE_LABEL[r.type] || r.type, reasonText: r.refusal_reason ? refusalText(r.refusal_reason) : null,
+    ...(NO_REFUND_TYPES.has(r.type) ? { refundable: false, noRefundNote: NO_REFUND_NOTE } : {}) }));
 }
 
 export async function listHistory() {
@@ -42,12 +46,15 @@ export async function searchRefundable(q) {
       WHERE p.status IN ('success','refused')
         AND (p.reference ILIKE $1 OR p.meta::text ILIKE $1 OR u.name ILIKE $1 OR u.email ILIKE $1)
       ORDER BY p.paid_at DESC NULLS LAST LIMIT 25`, [like]);
-  return rows.map((r) => ({ ...r, typeLabel: TYPE_LABEL[r.type] || r.type, refundable: r.refund_status !== "refunded" && r.refund_status !== "processing" }));
+  return rows.map((r) => ({ ...r, typeLabel: TYPE_LABEL[r.type] || r.type, refundable: r.refund_status !== "refunded" && r.refund_status !== "processing" && !NO_REFUND_TYPES.has(r.type),
+    ...(NO_REFUND_TYPES.has(r.type) ? { noRefundNote: NO_REFUND_NOTE } : {}) }));
 }
 
 /** Return the FULL amount to the payer through Paystack. Needs a reason. */
 export async function refundPayment(paymentId, { reason, userId = null }) {
   const why = String(reason || "").trim();
+  const kind = await pool.query("SELECT type FROM gateway_payments WHERE id = $1", [paymentId]);
+  if (kind.rows[0] && NO_REFUND_TYPES.has(kind.rows[0].type)) throw Object.assign(httpErr(NO_REFUND_NOTE, 409), { clientCode: "NOT_REFUNDABLE" });
   if (why.length < 3) throw httpErr("Please give the reason for this refund");
   const { rows } = await pool.query(
     `UPDATE gateway_payments SET refund_status = 'processing', updated_at = now()

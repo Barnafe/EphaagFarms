@@ -54,7 +54,21 @@ export async function committedFor(department, y = year(), runner = pool) {
        FROM purchase_orders po JOIN purchase_requests pr ON pr.id = po.request_id
       WHERE pr.department = $1 AND po.status = 'approved' AND pr.status <> 'cancelled'
         AND EXTRACT(YEAR FROM po.approved_at) = $2`, [department, y]);
-  return Number(rows[0].n);
+  let total = Number(rows[0].n);
+  // Phase 12: day to day costs also count. Maintenance costs and Transport costs that are not waiting for Finance
+  // (budget_status = 'counted') use up their department's budget, together with approved purchase orders.
+  if (department === "Maintenance") {
+    const m = await runner.query(
+      `SELECT COALESCE(SUM(amount), 0) AS n FROM maintenance_expenses
+        WHERE budget_status = 'counted' AND EXTRACT(YEAR FROM expense_date) = $1`, [y]);
+    total += Number(m.rows[0].n);
+  } else if (department === "Transport") {
+    const t = await runner.query(
+      `SELECT COALESCE(SUM(amount), 0) AS n FROM vehicle_expenses
+        WHERE budget_status = 'counted' AND EXTRACT(YEAR FROM expense_date) = $1`, [y]);
+    total += Number(t.rows[0].n);
+  }
+  return total;
 }
 
 export async function budgetStatus(department, y = year(), runner = pool) {
@@ -97,4 +111,25 @@ export async function checkBudgetAlerts(department, y = year()) {
   await notifyRole(department, kind, data);          // the department head
   await notifyRole("Finance", kind, data);           // and Finance
   return s;
+}
+
+registerTemplate("cost_budget_hold", (d) => ({
+  subject: `[Budget] A ${d.department} cost of ${naira(d.amount)} is waiting for Finance`,
+  title: "A cost is over the department budget",
+  html: `<p>${escapeHtml(d.what)} (${escapeHtml(d.reference)}) costs ${naira(d.amount)}, but only ${naira(d.remaining)} is left in the ${d.year} ${escapeHtml(d.department)} budget.</p>
+<p>It does not count against the budget until Finance approves it. Open ${escapeHtml(d.department)} &rarr; Costs to decide.</p>`,
+}), { department: "Transport", what: "Fuel for trip TRP-20261101-ABCD", reference: "VEXP-20261101-ABCD", amount: 85000, remaining: 20000, year: 2026 });
+
+/**
+ * Decide whether a new running cost fits the department budget. Returns "counted" or "held". When it is held the
+ * Finance head (or the main admin) is told; the cost itself is still recorded, because the money is already spent
+ * (fuel was bought, parts arrived), but it only counts once Finance approves it.
+ */
+export async function budgetStatusForCost(department, amount, runner = pool, y = year()) {
+  const s = await wouldExceed(department, amount, y, runner);
+  return { status: s.exceeds ? "held" : "counted", remaining: s.remaining, year: s.year };
+}
+
+export async function announceHeldCost({ department, what, reference, amount, remaining, year: y }) {
+  await notifyRole("Finance", "cost_budget_hold", { department, what, reference, amount, remaining: Math.max(0, remaining ?? 0), year: y });
 }

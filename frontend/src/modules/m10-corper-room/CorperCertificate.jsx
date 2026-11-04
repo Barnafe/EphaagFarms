@@ -8,7 +8,7 @@ const longDate = (d) => (d ? new Date(d).toLocaleDateString("en-GB", { day: "num
 // The member's one general certificate. It stays hidden until the admin
 // marks their batch complete; a member who hasn't finished every course just
 // sees "not completed" (no certificate, no email).
-export default function CorperCertificate({ onGo }) {
+export default function CorperCertificate({ onGo, consentGiven }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -21,7 +21,8 @@ export default function CorperCertificate({ onGo }) {
     return () => {
       alive = false;
     };
-  }, []);
+    // Giving consent can release the certificate: look again when it changes.
+  }, [consentGiven]);
 
   async function download() {
     setBusy(true);
@@ -68,6 +69,15 @@ export default function CorperCertificate({ onGo }) {
           </p>
         </section>
       </div>
+    );
+  }
+
+  if (status === "awaiting_consent") {
+    return (
+      <LockedPanel
+        title="Your certificate is waiting for your consent"
+        body="You have finished every course, but a certificate is only released to members who agree to share their details with NYSC AGROALLIED SAED. Tick the consent box at the top of the page and it is released as soon as your batch is complete (at once if it already is)."
+      />
     );
   }
 

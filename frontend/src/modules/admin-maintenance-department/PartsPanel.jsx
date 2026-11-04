@@ -11,6 +11,9 @@ export default function PartsPanel() {
   const [form, setForm] = useState(emptyForm);
   const [adjustFor, setAdjustFor] = useState(null);
   const [adjustQty, setAdjustQty] = useState("");
+  const [adjustCost, setAdjustCost] = useState("");
+  const [fromPO, setFromPO] = useState(false);
+  const [notice, setNotice] = useState(null);
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -53,12 +56,18 @@ export default function PartsPanel() {
     const qty = Number(adjustQty);
     if (!qty || qty <= 0) return;
     try {
-      await apiFetch(`/maintenance/parts/${adjustFor.id}/adjust`, {
-        method: "POST",
-        body: { direction, quantity: qty, reason: direction === "in" ? "purchase" : "adjustment" },
-      });
+      const body = { direction, quantity: qty, reason: direction === "in" ? "purchase" : "adjustment" };
+      if (direction === "in") {
+        if (fromPO) body.fromPurchaseOrder = true;
+        else if (adjustCost !== "") body.unitCost = Number(adjustCost);
+      }
+      const r = await apiFetch(`/maintenance/parts/${adjustFor.id}/adjust`, { method: "POST", body });
+      setNotice(r.waitingForFinance ? "Stock added. The cost is over the Maintenance budget, so it waits for Finance." : null);
+      setError(null);
       setAdjustFor(null);
       setAdjustQty("");
+      setAdjustCost("");
+      setFromPO(false);
       await load();
     } catch (err) {
       setError(err.message);
@@ -74,6 +83,7 @@ export default function PartsPanel() {
         </div>
 
         {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
+        {notice && <p className="mt-3 text-sm text-canopy-800">{notice}</p>}
 
         {showForm && (
           <form onSubmit={handleSubmit} className="field mt-4 grid gap-3 rounded-card border border-soil-200 p-3 sm:grid-cols-4">
@@ -119,6 +129,11 @@ export default function PartsPanel() {
                       <label>Quantity</label>
                       <input type="number" min="1" value={adjustQty} onChange={(e) => setAdjustQty(e.target.value)} />
                     </div>
+                    <div>
+                      <label>Price paid per unit (₦)</label>
+                      <input type="number" min="0" value={adjustCost} onChange={(e) => setAdjustCost(e.target.value)} disabled={fromPO} placeholder={`Usual ${Number(p.unit_cost || 0)}`} />
+                    </div>
+                    <label className="flex items-center gap-1 text-xs text-ink-600"><input type="checkbox" checked={fromPO} onChange={(e) => setFromPO(e.target.checked)} /> Came from a purchase order</label>
                     <button className="btn-primary" type="button" onClick={() => handleAdjust("in")}>Stock in</button>
                     <button className="btn-outline" type="button" onClick={() => handleAdjust("out")}>Stock out</button>
                     <button className="text-xs text-ink-600 underline" type="button" onClick={() => setAdjustFor(null)}>Cancel</button>

@@ -1,9 +1,30 @@
 import { pool } from "../db/pool.js";
 import { generateReference, REF_PREFIX } from "../utils/reference.js";
 import { sendMail } from "../utils/email.js";
+import { detached } from "../db/pool.js";
+import { budgetStatusForCost, announceHeldCost, checkBudgetAlerts, budgetStatus } from "../services/budgets.js";
+import { decideHeldCost } from "../services/costDecisions.js";
 
 function httpError(message, status = 400) {
   return Object.assign(new Error(message), { status });
+}
+
+// Phase 12: a Maintenance cost follows the department budget. One that would overrun it is still recorded (the money is
+// already spent) but waits for Finance and does not count until approved.
+async function insertExpense(client, { workOrderId = null, category, description = null, amount, vendor = null, expenseDate = null, userId, partId = null }) {
+  const date = expenseDate || new Date().toISOString().slice(0, 10);
+  const verdict = await budgetStatusForCost("Maintenance", amount, client, Number(date.slice(0, 4)));
+  const { rows } = await client.query(
+    `INSERT INTO maintenance_expenses (reference, work_order_id, category, description, amount, vendor, expense_date, recorded_by, budget_status, part_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+    [generateReference(REF_PREFIX.maintenanceExpense), workOrderId, category, description, amount, vendor, date, userId, verdict.status, partId]);
+  return { expense: rows[0], verdict };
+}
+function afterExpense({ expense, verdict }) {
+  detached(async () => {
+    if (verdict.status === "held") await announceHeldCost({ department: "Maintenance", what: `${expense.category} cost`, reference: expense.reference, amount: Number(expense.amount), remaining: verdict.remaining, year: verdict.year });
+    else await checkBudgetAlerts("Maintenance", Number(String(expense.expense_date instanceof Date ? expense.expense_date.toISOString() : expense.expense_date).slice(0, 4)));
+  });
 }
 
 function addInterval(date, type, value) {
@@ -45,7 +66,7 @@ export async function dashboardSummary(req, res) {
     ),
     pool.query(
       `SELECT COALESCE(SUM(amount), 0)::numeric AS total FROM maintenance_expenses
-       WHERE date_trunc('month', expense_date) = date_trunc('month', CURRENT_DATE)`
+       WHERE budget_status <> 'rejected' AND date_trunc('month', expense_date) = date_trunc('month', CURRENT_DATE)`
     ),
   ]);
 
@@ -232,12 +253,16 @@ export async function updatePart(req, res) {
 // row, quantity_on_hand is the running total kept in sync alongside it.
 export async function adjustPartStock(req, res) {
   const { id } = req.params;
-  const { direction, quantity, reason, note } = req.body;
+  const { direction, quantity, reason, note, unitCost, fromPurchaseOrder } = req.body;
   if (!["in", "out"].includes(direction)) throw httpError("direction must be 'in' or 'out'");
   const qty = Number(quantity);
   if (!qty || qty <= 0) throw httpError("quantity must be a positive number");
+  const isPurchase = direction === "in" && reason === "purchase";
+  const paid = unitCost === undefined || unitCost === null || unitCost === "" ? null : Number(unitCost);
+  if (paid !== null && (!Number.isFinite(paid) || paid < 0 || paid > 1e9)) throw httpError("unitCost must be a number, 0 or more");
 
   const client = await pool.connect();
+  let outcome = null;
   try {
     await client.query("BEGIN");
     const delta = direction === "in" ? qty : -qty;
@@ -248,13 +273,21 @@ export async function adjustPartStock(req, res) {
     if (!rows[0]) throw httpError("Part not found", 404);
     if (Number(rows[0].quantity_on_hand) < 0) throw httpError("Stock cannot go below zero");
 
+    const price = paid ?? Number(rows[0].unit_cost);
     await client.query(
-      `INSERT INTO maintenance_part_movements (part_id, direction, quantity, reason, recorded_by, note)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [id, direction, qty, reason || "adjustment", req.user.id, note || null]
+      `INSERT INTO maintenance_part_movements (part_id, direction, quantity, reason, recorded_by, note, unit_cost)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, direction, qty, reason || "adjustment", req.user.id, note || null, isPurchase ? price : null]
     );
+    // Parts bought into stock are a Maintenance cost, unless they came from a Purchasing order (that order was already counted).
+    if (isPurchase && !fromPurchaseOrder) {
+      const amount = Math.round(qty * price * 100) / 100;
+      if (!(amount > 0)) throw httpError("Enter the unit cost of what was bought (or say it came from a purchase order)");
+      outcome = await insertExpense(client, { category: "parts", description: `${qty} x ${rows[0].name} bought into stock`, amount, userId: req.user.id, partId: id });
+    }
     await client.query("COMMIT");
-    res.json({ part: rows[0] });
+    if (outcome) afterExpense(outcome);
+    res.json({ part: rows[0], expense: outcome?.expense || null, waitingForFinance: outcome?.verdict.status === "held" });
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
@@ -585,19 +618,24 @@ export async function completeWorkOrder(req, res) {
       }
     }
 
-    let expense = null;
+    // A repaired vehicle goes back into service, and the breakdown that caused the repair is marked resolved.
+    if (workOrder.asset_id) {
+      await client.query(`UPDATE vehicles SET status = 'available' WHERE asset_id = $1 AND status = 'in_maintenance'`, [workOrder.asset_id]);
+    }
+    if (workOrder.request_id) {
+      await client.query(`UPDATE trip_breakdowns SET resolved_at = now() WHERE maintenance_request_id = $1 AND resolved_at IS NULL`, [workOrder.request_id]);
+    }
+
+    let outcome = null;
     if (laborCost) {
-      const reference = generateReference(REF_PREFIX.maintenanceExpense);
-      const { rows: expRows } = await client.query(
-        `INSERT INTO maintenance_expenses (reference, work_order_id, category, description, amount, recorded_by)
-         VALUES ($1,$2,'labor',$3,$4,$5) RETURNING *`,
-        [reference, id, laborDescription || "Labor cost", laborCost, req.user.id]
-      );
-      expense = expRows[0];
+      const amount = Number(laborCost);
+      if (!Number.isFinite(amount) || amount <= 0 || amount > 1e9) throw httpError("laborCost must be a positive number");
+      outcome = await insertExpense(client, { workOrderId: id, category: "labor", description: laborDescription || "Labor cost", amount, userId: req.user.id });
     }
 
     await client.query("COMMIT");
-    res.json({ workOrder, expense });
+    if (outcome) afterExpense(outcome);
+    res.json({ workOrder, expense: outcome?.expense || null, waitingForFinance: outcome?.verdict.status === "held" });
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
@@ -615,21 +653,38 @@ export async function listExpenses(req, res) {
     `SELECT e.*, w.reference AS work_order_reference, w.title AS work_order_title
      FROM maintenance_expenses e
      LEFT JOIN maintenance_work_orders w ON w.id = e.work_order_id
-     ORDER BY e.expense_date DESC, e.created_at DESC`
+     ORDER BY (e.budget_status = 'held') DESC, e.expense_date DESC, e.created_at DESC`
   );
-  res.json({ expenses: rows });
+  res.json({ expenses: rows, budget: await budgetStatus("Maintenance") });
 }
 
 export async function createExpense(req, res) {
   const { workOrderId, category, description, amount, vendor, expenseDate } = req.body;
   if (!category || !amount) throw httpError("category and amount are required");
-  const reference = generateReference(REF_PREFIX.maintenanceExpense);
-  const { rows } = await pool.query(
-    `INSERT INTO maintenance_expenses (reference, work_order_id, category, description, amount, vendor, expense_date, recorded_by)
-     VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,CURRENT_DATE),$8) RETURNING *`,
-    [reference, workOrderId || null, category, description || null, amount, vendor || null, expenseDate || null, req.user.id]
-  );
-  res.status(201).json({ expense: rows[0] });
+  if (!["labor", "parts", "contractor", "other"].includes(category)) throw httpError("category must be labor, parts, contractor or other");
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value <= 0 || value > 1e9) throw httpError("amount must be a positive number");
+  if (expenseDate && (!/^\d{4}-\d{2}-\d{2}$/.test(String(expenseDate)) || Number.isNaN(Date.parse(expenseDate)))) throw httpError("Date must look like 2026-11-02");
+  if (expenseDate && String(expenseDate) > new Date().toISOString().slice(0, 10)) throw httpError("The date cannot be in the future");
+  const client = await pool.connect();
+  let outcome;
+  try {
+    await client.query("BEGIN");
+    outcome = await insertExpense(client, { workOrderId: workOrderId || null, category, description: description || null, amount: value, vendor: vendor || null, expenseDate: expenseDate || null, userId: req.user.id });
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+  afterExpense(outcome);
+  res.status(201).json({ expense: outcome.expense, waitingForFinance: outcome.verdict.status === "held" });
+}
+
+export async function expenseBudgetDecision(req, res) {
+  const row = await decideHeldCost("maintenance_expenses", req.params.id, req.body || {}, req.user.id, req.purchasingRole);
+  res.json({ expense: row });
 }
 
 // =======================================================================
@@ -677,7 +732,7 @@ export async function maintenanceHistory(req, res) {
      LEFT JOIN maintenance_assets a ON a.id = w.asset_id
      LEFT JOIN maintenance_technicians t ON t.id = w.assigned_technician_id
      LEFT JOIN maintenance_contractors c ON c.id = w.assigned_contractor_id
-     LEFT JOIN maintenance_expenses e ON e.work_order_id = w.id
+     LEFT JOIN maintenance_expenses e ON e.work_order_id = w.id AND e.budget_status <> 'rejected'
      WHERE w.status = 'completed'
      GROUP BY w.id, a.name, t.name, c.company_name
      ORDER BY w.completed_at DESC`
@@ -697,10 +752,10 @@ export async function reports(req, res) {
     { rows: avgCompletionDays },
     { rows: technicianLoad },
   ] = await Promise.all([
-    pool.query(`SELECT category, COALESCE(SUM(amount),0)::numeric AS total FROM maintenance_expenses GROUP BY category`),
+    pool.query(`SELECT category, COALESCE(SUM(amount),0)::numeric AS total FROM maintenance_expenses WHERE budget_status <> 'rejected' GROUP BY category`),
     pool.query(
       `SELECT to_char(date_trunc('month', expense_date), 'YYYY-MM') AS month, COALESCE(SUM(amount),0)::numeric AS total
-       FROM maintenance_expenses GROUP BY 1 ORDER BY 1 DESC LIMIT 12`
+       FROM maintenance_expenses WHERE budget_status <> 'rejected' GROUP BY 1 ORDER BY 1 DESC LIMIT 12`
     ),
     pool.query(
       `SELECT a.name AS asset_name, COUNT(w.id)::int AS work_order_count

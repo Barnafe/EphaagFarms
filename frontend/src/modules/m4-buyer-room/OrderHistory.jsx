@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { openStoredFile } from "../../utils/openStoredFile.js";
 
 const statusStyles = {
   awaiting_payment: "bg-harvest-50 text-harvest-600",
@@ -66,6 +67,31 @@ export default function OrderHistory({ orders, onPay, onCancel, onReceipt }) {
                 </li>
               ))}
             </ul>
+            {o.delivery && (
+              <div className="mt-3 rounded-card border border-soil-200 bg-soil-50 p-3" data-testid="delivery-info">
+                {o.delivery.status === "delivered" ? (
+                  <p className="text-sm text-ink-900">
+                    Delivered on {new Date(o.delivery.deliveredAt).toLocaleString()}, received by {o.delivery.recipientName}.
+                    {o.delivery.photoFileId && (
+                      <button type="button" className="ml-2 text-xs underline" onClick={() => openStoredFile(o.delivery.photoFileId).catch(() => {})}>View delivery photo</button>
+                    )}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-ink-900">
+                      {o.delivery.status === "en_route" ? "On the road" : "Packed and waiting to leave"}
+                      {o.delivery.driverName ? ` with ${o.delivery.driverName}` : ""}{o.delivery.vehicle ? ` (vehicle ${o.delivery.vehicle})` : ""}.
+                    </p>
+                    {o.delivery.code && (
+                      <p className="mt-1 text-sm text-ink-900">
+                        Your delivery code: <strong className="tracking-widest">{o.delivery.code}</strong>
+                        <span className="block text-xs text-ink-600">Give this code to the driver only when the goods are in your hands.</span>
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
             {(o.canPay || o.canCancel || o.hasReceipt) && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {o.canPay && <button className="btn-primary" disabled={busy === o.id} onClick={() => run(o.id, () => onPay(o.id))}>Pay now</button>}

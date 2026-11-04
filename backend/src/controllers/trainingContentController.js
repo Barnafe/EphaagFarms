@@ -42,6 +42,8 @@ function mapLesson(l) {
     fileName: l.original_name,
     scheduledAt: l.scheduled_at,
     notes: l.notes,
+    durationSeconds: l.duration_seconds ?? null,
+    minSeconds: l.min_seconds ?? null,
   };
 }
 
@@ -143,13 +145,31 @@ function parseLesson(body, file, existing) {
   const notesRaw = body.notes !== undefined ? String(body.notes).trim() : existing?.notes ?? "";
   if (notesRaw.length > 2000) return { error: "Notes are too long (max 2000 characters)" };
 
-  const out = { title, kind, notes: notesRaw || null, url: null, scheduledAt: null };
+  const out = { title, kind, notes: notesRaw || null, url: null, scheduledAt: null, durationSeconds: null, minSeconds: null };
 
   if (kind === "video" || kind === "live") {
     const url = String(body.url ?? (existing?.kind === kind ? existing?.url : "") ?? "").trim();
     if (!url) return { error: kind === "video" ? "A video link is required" : "A live session link is required" };
     if (!isHttpUrl(url)) return { error: "The link must start with http:// or https://" };
     out.url = url;
+  }
+
+  if (kind === "video") {
+    // The length of the video decides how long a member must really watch it, so the admin must say what it is.
+    const raw = body.durationSeconds ?? (existing?.kind === "video" ? existing?.duration_seconds : undefined);
+    const secs = Math.round(Number(raw));
+    if (raw === undefined || raw === null || raw === "" || !Number.isFinite(secs)) return { error: "Enter how long the video is (the member must watch most of it)" };
+    if (secs < 10 || secs > 6 * 3600) return { error: "The video length must be between 10 seconds and 6 hours" };
+    out.durationSeconds = secs;
+  }
+
+  if (kind === "document") {
+    const raw = body.minSeconds ?? (existing?.kind === "document" ? existing?.min_seconds : undefined);
+    if (raw !== undefined && raw !== null && raw !== "") {
+      const secs = Math.round(Number(raw));
+      if (!Number.isFinite(secs) || secs < 5 || secs > 3600) return { error: "The minimum time a document must be open is between 5 seconds and 1 hour" };
+      out.minSeconds = secs;
+    }
   }
 
   if (kind === "live") {
@@ -188,10 +208,10 @@ export async function adminAddLesson(req, res) {
         [course.id]
       );
       const { rows } = await db.query(
-        `INSERT INTO course_lessons (course_id, position, title, kind, url, file_name, original_name, scheduled_at, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        `INSERT INTO course_lessons (course_id, position, title, kind, url, file_name, original_name, scheduled_at, notes, duration_seconds, min_seconds)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
         [course.id, pos[0].next, values.title, values.kind, values.url, file?.filename ?? null,
-         file ? file.originalname : null, values.scheduledAt, values.notes]
+         file ? file.originalname : null, values.scheduledAt, values.notes, values.durationSeconds, values.minSeconds]
       );
       return rows[0];
     });
@@ -237,9 +257,9 @@ export async function adminUpdateLesson(req, res) {
   }
 
   const { rows } = await pool.query(
-    `UPDATE course_lessons SET title=$1, kind=$2, url=$3, file_name=$4, original_name=$5, scheduled_at=$6, notes=$7
+    `UPDATE course_lessons SET title=$1, kind=$2, url=$3, file_name=$4, original_name=$5, scheduled_at=$6, notes=$7, duration_seconds=$9, min_seconds=$10
      WHERE id=$8 RETURNING *`,
-    [values.title, values.kind, values.url, fileName, originalName, values.scheduledAt, values.notes, existing.id]
+    [values.title, values.kind, values.url, fileName, originalName, values.scheduledAt, values.notes, existing.id, values.durationSeconds, values.minSeconds]
   );
   if (existing.file_name && existing.file_name !== fileName) removeStoredFile(existing.file_name);
   res.json({ lesson: mapLesson(rows[0]) });

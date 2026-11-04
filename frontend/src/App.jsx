@@ -45,6 +45,7 @@ const AdminProfilePage = lazy(() => import("./modules/admin-hub/AdminProfilePage
 const AdminFeedbackPage = lazy(() => import("./modules/admin-hub/AdminFeedbackPage.jsx"));
 const AdminContactMessagesPage = lazy(() => import("./modules/admin-hub/AdminContactMessagesPage.jsx"));
 const PayoutsPage = lazy(() => import("./modules/admin-hub/PayoutsPage.jsx"));
+const BackupsPage = lazy(() => import("./modules/admin-hub/BackupsPage.jsx"));
 const LoanScoringPage = lazy(() => import("./modules/admin-hub/LoanScoringPage.jsx"));
 const UnitLocationsPage = lazy(() => import("./modules/admin-hub/UnitLocationsPage.jsx"));
 const RefundRoomPage = lazy(() => import("./modules/admin-hub/RefundRoomPage.jsx"));
@@ -206,6 +207,14 @@ export default function App() {
           element={
             <ProtectedRoute allow={["admin"]}>
               <PayoutsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/backups"
+          element={
+            <ProtectedRoute allow={["admin"]}>
+              <BackupsPage />
             </ProtectedRoute>
           }
         />

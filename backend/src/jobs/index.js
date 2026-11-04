@@ -5,6 +5,7 @@ import { runDueDateReminders } from "../controllers/investmentController.js";
 import { runPayouts, recheckProcessingPayouts } from "../services/payouts.js";
 import { runInvestmentLatePenalties } from "../services/investmentPenalties.js";
 import { runInvestmentAutoCharge } from "../services/investmentPayments.js";
+import { runBackup } from "../services/backup.js";
 import { pool } from "../db/pool.js";
 import { expireUnpaidOrders, recheckStuckPayments } from "../services/orderPayments.js";
 import { expireSharePurchases } from "../controllers/farmerSharesController.js";
@@ -36,6 +37,9 @@ export function registerAllJobs() {
 
   registerJob({ name: "payment-recheck", description: "Ask Paystack about payments stuck as pending (a webhook that never came)", every: 15 },
     () => recheckStuckPayments());
+
+  registerJob({ name: "database-backup", description: "Nightly encrypted full database backup, stored in the backup bucket and at a second cloud provider, kept 30 days", daily: "02:00" },
+    ({ now, trigger }) => runBackup({ now, trigger }));
 
   registerJob({ name: "file-cleanup", description: "Physically remove files deleted more than 30 days ago", daily: "03:00" },
     () => purgeExpiredFiles());

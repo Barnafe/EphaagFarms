@@ -9,6 +9,7 @@ import CorperProfile from "./CorperProfile.jsx";
 import LockedPanel from "./LockedPanel.jsx";
 import CorperPayments from "./CorperPayments.jsx";
 import CorperCertificate from "./CorperCertificate.jsx";
+import ConsentBanner from "./ConsentBanner.jsx";
 import CorperTraining from "./CorperTraining.jsx";
 
 import useUrlState from "../../hooks/useUrlState.js";
@@ -79,6 +80,7 @@ export default function CorperRoom() {
       <div className="on-light mx-auto max-w-5xl rounded-card bg-soil-50 p-4 text-ink-900 md:p-6">
         {error && <p className="mb-4 text-sm text-red-700">{error}</p>}
         {!bundle && !error && <p className="text-sm text-ink-600">Loading...</p>}
+        {bundle && bundle.profile?.consentData === false && <ConsentBanner onDone={load} />}
         {bundle && tab === "dashboard" && <CorperHome user={user} bundle={bundle} onGo={setTab} onOpenCourse={(id) => { setCourseToOpen(id); setTab("training"); }} />}
         {bundle && tab === "profile" && (
           <CorperProfile
@@ -92,7 +94,7 @@ export default function CorperRoom() {
         )}
         {bundle && tab === "training" && <CorperTraining paid={paid} onGoPayments={() => setTab("payments")} initialCourseId={courseToOpen} />}
         {bundle && tab === "payments" && <CorperPayments user={user} verifying={verifying} notice={notice} onChanged={load} />}
-        {bundle && tab === "certificate" && <CorperCertificate onGo={setTab} />}
+        {bundle && tab === "certificate" && <CorperCertificate onGo={setTab} consentGiven={bundle.profile?.consentData} />}
         {bundle && tab === "support" && (
           <div className="rounded-card border border-soil-200 bg-white p-6">
             <h2 className="font-display text-xl font-semibold text-ink-900">Support</h2>

@@ -94,6 +94,9 @@ async function main() {
     FARMER_GATE_DEFAULT: "off", DOJAH_BASE_URL: paystack.url, DOJAH_APP_ID: "test-app", DOJAH_SECRET_KEY: "test-secret",
     R2_ENDPOINT: s3.url, R2_ACCESS_KEY_ID: "test", R2_SECRET_ACCESS_KEY: "test",
     R2_PUBLIC_BUCKET: "pub", R2_PRIVATE_BUCKET: "priv", R2_PUBLIC_BASE_URL: `${s3.url}/pub`,
+    // Phase 20 backups: two stores on the stand-in (the backup bucket and a "second provider"), and the encryption key
+    R2_BACKUP_BUCKET: "bk1", BACKUP2_ENDPOINT: s3.url, BACKUP2_BUCKET: "bk2", BACKUP2_ACCESS_KEY_ID: "test", BACKUP2_SECRET_ACCESS_KEY: "test",
+    BACKUP_ENCRYPTION_KEY: "test-backup-key-test-backup-key-0123456789", BACKUP_RETRY_MS: "10",
     SEND_TIMEOUT_MS: "3000", EMAIL_DRIVER: "ses", SES_REGION: "us-east-1", SES_ENDPOINT: mail.url, AWS_ACCESS_KEY_ID: "test", AWS_SECRET_ACCESS_KEY: "test",
     SMS_DRIVER: "termii", SMS_API_URL: `${mail.url}/sms/send`, SMS_API_KEY: "test", SMS_SENDER_ID: "EPHAAG",
     SNS_TEST_CERT_PEM: snsPublic, ALERT_SMS_PHONE: "08031234567",
@@ -122,7 +125,7 @@ async function main() {
     TEST_ADMIN_EMAIL: ADMIN_EMAIL, TEST_ADMIN_PASSWORD: ADMIN_PASSWORD,
   };
 
-  if (!process.env.ONLY_PYTHON) await run("Unit tests (no database)", "node", ["--test", "test/corperLearning.test.mjs", "test/preflight.test.mjs"], { env: testEnv });
+  if (!process.env.ONLY_PYTHON) await run("Unit tests (no database)", "node", ["--test", "test/corperLearning.test.mjs", "test/lessonTime.test.mjs", "test/preflight.test.mjs"], { env: testEnv });
 
   if (process.env.SKIP_PYTHON === "1") console.log("\n(Python suites skipped on request)");
   else {

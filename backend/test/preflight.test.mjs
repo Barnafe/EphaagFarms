@@ -6,6 +6,7 @@ const good = {
   NODE_ENV: "production", DATABASE_URL: "postgresql://u:p@ep-x.neon.tech/db?sslmode=require", JWT_SECRET: "k9fj2Lq8xZp0Rt5vWb7nYc3mHs6uDa1E4gQ",
   FRONTEND_ORIGIN: "https://ephaag-farms.onrender.com",
   R2_ACCOUNT_ID: "abc", R2_ACCESS_KEY_ID: "k", R2_SECRET_ACCESS_KEY: "s", R2_PUBLIC_BUCKET: "pub", R2_PRIVATE_BUCKET: "priv", R2_PUBLIC_BASE_URL: "https://pub-abc.r2.dev",
+  R2_BACKUP_BUCKET: "bk", BACKUP2_ENDPOINT: "https://s3.eu-central-003.backblazeb2.com", BACKUP2_BUCKET: "bk2", BACKUP2_ACCESS_KEY_ID: "k2", BACKUP2_SECRET_ACCESS_KEY: "s2", BACKUP_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef-backup",
   SES_REGION: "eu-west-1", AWS_ACCESS_KEY_ID: "a", AWS_SECRET_ACCESS_KEY: "b", FROM_EMAIL: "EPHAAG <no-reply@ephaag.com>",
   SMS_API_KEY: "k", SMS_SENDER_ID: "EPHAAG", ALERT_SMS_PHONE: "08031234567", PAYSTACK_SECRET_KEY: "sk_live_abc", JOB_TICK_SECRET: "tick", CSP_MODE: "enforce",
 };
@@ -54,4 +55,16 @@ test("R2 without the public address, SMTP instead of SES, and sleeping-host warn
 test("development is not held to production standards", () => {
   const r = checkEnvironment({ NODE_ENV: "development", DATABASE_URL: "postgres://x", JWT_SECRET: "x".repeat(40) });
   assert.deepEqual(names(r, "fail"), []);
+});
+
+test("backups: production needs the key, the backup bucket and a second provider; the key must be long; a pooled address is flagged", () => {
+  const by = (env) => Object.fromEntries(checkEnvironment(env).map((r) => [r.name, r]));
+  assert.equal(by(good).BACKUPS.level, "ok");
+  const noSecond = by({ ...good, BACKUP2_BUCKET: undefined });
+  assert.equal(noSecond.BACKUPS.level, "fail"); assert.match(noSecond.BACKUPS.message, /BACKUP2_BUCKET/);
+  assert.equal(by({ ...good, R2_BACKUP_BUCKET: undefined }).BACKUPS.level, "fail");
+  assert.equal(by({ ...good, BACKUP_ENCRYPTION_KEY: "short" }).BACKUP_ENCRYPTION_KEY.level, "fail");
+  assert.equal(by({ ...good, NODE_ENV: "development", BACKUP_ENCRYPTION_KEY: undefined }).BACKUPS.level, "warn", "development only warns");
+  assert.equal(by({ ...good, DATABASE_URL: "postgresql://u:p@ep-x-pooler.eu-west-2.aws.neon.tech/db?sslmode=require" }).BACKUP_DATABASE_URL.level, "warn");
+  assert.equal(by({ ...good, DATABASE_URL: "postgresql://u:p@ep-x-pooler.eu-west-2.aws.neon.tech/db?sslmode=require", BACKUP_DATABASE_URL: "postgresql://u:p@ep-x.eu-west-2.aws.neon.tech/db" }).BACKUP_DATABASE_URL, undefined);
 });

@@ -69,7 +69,7 @@ export default function CorpsBatches() {
     act(b.id, "due", () => apiFetch(`/rtc/admin/corps/batches/${b.id}`, { method: "PUT", body: { dueDate: dues[b.id] || null } }), "Due date saved.");
   const complete = (b) =>
     act(b.id, "complete", () => apiFetch(`/rtc/admin/corps/batches/${b.id}/complete`, { method: "POST", body: {} }),
-      (r) => `Batch marked complete. ${r.released} certificate${r.released === 1 ? "" : "s"} released; ${r.emailsQueued} email${r.emailsQueued === 1 ? "" : "s"} being sent.`);
+      (r) => `Batch marked complete. ${r.released} certificate${r.released === 1 ? "" : "s"} released; ${r.emailsQueued} email${r.emailsQueued === 1 ? "" : "s"} being sent.${r.waitingForConsent ? ` ${r.waitingForConsent} certificate${r.waitingForConsent === 1 ? " is" : "s are"} held until the member gives consent; they have been told.` : ""}`);
   const uncomplete = (b, reason) =>
     act(b.id, "uncomplete", () => apiFetch(`/rtc/admin/corps/batches/${b.id}/uncomplete`, { method: "POST", body: { reason } }),
       (r) => `Batch re-opened. ${r.hidden} certificate${r.hidden === 1 ? "" : "s"} hidden again.`);
@@ -107,7 +107,7 @@ export default function CorpsBatches() {
           <div className="grid gap-3 text-sm text-ink-900 sm:grid-cols-3">
             <div>
               <p className="text-xs text-ink-600">Certificates</p>
-              <p>{b.certificates.total} created · {b.certificates.released} released</p>
+              <p>{b.certificates.total} created · {b.certificates.released} released{b.certificates.waitingForConsent ? ` · ${b.certificates.waitingForConsent} waiting for consent` : ""}</p>
             </div>
             <div>
               <p className="text-xs text-ink-600">Emails (released certificates)</p>

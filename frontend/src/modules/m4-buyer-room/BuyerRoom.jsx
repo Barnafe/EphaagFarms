@@ -47,6 +47,7 @@ function mapOrder(o) {
     canCancel: !!o.can_cancel,
     hasReceipt: !!o.has_receipt,
     waitingForTransfer: !!o.waiting_for_transfer,
+    delivery: o.delivery || null,
   };
 }
 

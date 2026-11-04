@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, CheckCircle2, Circle, ExternalLink, FileDown, Lock, Video, Radio } from "lucide-react";
 import { apiFetch, apiDownload } from "../../api/client.js";
+import LessonTracker from "./LessonTracker.jsx";
 
 const when = (d) => (d ? new Date(d).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : "");
 const KIND = { video: { label: "Video", Icon: Video }, document: { label: "Document", Icon: FileDown }, live: { label: "Live session", Icon: Radio } };
 
 // One course: its lessons (Open / Download / Join + Mark complete) and the
-// quiz, which stays locked until every lesson is done. "Mark complete" is an
-// honour system, videos and live sessions happen on other sites.
+// quiz, which stays locked until every lesson is done. Videos and documents
+// count real time (the server keeps the clock); a live session is marked
+// complete by the member once it has started.
 export default function CorperCourse({ courseId, onBack, onQuiz, onError }) {
   const [data, setData] = useState(null);
   const [message, setMessage] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [lastResult, setLastResult] = useState(null);
+  const [openId, setOpenId] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -37,6 +40,7 @@ export default function CorperCourse({ courseId, onBack, onQuiz, onError }) {
     } catch (err) {
       if (err.code === "PAYMENT_REQUIRED") onError?.(err);
       setMessage(err.message);
+      if (err.code === "LESSON_TIME_NOT_MET") await load();
     } finally {
       setBusyId(null);
     }
@@ -100,14 +104,24 @@ export default function CorperCourse({ courseId, onBack, onQuiz, onError }) {
                   <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-600"><Icon size={14} aria-hidden="true" /> {label}{l.kind === "live" && l.scheduledAt ? ` · ${when(l.scheduledAt)}` : ""}</p>
                   {l.notes && <p className="mt-2 text-sm text-ink-800">{l.notes}</p>}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    {l.kind === "video" && l.url && (
-                      <a href={l.url} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center gap-1 rounded-card border border-[#2c6b2f] px-4 text-sm font-medium text-[#2c6b2f]">Open <ExternalLink size={14} aria-hidden="true" /></a>
+                    {l.kind === "video" && !l.completed && (
+                      <button type="button" onClick={() => setOpenId(openId === l.id ? null : l.id)} className="inline-flex h-11 items-center gap-1 rounded-card border border-[#2c6b2f] px-4 text-sm font-medium text-[#2c6b2f]" data-testid="start-lesson">
+                        {openId === l.id ? "Hide" : l.tracking?.mode === "player" ? "Watch" : "Start"}
+                      </button>
+                    )}
+                    {l.kind === "video" && l.url && l.tracking?.mode !== "player" && (
+                      <a href={l.url} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center gap-1 rounded-card border border-[#2c6b2f] px-4 text-sm font-medium text-[#2c6b2f]">Open video <ExternalLink size={14} aria-hidden="true" /></a>
                     )}
                     {l.kind === "live" && l.url && (
                       <a href={l.url} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center gap-1 rounded-card border border-[#2c6b2f] px-4 text-sm font-medium text-[#2c6b2f]">Join <ExternalLink size={14} aria-hidden="true" /></a>
                     )}
                     {l.kind === "document" && l.hasFile && (
                       <button type="button" onClick={() => download(l)} className="inline-flex h-11 items-center gap-1 rounded-card border border-[#2c6b2f] px-4 text-sm font-medium text-[#2c6b2f]">Download <FileDown size={14} aria-hidden="true" /></button>
+                    )}
+                    {l.kind === "document" && !l.completed && (
+                      <button type="button" onClick={() => setOpenId(openId === l.id ? null : l.id)} className="inline-flex h-11 items-center gap-1 rounded-card border border-[#2c6b2f] px-4 text-sm font-medium text-[#2c6b2f]" data-testid="start-lesson">
+                        {openId === l.id ? "Stop reading" : "Start reading"}
+                      </button>
                     )}
                     {!l.completed && (
                       <button
@@ -121,7 +135,16 @@ export default function CorperCourse({ courseId, onBack, onQuiz, onError }) {
                     )}
                     {l.completed && <span className="text-xs font-medium text-[#2c6b2f]">Done</span>}
                   </div>
-                  {!l.completed && !l.canComplete && <p className="mt-2 text-xs text-ink-600">You can mark this live session complete once it starts ({when(l.availableAt)}).</p>}
+                  {!l.completed && !l.canComplete && l.kind === "live" && <p className="mt-2 text-xs text-ink-600">You can mark this live session complete once it starts ({when(l.availableAt)}).</p>}
+                  {!l.completed && l.tracking && !l.canComplete && openId !== l.id && (
+                    <p className="mt-2 text-xs text-ink-600" data-testid="time-hint">
+                      {l.kind === "video" ? "Watch most of this video to complete it" : "Keep this document open for a little while to complete it"}
+                      {" "}({Math.ceil(l.tracking.requiredSeconds / 60)} min needed, {Math.floor(l.tracking.secondsSpent / 60)} min counted so far).
+                    </p>
+                  )}
+                  {!l.completed && l.tracking && openId === l.id && (
+                    <LessonTracker courseId={courseId} lesson={l} onMet={load} onError={(err) => { if (err.code === "PAYMENT_REQUIRED") onError?.(err); }} />
+                  )}
                 </div>
               </div>
             </li>

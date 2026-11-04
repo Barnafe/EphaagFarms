@@ -1,6 +1,8 @@
 import { pool } from "../db/pool.js";
 import { loadMemberProgress } from "./corperLearningController.js";
 import { sendMail } from "../utils/email.js";
+import { notifyUser } from "../services/messaging.js";
+import { registerTemplate, escapeHtml as escHtml } from "../services/messageTemplates.js";
 import {
   newVerificationCode,
   formatCertNumber,
@@ -16,7 +18,10 @@ import {
 //    stays HIDDEN;
 //  * marking the member's batch complete makes the batch's certificates
 //    visible and emails each member;
-//  * a member who finishes AFTER their batch was closed gets it immediately.
+//  * a member who finishes AFTER their batch was closed gets it immediately;
+//  * Phase 14: a certificate is only ever released to a member who has given their consent to share
+//    their details with NYSC AGROALLIED SAED. Without it the certificate stays hidden, the member is
+//    told (banner and a message), and it is released the moment they tick consent.
 
 function httpError(message, status = 400) {
   return Object.assign(new Error(message), { status });
@@ -73,7 +78,7 @@ export async function issueCertificateIfEligible(userId) {
       `SELECT completed FROM corp_batches WHERE service_year = $1 AND batch = $2 AND stream = $3`,
       [prof.service_year, prof.batch, prof.stream]
     );
-    const closed = !!batchRows[0]?.completed;
+    const closed = !!batchRows[0]?.completed && !!prof.consent_data;
     const number = await nextNumber(client);
     const { rows } = await client.query(
       `INSERT INTO corper_certificates
@@ -95,6 +100,56 @@ export async function issueCertificateIfEligible(userId) {
     notifyOne(result.certificate.id).catch((e) => console.error("[certificate email]", e.message));
   }
   return result;
+}
+
+registerTemplate("corps_consent_needed", (d) => ({
+  subject: "Your certificate is waiting for your consent",
+  title: "One tick and your certificate is released",
+  html: `<p>Hello ${escHtml(d.name)}, your batch is complete and your certificate is ready, but we cannot release it until you agree to share your details with NYSC AGROALLIED SAED.</p>
+<p>Sign in, open your Corps room and tick the consent box at the top of the page. Your certificate is released at once.</p>`,
+  sms: "EPHAAG: your certificate is ready. Sign in and tick your consent to share details with NYSC AGROALLIED SAED to release it.",
+}), { name: "Ada" });
+
+/** When a member gives consent after their batch was closed, release the certificate that was held back (and tell them). */
+export async function releaseCertificateIfReady(userId) {
+  const client = await pool.connect();
+  let cert = null;
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query(
+      `SELECT c.id FROM corper_certificates c
+         JOIN corper_profiles cp ON cp.user_id = c.user_id
+         JOIN corp_batches b ON b.service_year = cp.service_year AND b.batch = cp.batch AND b.stream = cp.stream
+        WHERE c.user_id = $1 AND c.visible = FALSE AND cp.consent_data = TRUE AND b.completed = TRUE
+        FOR UPDATE OF c`, [userId]);
+    if (rows[0]) {
+      const up = await client.query(`UPDATE corper_certificates SET visible = TRUE, visible_at = now() WHERE id = $1 RETURNING id`, [rows[0].id]);
+      cert = up.rows[0];
+    }
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+  if (cert) notifyOne(cert.id).catch((e) => console.error("[certificate email]", e.message));
+  return { released: !!cert };
+}
+
+/** Tell every member of a closed batch whose certificate is held back for missing consent (once each). */
+export async function remindMissingConsent(batch) {
+  const { rows } = await pool.query(
+    `SELECT c.id, c.user_id, u.name FROM corper_certificates c
+       JOIN corper_profiles cp ON cp.user_id = c.user_id JOIN users u ON u.id = c.user_id
+      WHERE cp.service_year = $1 AND cp.batch = $2 AND cp.stream = $3
+        AND c.visible = FALSE AND cp.consent_data = FALSE AND c.consent_reminded_at IS NULL`,
+    [batch.service_year, batch.batch, batch.stream]);
+  for (const r of rows) {
+    await pool.query(`UPDATE corper_certificates SET consent_reminded_at = now() WHERE id = $1`, [r.id]);
+    await notifyUser(r.user_id, "corps_consent_needed", { name: r.name }, { allChannels: true }).catch(() => {});
+  }
+  return rows.length;
 }
 
 // ---------------------------------------------------------------------
@@ -207,7 +262,9 @@ export async function myCertificate(req, res) {
     [userId]
   );
   const batch = bRows[0] || {};
-  const base = { progress: { done: prog.done, total: prog.total }, batch: { dueDate: batch.due_date || null, closed: !!batch.completed } };
+  const { rows: cRows } = await pool.query(`SELECT consent_data FROM corper_profiles WHERE user_id = $1`, [userId]);
+  const consentGiven = !!cRows[0]?.consent_data;
+  const base = { progress: { done: prog.done, total: prog.total }, batch: { dueDate: batch.due_date || null, closed: !!batch.completed }, consentGiven, needsConsent: !consentGiven };
 
   // Decision 1: members who have not finished see "not completed", no
   // certificate and no email. A finished member whose batch is still open
@@ -227,6 +284,8 @@ export async function myCertificate(req, res) {
       },
     });
   }
+  // Phase 14: a finished member who has not given consent sees that, whatever the state of their batch.
+  if (cert && !consentGiven) return res.json({ ...base, status: "awaiting_consent" });
   if (cert) return res.json({ ...base, status: "awaiting_batch" });
   res.json({ ...base, status: "not_completed" });
 }

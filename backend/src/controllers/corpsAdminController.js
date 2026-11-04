@@ -3,7 +3,7 @@ import { pool } from "../db/pool.js";
 import { loadProgressRows } from "./corperLearningController.js";
 import { summariseProgress, UUID_RE } from "../utils/corperLearning.js";
 import { renderCertificatePdf } from "../utils/certificate.js";
-import { runBatchNotifications, isNotifyRunning } from "./corperCertificateController.js";
+import { runBatchNotifications, remindMissingConsent, isNotifyRunning } from "./corperCertificateController.js";
 
 // Admin (TRC -> Corps): batches, certificate release, members table and the
 // NYSC AGROALLIED SAED spreadsheet. Progress numbers come from the same loader the members'
@@ -132,7 +132,7 @@ const mapMember = (m) => ({
   completed: m.completed,
   completionDate: m.completionDate,
   certificateNumber: m.cert_number || null,
-  certificateStatus: !m.cert_number ? null : m.cert_visible ? "released" : "hidden",
+  certificateStatus: !m.cert_number ? null : m.cert_visible ? "released" : !m.consent_data ? "waiting_for_consent" : "hidden",
   emailStatus: m.cert_visible ? m.notify_status : null,
 });
 
@@ -229,7 +229,7 @@ export async function adminListBatches(req, res) {
   );
   const members = await queryMembers({});
   const { rows: certs } = await pool.query(
-    `SELECT cp.service_year, cp.batch, cp.stream, c.visible, c.notify_status
+    `SELECT cp.service_year, cp.batch, cp.stream, c.visible, c.notify_status, cp.consent_data
        FROM corper_certificates c JOIN corper_profiles cp ON cp.user_id = c.user_id`
   );
   const { rows: events } = await pool.query(
@@ -257,7 +257,7 @@ export async function adminListBatches(req, res) {
         members: ms.length,
         paid: ms.filter((m) => m.paid).length,
         finished: ms.filter((m) => m.completed).length,
-        certificates: { total: cs.length, released: cs.filter((c) => c.visible).length },
+        certificates: { total: cs.length, released: cs.filter((c) => c.visible).length, waitingForConsent: cs.filter((c) => !c.visible && !c.consent_data).length },
         emails: {
           sent: cs.filter((c) => c.visible && c.notify_status === "sent").length,
           pending: cs.filter((c) => c.visible && c.notify_status === "pending").length,
@@ -289,6 +289,7 @@ export async function adminCompleteBatch(req, res) {
   const client = await pool.connect();
   let batch;
   let released;
+  let waiting = 0;
   try {
     await client.query("BEGIN");
     assertUuid(req.params.id, "Batch");
@@ -301,14 +302,21 @@ export async function adminCompleteBatch(req, res) {
     const due = new Date(batch.due_date).toLocaleDateString("en-CA");
     if (today < due) throw httpError(`A batch can only be marked complete on or after its due date (${due})`, 400, "BEFORE_DUE_DATE");
     await client.query(`UPDATE corp_batches SET completed = TRUE, completed_by = $2, completed_at = now() WHERE id = $1`, [batch.id, req.user.id]);
+    // Phase 14: only members who consented to share their details are released; the others wait for their tick.
     const r = await client.query(
       `UPDATE corper_certificates c SET visible = TRUE, visible_at = now()
          FROM corper_profiles cp
-        WHERE cp.user_id = c.user_id AND cp.service_year = $1 AND cp.batch = $2 AND cp.stream = $3 AND c.visible = FALSE`,
+        WHERE cp.user_id = c.user_id AND cp.service_year = $1 AND cp.batch = $2 AND cp.stream = $3 AND c.visible = FALSE
+          AND cp.consent_data = TRUE`,
       [batch.service_year, batch.batch, batch.stream]
     );
     released = r.rowCount;
-    await logEvent(client, batch.id, "marked_complete", req.user.id, `${released} certificate(s) released`);
+    const w = await client.query(
+      `SELECT count(*)::int AS n FROM corper_certificates c JOIN corper_profiles cp ON cp.user_id = c.user_id
+        WHERE cp.service_year = $1 AND cp.batch = $2 AND cp.stream = $3 AND c.visible = FALSE AND cp.consent_data = FALSE`,
+      [batch.service_year, batch.batch, batch.stream]);
+    waiting = w.rows[0].n;
+    await logEvent(client, batch.id, "marked_complete", req.user.id, `${released} certificate(s) released${waiting ? `, ${waiting} waiting for the member's consent` : ""}`);
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
@@ -317,7 +325,8 @@ export async function adminCompleteBatch(req, res) {
     client.release();
   }
   const run = await runBatchNotifications(batch, ["pending"]);
-  res.json({ ok: true, released, emailsQueued: run.queued ?? 0 });
+  const reminded = waiting ? await remindMissingConsent(batch) : 0;
+  res.json({ ok: true, released, emailsQueued: run.queued ?? 0, waitingForConsent: waiting, consentReminders: reminded });
 }
 
 // POST /api/rtc/admin/corps/batches/:id/uncomplete  body { reason? }, hides the certificates again.

@@ -230,7 +230,8 @@ test("2 buyer: shop, pay on the stand-in Paystack, order confirmed, duplicate wa
   await openMenuItem(page, /order history/i);
   await expect(page.getByText(/payment confirmed/i)).toBeVisible();
   await page.getByRole("button", { name: /^receipt$/i }).click();
-  await expect(page.getByText(/amount paid|access fee/i).first()).toBeVisible();
+  await expect(page.getByText("Goods", { exact: true })).toBeVisible();
+  await expect(page.getByText(/paystack|processing fee/i)).toHaveCount(0);   // owner rule: buyers never see the gateway or a fee line
   await page.getByRole("button", { name: /^close$/i }).click();
 
   // ordering exactly the same thing again: the buyer is told on screen and chooses
@@ -411,7 +412,7 @@ test("11 investor pays to activate through Paystack, then pays a month with Pay 
   await request.get(`${STANDIN}/__set?reference=${ref2}&status=success`);
   await page.goto(`/dashboard/investor?investmentPayment=${ref2}`);
   await expect(page.getByText(/payment received/i)).toBeVisible();
-  await expect(page.getByText(/paystack\)/i).first()).toBeVisible();
+  await expect(page.getByText(/online/i).first()).toBeVisible();   // the payment log says "online", not the gateway name (the gateway charge shows only in the payment preview)
 
   // switch to automatic card payments
   await page.getByRole("button", { name: /switch to automatic card payments/i }).click();
@@ -909,4 +910,243 @@ test("21 production: a livestock farm, a harvest worth money, a cost charged to 
   await expect(page.getByTestId("harvest-profit")).toContainText(`${farm}: 300 crates Eggs`);
   await expect(page.getByTestId("harvest-profit")).toContainText("profit ₦350,000 (70%)");
   await expect(page.getByTestId("farm-profit")).toContainText("profit ₦350,000");
+});
+
+// ---- Phase 12 and 13 ----------------------------------------------------------------------------
+const PNG_FILE = { name: "proof.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64") };
+
+test("17 transport: the office adds a vehicle and dispatches a trip, the buyer gets a code, the driver delivers with code, photo and GPS @phone", async ({ page, request, context }) => {
+  const stamp = Date.now();
+  const adminTok = await adminToken(request);
+  // a buyer with an order that is ready to go, and a driver
+  const buyerEmail = `e2eb${stamp}@example.test`;
+  const breg = await request.post("/api/auth/register", { data: { name: "E2E Buyer", email: buyerEmail, password: "Passw0rd!x", role_type: "buyer", sex: "male", buyerType: "individual", address: "1 Test Street, Bauchi" } });
+  const buyer = await breg.json();
+  const driverEmail = `e2ed${stamp}@example.test`;
+  const dreg = await request.post("/api/auth/register", { data: { name: `E2E Driver ${stamp}`, email: driverEmail, password: "Passw0rd!x", role_type: "investor", sex: "male" } });
+  const driverId = (await dreg.json()).user.id;
+  await sql("UPDATE users SET role_type = 'transporter' WHERE id = $1", [driverId]);
+  const order = (await sql(`INSERT INTO orders (reference, buyer_id, delivery_location, total, paid_via, status, contact_email, contact_phone_1) VALUES ($1,$2,'12 Market Road, Bauchi',50000,'upfront','allocated',$3,'08031110000') RETURNING id, reference`, [`ORD-E2E-${stamp}`, buyer.user.id, buyerEmail])).rows[0];
+  await sql("INSERT INTO order_items (order_id, crop, quantity, unit, line_total) VALUES ($1,'Maize',5,'bags',50000)", [order.id]);
+  await sql("INSERT INTO distributor_allocations (order_id, distributor_id, status) VALUES ($1,$2,'confirmed')", [order.id, buyer.user.id]);
+
+  // the office: add a vehicle, then dispatch
+  await page.goto("/");
+  await asToken(page, adminTok);
+  await page.goto("/admin/transport?tab=fleet");
+  await page.getByRole("button", { name: "+ Add vehicle" }).click();
+  const plate = `E2E ${String(stamp).slice(-6)}`;
+  await page.getByPlaceholder("Plate number").fill(plate);
+  await page.getByPlaceholder(/^Name/).fill("E2E truck");
+  await page.getByRole("button", { name: "Save vehicle" }).click();
+  await expect(page.getByText(plate).first()).toBeVisible();
+
+  await page.goto("/admin/transport?tab=dispatch");
+  await page.getByLabel(`Select ${order.reference}`).check();
+  await page.getByLabel("Vehicle", { exact: true }).selectOption({ label: `${plate}, E2E truck` });
+  await page.getByLabel("Driver", { exact: true }).selectOption({ label: `E2E Driver ${stamp}` });
+  await page.getByRole("button", { name: /create trip with 1 order/i }).click();
+  await expect(page.getByTestId("trip-card").filter({ hasText: plate })).toBeVisible();
+
+  // the buyer sees the delivery code
+  const code = (await sql("SELECT delivery_code FROM shipments WHERE order_id = $1", [order.id])).rows[0].delivery_code;
+  const bLogin = await (await request.post("/api/auth/login", { data: { email: buyerEmail, password: "Passw0rd!x" } })).json();
+  await asToken(page, bLogin.token);
+  await page.goto("/dashboard/buyer");
+  await openMenuItem(page, /order history/i);
+  await expect(page.getByTestId("delivery-info")).toContainText(code);
+
+  // the driver starts the trip and delivers with the code, a photo and the phone's GPS position
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 10.3158, longitude: 9.8442 });
+  const dLogin = await (await request.post("/api/auth/login", { data: { email: driverEmail, password: "Passw0rd!x" } })).json();
+  await asToken(page, dLogin.token);
+  await page.goto("/dashboard/transporter?tab=jobs");
+  await page.getByRole("button", { name: /start trip and pick up/i }).click();
+  await page.getByRole("button", { name: /deliver this order/i }).click();
+  await page.getByLabel(/delivery code from the recipient/i).fill(code === "111111" ? "222222" : "111111");
+  await page.getByLabel(/name of the person who received/i).fill("Aisha Bello");
+  await page.getByLabel(/photo of the goods/i).setInputFiles(PNG_FILE);
+  await expect(page.getByText(/position captured/i)).toBeVisible();
+  await page.getByRole("button", { name: /confirm delivery/i }).click();
+  await expect(page.getByRole("alert")).toContainText(/code is not right/i);   // a wrong code is refused on screen
+  await page.getByLabel(/delivery code from the recipient/i).fill(code);
+  await page.getByRole("button", { name: /confirm delivery/i }).click();
+  await expect(page.getByText(/received by aisha bello/i)).toBeVisible();
+
+  // the buyer now sees it delivered, and no code any more
+  await asToken(page, bLogin.token);
+  await page.goto("/dashboard/buyer");
+  await openMenuItem(page, /order history/i);
+  await expect(page.getByTestId("delivery-info")).toContainText(/delivered on/i);
+  await expect(page.getByTestId("delivery-info")).not.toContainText(code);
+});
+
+test("18 corps learning: a document needs its time open before it can be marked complete, and the time is counted by the server @phone", async ({ page, request }) => {
+  const stamp = Date.now();
+  const adminTok = await adminToken(request);
+  const H = { Authorization: `Bearer ${adminTok}` };
+  const course = (await (await request.post("/api/rtc/admin/courses", { headers: H, data: { title: `E2E timing ${stamp}`, description: "t", audience: "corps" } })).json()).course;
+  const doc = await request.post(`/api/rtc/admin/courses/${course.id}/lessons`, { headers: H, multipart: { title: "Handout", kind: "document", minSeconds: "5", material: { name: "handout.pdf", mimeType: "application/pdf", buffer: PDF_FILE.buffer } } });
+  expect(doc.status()).toBe(201);
+  await request.post(`/api/rtc/admin/courses/${course.id}/questions`, { headers: H, data: { prompt: "Q?", explanation: "E", options: [{ text: "RIGHT", isCorrect: true }, { text: "WRONG" }] } });
+  let ap = await request.post(`/api/rtc/admin/courses/${course.id}/approve`, { headers: H, data: {} });
+  if (ap.status() === 409) ap = await request.post(`/api/rtc/admin/courses/${course.id}/approve`, { headers: H, data: { confirmImpact: true } });
+  expect(ap.status()).toBe(200);
+
+  const n = Math.floor(Math.random() * 900000) + 100000;
+  const reg = await request.post("/api/auth/register", { data: { name: "E2E Corper", email: `e2ec${stamp}@example.test`, password: "Passw0rd!x", role_type: "corper", sex: "male", phone: `0803${Math.floor(1000000 + Math.random() * 8999999)}`, callUpNumber: `NYSC/E2E/${n}`, stateCode: `PL/26B/${n}`, serviceYear: 2026, batch: "B", stream: "II", stateOfDeployment: "Plateau", ppa: "Test PPA", discipline: "Agriculture", consentTerms: true, consentData: true } });
+  const { token, user } = await reg.json();
+  await sql("INSERT INTO corper_payments (reference, user_id, amount, status, provider, confirmed_at) VALUES ($1,$2,5000,'paid','manual',now())", [`CPAY-E2E-${stamp}`, user.id]);
+  await page.goto("/");
+  await asToken(page, token);
+  await page.goto("/dashboard/corper");
+  await openMenuItem(page, /my training|training/i);
+  await page.locator("div").filter({ hasText: `E2E timing ${stamp}` }).filter({ has: page.getByRole("button", { name: "Start course" }) }).last().getByRole("button", { name: "Start course" }).click();
+  await expect(page.getByRole("button", { name: "Mark complete" })).toBeDisabled();
+  await expect(page.getByTestId("time-hint")).toContainText(/keep this document open/i);
+  await page.getByTestId("start-lesson").click();
+  await expect(page.getByTestId("time-counted")).toContainText(/time counted: 0:0\d of 0:05/i);
+  // the server counts the real seconds between reports, so this takes real time
+  await expect(page.getByTestId("time-counted")).toContainText(/that is enough/i, { timeout: 30000 });
+  await expect(page.getByRole("button", { name: "Mark complete" })).toBeEnabled();
+  await page.getByRole("button", { name: "Mark complete" }).click();
+  await expect(page.getByText(/1 of 1 lessons done/)).toBeVisible();
+});
+
+// ---- Phase 14 and 20 ---------------------------------------------------------------------------
+test("22 corps consent: a member registered before consent was required sees the banner, their certificate waits, and one tick releases it @phone", async ({ page, request }) => {
+  const stamp = Date.now();
+  const adminTok = await adminToken(request);
+  const H = { Authorization: `Bearer ${adminTok}` };
+  const batch = { year: 2040 + (stamp % 50), batch: "C", stream: "I" };
+  const course = (await (await request.post("/api/rtc/admin/courses", { headers: H, data: { title: `E2E consent ${stamp}`, description: "t", audience: "corps" } })).json()).course;
+  await request.post(`/api/rtc/admin/courses/${course.id}/lessons`, { headers: H, data: { title: "Live", kind: "live", url: "https://example.com/l", scheduledAt: new Date(Date.now() - 3600e3).toISOString() } });
+  await request.post(`/api/rtc/admin/courses/${course.id}/questions`, { headers: H, data: { prompt: "Q?", explanation: "E", options: [{ text: "RIGHT", isCorrect: true }, { text: "WRONG" }] } });
+  let ap = await request.post(`/api/rtc/admin/courses/${course.id}/approve`, { headers: H, data: {} });
+  if (ap.status() === 409) ap = await request.post(`/api/rtc/admin/courses/${course.id}/approve`, { headers: H, data: { confirmImpact: true } });
+  expect(ap.status()).toBe(200);
+  // A certificate needs EVERY approved course. Earlier journeys left their own courses in this database, so set them
+  // aside for the length of this test and put them back at the end.
+  const others = (await sql("UPDATE courses SET approved = FALSE WHERE audience = 'corps' AND approved = TRUE AND id <> $1 RETURNING id", [course.id])).rows.map((r) => r.id);
+  try {
+
+  const n = Math.floor(Math.random() * 900000) + 100000;
+  const reg = await request.post("/api/auth/register", { data: { name: "E2E Legacy Corper", email: `e2el${stamp}@example.test`, password: "Passw0rd!x", role_type: "corper", sex: "male", phone: `0803${Math.floor(1000000 + Math.random() * 8999999)}`, callUpNumber: `NYSC/E2E/${n}`, stateCode: `PL/40C/${n}`, serviceYear: batch.year, batch: batch.batch, stream: batch.stream, stateOfDeployment: "Plateau", ppa: "Test PPA", discipline: "Agriculture", consentTerms: true, consentData: true } });
+  const { token, user } = await reg.json();
+  await sql("INSERT INTO corper_payments (reference, user_id, amount, status, provider, confirmed_at) VALUES ($1,$2,5000,'paid','manual',now())", [`CPAY-E2EC-${stamp}`, user.id]);
+  await sql("UPDATE corper_profiles SET consent_data = FALSE, consent_data_at = NULL WHERE user_id = $1", [user.id]);   // registered before consent was required
+  const M = { Authorization: `Bearer ${token}` };
+  expect((await request.post(`/api/corpers/courses/${course.id}/lessons/${(await (await request.get(`/api/corpers/courses/${course.id}`, { headers: M })).json()).lessons[0].id}/complete`, { headers: M, data: {} })).status()).toBe(200);
+  const quiz = await (await request.get(`/api/corpers/courses/${course.id}/quiz`, { headers: M })).json();
+  const qs = quiz.questions ?? quiz.quiz.questions;
+  expect((await request.post(`/api/corpers/courses/${course.id}/quiz/attempts`, { headers: M, data: { answers: qs.map((q) => ({ questionId: q.id, optionId: q.options.find((o) => o.text === "RIGHT").id })), clientToken: `e2e-${stamp}` } })).status()).toBe(201);
+  // the office closes the batch: this member is held back
+  const batches = await (await request.get("/api/rtc/admin/corps/batches", { headers: H })).json();
+  const b = batches.batches.find((x) => x.serviceYear === batch.year && x.batch === batch.batch && x.stream === batch.stream);
+  await request.put(`/api/rtc/admin/corps/batches/${b.id}`, { headers: H, data: { dueDate: new Date(Date.now() - 3 * 86400e3).toISOString().slice(0, 10) } });
+  const done = await (await request.post(`/api/rtc/admin/corps/batches/${b.id}/complete`, { headers: H, data: {} })).json();
+  expect(done.waitingForConsent).toBeGreaterThanOrEqual(1);
+
+  await page.goto("/");
+  await asToken(page, token);
+  await page.goto("/dashboard/corper");
+  await expect(page.getByTestId("consent-banner")).toBeVisible();
+  await openMenuItem(page, /certificate/i);
+  await expect(page.getByText(/waiting for your consent/i).first()).toBeVisible();
+  const give = page.getByRole("button", { name: "Give my consent" });
+  await expect(give).toBeDisabled();
+  await page.getByLabel(/i consent to my details/i).check();
+  await give.click();
+  await expect(page.getByTestId("consent-banner")).toHaveCount(0);
+  await openMenuItem(page, /certificate/i);
+  await expect(page.getByRole("button", { name: /download pdf/i })).toBeVisible();
+  } finally {
+    if (others.length) await sql("UPDATE courses SET approved = TRUE WHERE id = ANY($1)", [others]);
+  }
+});
+
+test("23 backups: an admin opens the Backups page from the hub, sees the state, and a run with nothing set up says so plainly @phone", async ({ page, request }) => {
+  const adminTok = await adminToken(request);
+  await page.goto("/");
+  await asToken(page, adminTok);
+  await page.goto("/admin");
+  await page.getByRole("link", { name: "Backups" }).click();
+  await expect(page.getByText("Database backups")).toBeVisible();
+  await expect(page.getByTestId("backup-stale")).toBeVisible();          // no good backup yet in this environment
+  await expect(page.getByTestId("backup-last-ok")).toContainText(/none yet/i);
+  await page.getByRole("button", { name: "Back up now" }).click();
+  await expect(page.getByRole("status")).toContainText(/nothing was backed up/i);
+  await expect(page.getByText(/not set up/i).first()).toBeVisible();
+});
+
+test("24 transport: a driver reports a breakdown, the office sends a rescue trip, Maintenance sees it, and an over-budget cost waits for Finance @phone", async ({ page, request, context }) => {
+  const stamp = Date.now();
+  const adminTok = await adminToken(request);
+  const H = { Authorization: `Bearer ${adminTok}`, "Content-Type": "application/json" };
+  const mkUser = async (label, role) => {
+    const email = `e2e${label}${stamp}@example.test`;
+    const r = await request.post("/api/auth/register", { data: { name: `E2E ${label} ${stamp}`, email, password: "Passw0rd!x", role_type: role === "buyer" ? "buyer" : "investor", sex: "male", ...(role === "buyer" ? { buyerType: "individual", address: "1 Test Street, Bauchi" } : {}) } });
+    const body = await r.json();
+    if (role === "driver") await sql("UPDATE users SET role_type = 'transporter' WHERE id = $1", [body.user.id]);
+    const login = await (await request.post("/api/auth/login", { data: { email, password: "Passw0rd!x" } })).json();
+    return { id: body.user.id, email, token: login.token, name: `E2E ${label} ${stamp}` };
+  };
+  const buyer = await mkUser("buyer", "buyer");
+  const d1 = await mkUser("driverA", "driver"); const d2 = await mkUser("driverB", "driver");
+  const orderIds = [];
+  for (let i = 0; i < 2; i++) {
+    const o = (await sql(`INSERT INTO orders (reference, buyer_id, delivery_location, total, paid_via, status, contact_email, contact_phone_1) VALUES ($1,$2,'12 Market Road, Bauchi',50000,'upfront','allocated',$3,'08031110000') RETURNING id`, [`ORD-E2E24-${stamp}-${i}`, buyer.id, buyer.email])).rows[0];
+    await sql("INSERT INTO order_items (order_id, crop, quantity, unit, line_total) VALUES ($1,'Maize',5,'bags',50000)", [o.id]);
+    await sql("INSERT INTO distributor_allocations (order_id, distributor_id, status) VALUES ($1,$2,'confirmed')", [o.id, buyer.id]);
+    orderIds.push(o.id);
+  }
+  const plate1 = `E24A ${String(stamp).slice(-5)}`, plate2 = `E24B ${String(stamp).slice(-5)}`;
+  const veh = async (plate) => (await (await request.post("/api/transport/vehicles", { headers: H, data: { plateNumber: plate, name: "E2E van", vehicleType: "van", odometerKm: 100 } })).json()).vehicle;
+  const v1 = await veh(plate1); await veh(plate2);
+  const trip = (await (await request.post("/api/transport/trips", { headers: H, data: { vehicleId: v1.id, driverId: d1.id, orderIds } })).json()).trip;
+  expect((await request.post(`/api/transport/trips/${trip.id}/start`, { headers: { Authorization: `Bearer ${d1.token}` }, data: {} })).status()).toBe(200);
+
+  // 1. the driver reports the breakdown from the phone
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 10.31, longitude: 9.84 });
+  await page.goto("/");
+  await asToken(page, d1.token);
+  await page.goto("/dashboard/transporter?tab=jobs");
+  await page.getByRole("button", { name: /vehicle broke down/i }).click();
+  await page.getByLabel(/what happened to the vehicle/i).fill("Engine overheating, steam from the bonnet");
+  await page.getByRole("button", { name: /report breakdown/i }).click();
+  await expect(page.getByText(/breakdown reported/i)).toBeVisible();
+
+  // 2. the office sees it and sends a rescue trip
+  await asToken(page, adminTok);
+  await page.goto("/admin/transport?tab=trips");
+  const card = page.getByTestId("trip-card").filter({ hasText: plate1 });
+  await expect(card).toContainText(/broken down/i);
+  await card.getByLabel("Rescue vehicle").selectOption({ label: plate2 });
+  await card.getByLabel("Rescue driver").selectOption({ label: d2.name });
+  await card.getByRole("button", { name: /send rescue trip/i }).click();
+  await expect(page.getByTestId("trip-card").filter({ hasText: plate2 })).toBeVisible();
+  await expect(page.getByTestId("trip-card").filter({ hasText: plate1 })).toContainText(/completed/i);
+
+  // 3. Maintenance has an urgent request, labelled as a breakdown
+  await page.goto("/admin/maintenance?tab=maintenance&section=requests");
+  await expect(page.getByText("Vehicle breakdown on a trip").first()).toBeVisible();
+
+  // 4. a cost that overruns the Transport budget waits for Finance and is decided on screen
+  const year = new Date().getFullYear();
+  expect((await request.put("/api/purchasing/budgets/Transport", { headers: H, data: { year, amount: 1000 } })).status()).toBe(200);
+  await page.goto("/admin/transport?tab=costs");
+  await page.getByRole("button", { name: "+ Record cost" }).click();
+  await page.getByLabel("Vehicle", { exact: true }).selectOption({ label: plate1 });
+  await page.getByPlaceholder("Amount (₦)").fill("5000");
+  await page.getByPlaceholder("Litres").fill("40");
+  await page.getByRole("button", { name: "Save cost" }).click();
+  await expect(page.getByText(/waits for finance and does not count yet/i)).toBeVisible();
+  const row = page.getByTestId("cost-row").filter({ hasText: plate1 }).first();
+  await expect(row).toContainText(/waiting for finance/i);
+  await row.getByLabel("Reason for your decision").fill("Rescue run was urgent");
+  await row.getByRole("button", { name: /approve over budget/i }).click();
+  await expect(page.getByTestId("cost-row").filter({ hasText: plate1 }).first()).toContainText(/counted/i);
+  await sql("DELETE FROM department_budgets WHERE department = 'Transport' AND year = $1", [year]);   // leave no budget behind for other journeys
 });

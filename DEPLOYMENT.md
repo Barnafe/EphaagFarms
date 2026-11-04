@@ -121,6 +121,16 @@ On an always-on (paid) host you can drop the pinger. Check Admin → System → 
 and next run. `GET /health` reports whether the database and job runner are working (point an uptime monitor there too).
 Rate-limit counters live in memory, so run **one** copy of the service (a second copy would need a shared store).
 
+## 8b. Backups (do this before go-live)
+The database is backed up every night at 02:00 (Lagos): a full encrypted copy goes to a private backup bucket in Cloudflare R2 **and** to a second cloud provider, and copies are kept 30 days. Neon's own point-in-time restore is the first line of defence; these copies are the second and third.
+Full set-up, how to check it and how to restore: **docs/BACKUP-AND-RESTORE.md**. The short version:
+1. Create a third R2 bucket (private) and set `R2_BACKUP_BUCKET`.
+2. Create a bucket at a second provider (Backblaze B2 or AWS S3) and set the four `BACKUP2_*` values.
+3. Set `BACKUP_ENCRYPTION_KEY` (32+ random characters) and keep a copy in your password manager. Without it a backup cannot be opened.
+4. Set `BACKUP_DATABASE_URL` to Neon's **direct** (not pooled) address.
+5. The server needs `pg_dump`: the Dockerfile installs it. On a host without it, the status page says "not installed" and the nightly job fails loudly.
+6. Admin hub, Backups, **Back up now**, then do one restore drill into an empty database.
+
 ## 9. First admin and prices
 From your own machine, pointed at the live database:
 ```bash
@@ -141,8 +151,10 @@ Messages for one email and one SMS.
    entries, set `CSP_MODE=enforce`.
 6. No `PAYMENT_ALLOW_SIMULATED`, no `RATE_LIMIT_MULTIPLIER`, no test keys left in the live environment.
 7. Admins can move money with only a password for now (a second step is not built). Revisit before launch.
-8. Move to an always-on plan. Take a backup plan seriously: Neon's own point-in-time restore for the database
-   (check how far back your plan reaches); files have none (see step 4).
+8. Move to an always-on plan. Neon's own point-in-time restore is the first line of defence for the database (check
+   how far back your plan reaches); files have none (see step 4).
+9. Backups (section 8b): Admin hub, Backups shows a good backup in the last 26 hours, two copies exist (the backup
+   bucket and the second provider), and **you did one restore drill** into an empty database.
 
 ## 11. Updating and rolling back
 Push to `main`; Render redeploys. Migrations run on start and only **add** things, so rolling the code back to a

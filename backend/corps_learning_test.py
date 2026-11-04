@@ -94,7 +94,7 @@ def make_course(title, lessons=2, questions=3, live_future=False, approve=True):
     lesson_ids = []
     for i in range(lessons):
         r = call("POST", f"/rtc/admin/courses/{cid}/lessons", admin,
-                 json={"title": f"Lesson {i + 1}", "kind": "video", "url": "https://example.com/v"})
+                 json={"title": f"Lesson {i + 1}", "kind": "video", "url": "https://example.com/v", "durationSeconds": 600})
         assert r.status_code == 201, r.text[:200]
         lesson_ids.append(r.json()["lesson"]["id"])
     live_id = None
@@ -120,7 +120,18 @@ def make_course(title, lessons=2, questions=3, live_future=False, approve=True):
     return {"id": cid, "lessons": lesson_ids, "live": live_id, "questions": qids}
 
 
+
+def bank_time(course_id):
+    """Phase 13 made videos and documents need real time. These suites test other things, so give every member
+    the time on every lesson of this course up front (the time rules have their own suite)."""
+    import subprocess, os
+    subprocess.run(["psql", os.environ.get("PGURL", "postgresql://postgres:postgres@localhost:5432/ephaag_farms"), "-c",
+        "INSERT INTO corper_lesson_activity (user_id, lesson_id, course_id, seconds_counted) "
+        f"SELECT u.id, l.id, l.course_id, 99999 FROM users u CROSS JOIN course_lessons l WHERE l.course_id = '{course_id}' "
+        "ON CONFLICT (user_id, lesson_id) DO UPDATE SET seconds_counted = 99999"], check=True, capture_output=True)
+
 def finish_lessons(corper, course):
+    bank_time(course["id"])
     for lid in course["lessons"]:
         r = call("POST", f"/corpers/courses/{course['id']}/lessons/{lid}/complete", corper, json={})
         assert r.status_code == 200, r.text[:200]
@@ -206,6 +217,7 @@ r = call("GET", f"/corpers/courses/{course_b['id']}/quiz", c2)
 check("quiz locked before lessons -> 403 QUIZ_LOCKED", r.status_code == 403 and r.json().get("code") == "QUIZ_LOCKED", f"{r.status_code} {r.text[:150]}")
 r = submit(c2, course_b, [{"questionId": course_b["questions"][0], "optionId": str(uuid.uuid4())}])
 check("submitting before lessons -> 403", r.status_code == 403, f"{r.status_code} {r.text[:150]}")
+bank_time(course_b["id"])
 call("POST", f"/corpers/courses/{course_b['id']}/lessons/{course_b['lessons'][0]}/complete", c2, json={})
 detail = call("GET", f"/corpers/courses/{course_b['id']}", c2).json()
 check("detail says quiz locked with a reason", detail["quiz"]["locked"] and "lesson" in detail["quiz"]["lockedReason"], str(detail["quiz"]))
@@ -288,6 +300,7 @@ check("percent counts the course once", ov["completed"] == 1, str(ov))
 c5 = new_corper("lessonrace"); pay(c5)
 course_e = make_course("Lesson race E", lessons=2, questions=1)
 lid = course_e["lessons"][0]
+bank_time(course_e["id"])
 with ThreadPoolExecutor(5) as ex:
     rs = list(ex.map(lambda _: call("POST", f"/corpers/courses/{course_e['id']}/lessons/{lid}/complete", c5, json={}), range(5)))
 check("5 simultaneous lesson completions all OK", all(x.status_code == 200 for x in rs))

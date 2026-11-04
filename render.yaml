@@ -30,6 +30,18 @@ services:
       - { key: R2_PRIVATE_BUCKET, sync: false }
       - { key: R2_PUBLIC_BASE_URL, sync: false }     # public address of the public bucket
 
+      # --- nightly database backups (see docs/BACKUP-AND-RESTORE.md) ---
+      # The backup needs pg_dump on the server. Render's plain Node runtime does not provide it: deploy with the
+      # Dockerfile (it installs the PostgreSQL client tools) or any host where pg_dump is available.
+      - { key: BACKUP_ENCRYPTION_KEY, sync: false }  # 32+ random characters. Keep a copy elsewhere: without it a backup cannot be opened
+      - { key: R2_BACKUP_BUCKET, sync: false }       # a THIRD R2 bucket, private, used only for backups
+      - { key: BACKUP2_ENDPOINT, sync: false }       # second cloud provider, any S3-compatible service (e.g. Backblaze B2, AWS S3)
+      - { key: BACKUP2_BUCKET, sync: false }
+      - { key: BACKUP2_ACCESS_KEY_ID, sync: false }
+      - { key: BACKUP2_SECRET_ACCESS_KEY, sync: false }
+      - { key: BACKUP2_REGION, value: auto }
+      - { key: BACKUP_DATABASE_URL, sync: false }    # the DIRECT (non-pooled) Neon address; pg_dump cannot use the pooled one
+
       # --- email: Amazon SES ---
       - { key: EMAIL_DRIVER, value: ses }
       - { key: SES_REGION, sync: false }

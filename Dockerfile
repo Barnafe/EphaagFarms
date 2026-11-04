@@ -14,6 +14,14 @@ RUN npm run build
 FROM node:22-slim
 WORKDIR /app
 ENV NODE_ENV=production
+# The nightly backup runs pg_dump, and a restore drill runs pg_restore. The client must be the same major version as
+# the database server or newer (Neon runs 16 or 17: check the version in its console and change this if needed).
+ARG PG_CLIENT_VERSION=17
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
+ && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/pgdg.gpg \
+ && echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+ && apt-get update && apt-get install -y --no-install-recommends postgresql-client-${PG_CLIENT_VERSION} \
+ && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/

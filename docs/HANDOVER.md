@@ -1,3 +1,25 @@
+# HANDOVER: v43 = v42 + Phases 14 and 20 (Corps certificate leftovers, Backup and restore)
+
+Read `PHASE14-20-CORPS-CONSENT-AND-BACKUPS.md` first (decisions, how it works, assumptions to confirm, what you must set up) and `BACKUP-AND-RESTORE.md` (set-up and the restore drill). v42 notes (Phases 12 and 13) follow below.
+
+**Assumption awaiting your confirmation:** corps money that arrives but cannot be applied is no longer refundable in the Refund room (still alerts the office).
+**You must do before go-live:** create the backup bucket and second-provider bucket, set the backup settings, keep a copy of the encryption key, deploy where `pg_dump` exists (the Dockerfile), and do one restore drill.
+**Next:** the leftovers (GitHub test automation, load test, browser journeys 5, 6 and 8), then a full go-live pass.
+
+---
+
+# HANDOVER: v42 = v40 + Phases 12 and 13 (Transport and Maintenance, Corps learning)
+
+**Name note.** The zip you uploaded was called v40 but already held Phases 10 and 11 as well (it is the merge of both lines). The other line's own "v41" (Phases 10 and 11 only) is **older than this build and not needed**. This build is called **v42** so it cannot overwrite either.
+
+**Phase 12** (Transport and Maintenance) and **Phase 13** (corps learning) are built, tested and documented in `PHASE12-13-TRANSPORT-CORPS-LEARNING.md` (read that first: decisions, how it works, assumptions to confirm, API). In short: fleet, trips, a delivery code the buyer gets, proof with photo and GPS, breakdown opens an urgent maintenance request and a rescue trip, Maintenance and Transport costs follow the department budgets (held for Finance when over budget); corps videos and documents now need real time, counted by the server, while live sessions and quizzes are unchanged.
+
+**Assumptions awaiting your confirmation:** breakdown requests are created already approved; held costs are recorded but do not count until Finance decides; videos need 80 percent watched; non-YouTube/Vimeo video links fall back to "page must stay showing"; old video lessons need their length entered by an admin.
+
+**Next:** Phase 14 (corps certificate leftovers), then Phase 20 (backups), then the leftovers (GitHub test automation, load test, browser journeys 5, 6 and 8).
+
+---
+
 # HANDOVER: v40 (v39 corrections + Phases 6, 7, 9, 10, 11 merged)
 
 **v40** merges two builds that both grew from v38: my v39 (the four correction phases: wording, home page, farmers, buyers) and the other line's **Phase 6** (loan scoring), **7** (research internal, public consultancy with approval, fee and scheduling), **9** (analytics drill-down, Excel, report), **10** (purchasing roles, quotations, budgets) and **11** (production costs and profit). Everything from both is in. Where both did the same job I chose one:

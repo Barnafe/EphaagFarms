@@ -49,7 +49,7 @@ function Row({ p, onChanged, showAction = true }) {
           {p.reason && <p className="text-xs text-canopy-800">Refunded {fmt(p.refund_at)} · Reason: {p.reason}</p>}
         </div>
         {showAction && p.refundable !== false && !open && <button className={btn} onClick={() => setOpen(true)}>Refund…</button>}
-        {showAction && p.refundable === false && <span className="text-xs text-ink-500">{p.refund_status === "refunded" ? "Already refunded" : "Refund in progress"}</span>}
+        {showAction && p.refundable === false && <span className="text-xs text-ink-500">{p.noRefundNote ? p.noRefundNote : p.refund_status === "refunded" ? "Already refunded" : "Refund in progress"}</span>}
       </div>
       {open && <RefundForm payment={p} onCancel={() => setOpen(false)} onDone={() => { setOpen(false); onChanged(); }} />}
     </li>
